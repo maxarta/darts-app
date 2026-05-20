@@ -46,6 +46,7 @@ export async function GET(
       {
         id: m.user_id as number,
         photo_url: u.photo_url ?? undefined,
+        existingPhotoUrl: u.photo_url ?? null,
       },
     ];
   });

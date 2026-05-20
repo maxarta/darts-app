@@ -1,4 +1,5 @@
-import { getTelegramProfilePhotoFileUrl } from "@/lib/telegram/user-photo";
+import { getUserPhotoUrl } from "@/lib/db/users";
+import { resolveAvatarUpstreamUrl } from "@/lib/telegram/user-photo";
 
 export async function GET(
   _req: Request,
@@ -10,7 +11,8 @@ export async function GET(
     return new Response(null, { status: 404 });
   }
 
-  const fileUrl = await getTelegramProfilePhotoFileUrl(telegramId);
+  const storedPhotoUrl = await getUserPhotoUrl(telegramId);
+  const fileUrl = await resolveAvatarUpstreamUrl(telegramId, storedPhotoUrl);
   if (!fileUrl) {
     return new Response(null, { status: 404 });
   }

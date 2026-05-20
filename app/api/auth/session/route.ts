@@ -1,6 +1,6 @@
 import { authenticateRequest, jsonError } from "@/lib/api/auth";
-import { upsertUser } from "@/lib/db/users";
-import { telegramAvatarPath } from "@/lib/telegram/user-photo";
+import { getUserPhotoUrl, upsertUser } from "@/lib/db/users";
+import { pickPhotoUrlToStore } from "@/lib/telegram/user-photo";
 import {
   ADMIN_ROLES,
   ensureChannel,
@@ -31,14 +31,14 @@ export async function POST(req: Request) {
     const { channelChatId } = parseStartParam(startParam);
 
     await upsertUser(auth.ctx.user);
+    const storedPhotoUrl = await getUserPhotoUrl(auth.ctx.user.id);
     const user = {
       ...auth.ctx.user,
-      photo_url:
-        auth.ctx.user.photo_url &&
-        auth.ctx.user.photo_url.startsWith("https://") &&
-        !auth.ctx.user.photo_url.includes("api.telegram.org/file/bot")
-          ? auth.ctx.user.photo_url
-          : telegramAvatarPath(auth.ctx.user.id),
+      photo_url: pickPhotoUrlToStore(
+        auth.ctx.user.id,
+        auth.ctx.user.photo_url,
+        storedPhotoUrl
+      ),
     };
 
     let channel = null;

@@ -49,7 +49,7 @@ export async function getTelegramProfilePhotoFileUrl(
   }
 }
 
-function isPublicHttpUrl(url: string): boolean {
+export function isPublicPhotoUrl(url: string): boolean {
   return (
     url.startsWith("https://") &&
     !url.includes("/bot") &&
@@ -57,20 +57,50 @@ function isPublicHttpUrl(url: string): boolean {
   );
 }
 
+/** Какой URL писать в users.photo_url: initData → уже сохранённый → прокси. */
+export function pickPhotoUrlToStore(
+  telegramId: number,
+  initPhotoUrl: string | null | undefined,
+  existingPhotoUrl: string | null | undefined
+): string {
+  if (initPhotoUrl && isPublicPhotoUrl(initPhotoUrl)) return initPhotoUrl;
+  if (existingPhotoUrl && isPublicPhotoUrl(existingPhotoUrl)) {
+    return existingPhotoUrl;
+  }
+  if (existingPhotoUrl?.startsWith("/api/telegram/avatar/")) {
+    return existingPhotoUrl;
+  }
+  return telegramAvatarPath(telegramId);
+}
+
+/** URL для server-side fetch аватарки (Bot API или сохранённый t.me). */
+export async function resolveAvatarUpstreamUrl(
+  telegramId: number,
+  storedPhotoUrl: string | null | undefined
+): Promise<string | null> {
+  const fileUrl = await getTelegramProfilePhotoFileUrl(telegramId);
+  if (fileUrl) return fileUrl;
+
+  if (storedPhotoUrl && isPublicPhotoUrl(storedPhotoUrl)) {
+    return storedPhotoUrl;
+  }
+
+  return null;
+}
+
 /**
  * Сохраняет в users.photo_url публичный URL (из initData) или путь к нашему прокси.
  */
 export async function syncUserProfilePhoto(
-  user: Pick<TelegramUser, "id" | "photo_url">
+  user: Pick<TelegramUser, "id" | "photo_url">,
+  existingPhotoUrl?: string | null
 ): Promise<string> {
   const db = getSupabaseAdmin();
-  let stored: string;
-
-  if (user.photo_url && isPublicHttpUrl(user.photo_url)) {
-    stored = user.photo_url;
-  } else {
-    stored = telegramAvatarPath(user.id);
-  }
+  const stored = pickPhotoUrlToStore(
+    user.id,
+    user.photo_url,
+    existingPhotoUrl
+  );
 
   const { error } = await db
     .from("users")
@@ -82,7 +112,11 @@ export async function syncUserProfilePhoto(
 }
 
 export async function syncUserProfilePhotos(
-  users: Pick<TelegramUser, "id" | "photo_url">[]
+  users: (Pick<TelegramUser, "id" | "photo_url"> & {
+    existingPhotoUrl?: string | null;
+  })[]
 ): Promise<void> {
-  await Promise.all(users.map((u) => syncUserProfilePhoto(u)));
+  await Promise.all(
+    users.map((u) => syncUserProfilePhoto(u, u.existingPhotoUrl))
+  );
 }
