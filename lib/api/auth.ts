@@ -1,0 +1,62 @@
+import { NextRequest } from "next/server";
+import {
+  validateInitData,
+  type TelegramUser,
+} from "@/lib/telegram/init-data";
+
+export type AuthContext = {
+  user: TelegramUser;
+  initData: string;
+};
+
+export function getInitDataFromRequest(req: NextRequest): string | null {
+  const header = req.headers.get("x-telegram-init-data");
+  if (header) return header;
+  const url = new URL(req.url);
+  return url.searchParams.get("initData");
+}
+
+function devAuthUser(req: NextRequest): TelegramUser | null {
+  if (
+    process.env.NODE_ENV !== "development" ||
+    process.env.ALLOW_DEV_AUTH !== "true"
+  ) {
+    return null;
+  }
+  if (req.headers.get("x-dev-auth") !== "local") return null;
+  return {
+    id: 1,
+    first_name: "Dev",
+    username: "dev_player",
+  };
+}
+
+export function authenticateRequest(
+  req: NextRequest
+): { ok: true; ctx: AuthContext } | { ok: false; error: string; status: number } {
+  const devUser = devAuthUser(req);
+  if (devUser) {
+    return { ok: true, ctx: { user: devUser, initData: "dev" } };
+  }
+
+  const initData = getInitDataFromRequest(req);
+  if (!initData) {
+    return { ok: false, error: "Missing init data", status: 401 };
+  }
+
+  const botToken = process.env.BOT_TOKEN?.trim();
+  if (!botToken) {
+    return { ok: false, error: "Server misconfigured", status: 500 };
+  }
+
+  const { valid, user } = validateInitData(initData, botToken);
+  if (!valid || !user) {
+    return { ok: false, error: "Invalid init data", status: 401 };
+  }
+
+  return { ok: true, ctx: { user, initData } };
+}
+
+export function jsonError(message: string, status: number) {
+  return Response.json({ error: message }, { status });
+}

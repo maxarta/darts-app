@@ -1,0 +1,108 @@
+/* Figma baskr Button (node 4185:3778) */
+.root {
+  --btn-radius: 12px;
+  --btn-gap: 8px;
+  --btn-font: var(--font-darts), var(--font-darts-fallback);
+  --btn-primary-bg: #ffdf20;
+  --btn-primary-fg: #101828;
+  --btn-secondary-bg: #030712;
+  --btn-secondary-fg: #ffffff;
+  --btn-subtle-bg: #e5e7eb;
+  --btn-subtle-border: #e5e7eb;
+  --btn-subtle-fg: #101828;
+  --btn-disabled-bg: #e5e7eb;
+  --btn-disabled-fg: rgba(3, 7, 18, 0.4);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  border: 1px solid transparent;
+  border-radius: var(--btn-radius);
+  font-family: var(--btn-font);
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  box-sizing: border-box;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  -webkit-text-fill-color: currentColor;
+}
+
+.root:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: scale(0.98);
+  opacity: 0.92;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.big {
+  min-height: 56px;
+  padding: 16px 24px;
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+.medium {
+  min-height: 44px;
+  padding: 12px 16px;
+  font-size: 13px;
+  line-height: 20px;
+  letter-spacing: 0;
+}
+
+.small {
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: 11px;
+  line-height: 20px;
+  letter-spacing: -0.11px;
+}
+
+.primary {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-fg);
+}
+
+.secondary {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-fg);
+}
+
+.subtle {
+  background: var(--btn-subtle-bg);
+  border-color: var(--btn-subtle-border);
+  color: var(--btn-subtle-fg);
+}
+
+.small.subtle {
+  background: #ffffff;
+}
+
+.disabled,
+.root:disabled,
+.root[aria-disabled="true"] {
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.primary:disabled,
+.primary[aria-disabled="true"] {
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-fg);
+}
+
+.secondary:disabled,
+.secondary[aria-disabled="true"] {
+  opacity: 0.5;
+}
+
+.subtle:disabled,
+.subtle[aria-disabled="true"] {
+  background: var(--btn-disabled-bg);
+  color: var(--btn-disabled-fg);
+  border-color: transparent;
+}

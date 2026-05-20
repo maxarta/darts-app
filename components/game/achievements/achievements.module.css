@@ -1,0 +1,81 @@
+.stack {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.badge {
+  --peak-x: 0vw;
+  --peak-y: -50vh;
+  --launch-rotate: 0deg;
+  --peak-rotate: 0deg;
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  width: min(76vw, 300px);
+  opacity: 1;
+  will-change: transform;
+  pointer-events: none;
+  overflow: visible;
+  filter: drop-shadow(0 14px 32px rgba(3, 7, 18, 0.5));
+}
+
+.badgePending {
+  opacity: 0;
+}
+
+.badgeReady {
+  animation: achievementToss 2.2s linear forwards;
+}
+
+.img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Снизу → пик → падение вниз (без fade) */
+@keyframes achievementToss {
+  0% {
+    transform: translate(-50%, 12vh) scale(0.5) rotate(var(--launch-rotate));
+    animation-timing-function: cubic-bezier(0.15, 0.9, 0.2, 1);
+  }
+  40% {
+    transform: translate(calc(-50% + var(--peak-x)), var(--peak-y)) scale(1)
+      rotate(var(--peak-rotate));
+    animation-timing-function: cubic-bezier(0.4, 0, 0.85, 0.55);
+  }
+  100% {
+    transform: translate(
+        calc(-50% + var(--peak-x)),
+        calc(var(--peak-y) + 100vh)
+      )
+      scale(0.92) rotate(calc(var(--peak-rotate) + 14deg));
+    animation-timing-function: cubic-bezier(0.7, 0, 1, 0.25);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badgeReady {
+    animation: achievementTossReduced 1.35s ease forwards;
+  }
+
+  @keyframes achievementTossReduced {
+    0% {
+      transform: translate(-50%, 20vh) scale(0.85);
+    }
+    30% {
+      transform: translate(calc(-50% + var(--peak-x)), var(--peak-y)) scale(1)
+        rotate(var(--peak-rotate));
+    }
+    100% {
+      transform: translate(
+          calc(-50% + var(--peak-x)),
+          calc(var(--peak-y) + 50vh)
+        )
+        scale(0.95);
+    }
+  }
+}

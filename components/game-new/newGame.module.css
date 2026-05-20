@@ -1,0 +1,448 @@
+.screen {
+  --ng-bg: #ff2056;
+  --ng-ink: #030712;
+  --ng-surface: #f9fafb;
+  --ng-card: #ffffff;
+  --ng-cta: #ffdf20;
+  --ng-muted: rgba(255, 255, 255, 0.7);
+  --ng-pill-radius: 12px;
+  --ng-card-radius: 24px;
+
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-6: 24px;
+
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  max-height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--ng-bg);
+  color: #fff;
+  box-sizing: border-box;
+}
+
+/* data-атрибут — выше специфичность, чем .screen в бандле */
+.screen[data-tournament-kenny] {
+  --ng-bg: #15803d;
+  background: #15803d;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(var(--spacing-6) + var(--app-inset-top))
+    calc(var(--spacing-6) + var(--app-inset-right))
+    calc(100px + var(--app-inset-bottom))
+    calc(var(--spacing-6) + var(--app-inset-left));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--spacing-6);
+}
+
+.header {
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 20px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.modeBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+}
+
+.tournamentSubtitle {
+  margin: 0;
+  width: 100%;
+  max-width: 300px;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  text-align: center;
+  color: var(--ng-muted);
+}
+
+.roundsRow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+}
+
+.roundsIcon {
+  width: 50px;
+  height: 12px;
+  display: block;
+}
+
+.roundsLabel {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 400;
+  letter-spacing: 0.11px;
+  color: var(--ng-muted);
+}
+
+.modeTitle {
+  margin: 0;
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+}
+
+.tournamentModeTitle {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  text-align: center;
+  max-width: 100%;
+}
+
+.tournamentModeSubtitle {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.ruleBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+}
+
+.ruleLabel {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+}
+
+/* Neomorphic segmented control */
+.segmented {
+  --segment-gap: var(--spacing-1);
+  --segment-count: 2;
+  --segment-index: 0;
+
+  position: relative;
+  display: flex;
+  width: 100%;
+  gap: var(--segment-gap);
+  padding: 0;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-surface);
+  box-shadow:
+    inset 3px 3px 6px rgba(3, 7, 18, 0.12),
+    inset -3px -3px 6px rgba(255, 255, 255, 0.85);
+}
+
+.segmentThumb {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(
+    var(--segment-index) *
+    (
+      (100% - (var(--segment-count) - 1) * var(--segment-gap)) /
+        var(--segment-count) + var(--segment-gap)
+    )
+  );
+  width: calc(
+    (100% - (var(--segment-count) - 1) * var(--segment-gap)) /
+      var(--segment-count)
+  );
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-ink);
+  box-shadow:
+    3px 3px 6px rgba(3, 7, 18, 0.35),
+    -2px -2px 4px rgba(255, 255, 255, 0.15);
+  transition: left 0.28s cubic-bezier(0.34, 1.15, 0.64, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .segmentThumb {
+    transition: none;
+  }
+}
+
+.segment {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--ng-pill-radius);
+  padding: 12px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  background: transparent;
+  transition: color 0.2s ease, transform 0.12s ease;
+}
+
+.segmentIdle {
+  color: var(--ng-ink);
+}
+
+.segmentIdle:active {
+  transform: scale(0.98);
+}
+
+.segmentActive {
+  color: #fff;
+}
+
+.playersCard {
+  width: 100%;
+  background: var(--ng-card);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--ng-card-radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  color: var(--ng-ink);
+}
+
+.avatarGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 8px;
+  width: 100%;
+  justify-items: center;
+}
+
+.avatarGridChannel {
+  composes: avatarGrid;
+}
+
+.avatarGrid .emptyHint {
+  grid-column: 1 / -1;
+}
+
+.avatarCell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-1);
+  min-width: 0;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--ng-ink);
+}
+
+.avatarCircle {
+  position: relative;
+  border-radius: 9999px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.avatarPlay,
+.avatarPick {
+  width: 64px;
+  height: 64px;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #ffb347, #ff2056);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.avatarSelectedOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 201, 80, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatarCheck {
+  width: 28px;
+  height: 28px;
+}
+
+.avatarName {
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 400;
+  letter-spacing: 0.1px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.channelSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.channelTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 24px;
+  color: #fff;
+}
+
+.channelSection .emptyHint {
+  color: var(--ng-muted);
+}
+
+.channelLoading {
+  padding: 8px 0 16px;
+  min-height: 72px;
+}
+
+.emptyHint {
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ng-ink);
+  opacity: 0.55;
+  text-align: center;
+  margin: 0;
+}
+
+.reptileBanner {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-cta);
+  color: var(--ng-ink);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  animation: reptilePop 0.35s ease;
+}
+
+@keyframes reptilePop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.errorBanner {
+  composes: reptileBanner;
+  background: #fff;
+  color: #b8003a;
+}
+
+.startBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 calc(var(--spacing-6) + var(--app-inset-right))
+    calc(26px + var(--app-inset-bottom))
+    calc(var(--spacing-6) + var(--app-inset-left));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.startBtn {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 345px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-cta);
+  color: var(--ng-ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.startBtn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.startBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

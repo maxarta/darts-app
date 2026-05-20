@@ -1,0 +1,1107 @@
+/* Figma baskr — экран подсчёта 6758:1748 */
+
+.gameScreen {
+  /* Высота нативной шапки Telegram (назад / меню) */
+  --game-chrome-top: max(
+    var(--tg-content-safe-area-inset-top, 0px),
+    var(--tg-header-fallback-top, 56px)
+  );
+  --g-bg: #f9fafb;
+  --g-ink: #030712;
+  --g-yellow: #ffdf20;
+  --g-yellow-dark: #f0cf18;
+  --g-yellow-mid: #fff085;
+  --g-yellow-pale: #fef9c2;
+  --g-idle: #e5e7eb;
+  --g-white: #ffffff;
+  --g-border: #e5e7eb;
+  --g-danger: #ff2056;
+  --g-green-500: #22c55e;
+  --g-red-500: #ef4444;
+  --g-cream: #e8e4d9;
+  --g-gray-700: #374151;
+
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  background: var(--g-bg);
+  color: var(--g-ink);
+  font-family: var(--font-darts), system-ui, sans-serif;
+}
+
+.gameScreen:has([data-victory-overlay]) {
+  overflow: visible;
+}
+
+.gameTopStrip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* —— Header —— */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  box-sizing: border-box;
+  min-height: 0;
+  padding: max(48px, var(--game-chrome-top, 44px))
+    max(16px, var(--app-inset-right))
+    8px
+    max(16px, var(--app-inset-left));
+  padding-left: max(
+    16px,
+    var(--app-inset-left),
+    var(--tg-content-safe-area-inset-left, 0px)
+  );
+  padding-right: max(
+    16px,
+    var(--app-inset-right),
+    var(--tg-content-safe-area-inset-right, 0px)
+  );
+  background: var(--g-bg);
+}
+
+.headerContent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.headerContent:has(.headerTournament) {
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
+.header:has(.menuWrap) .headerContent {
+  padding-right: 36px;
+}
+
+.menuWrap {
+  position: absolute;
+  top: 50%;
+  right: max(12px, var(--app-inset-right));
+  z-index: 2;
+  transform: translateY(-50%);
+}
+
+.menuBtnFallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--g-ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.menuBtnFallback:disabled {
+  opacity: 0.5;
+}
+
+.menuDropdown {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 50;
+  min-width: 180px;
+  background: var(--g-white);
+  border: 1px solid var(--g-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(3, 7, 18, 0.12);
+  overflow: hidden;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: transparent;
+  color: var(--g-ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.menuItem:active {
+  background: var(--g-idle);
+}
+
+.menuItemDanger {
+  color: #b8003a;
+  border-top: 1px solid var(--g-border);
+}
+
+.headerTournament {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  padding: 0 8px;
+}
+
+.headerTournamentTitle {
+  font-size: 14px;
+  font-weight: 800;
+  font-stretch: extra-expanded;
+  line-height: 18px;
+  color: var(--g-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.headerTournamentSubtitle {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  color: rgba(3, 7, 18, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.headerMeta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerMode {
+  font-size: 18px;
+  font-weight: 800;
+  font-stretch: extra-expanded;
+  line-height: 24px;
+  letter-spacing: 0.18px;
+}
+
+.headerDivider {
+  width: 1px;
+  height: 20px;
+  background: var(--g-idle);
+}
+
+.headerStats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.headerRound {
+  font-size: 16px;
+  font-weight: 700;
+  font-stretch: semi-expanded;
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.headerRoundCurrent {
+  color: var(--g-ink);
+}
+
+.headerRoundMax {
+  color: rgba(3, 7, 18, 0.5);
+}
+
+/* —— Visit bar (полоса бросков) —— */
+.visitBar {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 24px;
+  background: var(--g-white);
+}
+
+.visitBarBust {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 8px 24px;
+  background: var(--g-danger);
+}
+
+.visitBarInner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 29px;
+  flex-wrap: wrap;
+}
+
+.visitChips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Визит в шапке (только landscape) */
+.headerVisit {
+  display: none;
+}
+
+.headerVisitChips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+}
+
+.dartFlightIcon {
+  width: 25px;
+  height: 20px;
+  object-fit: contain;
+}
+
+/* —— Scoreboard duo (1–2 игрока) —— */
+.scoreboardDuo {
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+  width: 100%;
+}
+
+.playerDuo {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  box-shadow: none;
+}
+
+.playerDuoActive {
+  background: var(--g-yellow);
+  transform-origin: center;
+  animation: activePlayerPulse 2.2s ease-in-out infinite;
+}
+
+.playerDuoBust {
+  background: var(--g-danger);
+}
+
+.playerDuoBust .playerDuoName,
+.playerDuoBust .playerDuoBigScore,
+.playerDuoBust .startScoreStrike {
+  color: var(--g-white);
+}
+
+.playerDuoIdle {
+  background: var(--g-idle);
+}
+
+.playerDuoRow {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  gap: 8px;
+  min-height: 0;
+}
+
+.playerDuoMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.playerDuoRowScoreFirst .playerDuoMeta {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.playerDuoMetaTop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.playerDuoRowScoreFirst .playerDuoMetaTop {
+  flex-direction: row-reverse;
+}
+
+.startScoreStrike {
+  font-size: 18px;
+  font-weight: 600;
+  font-stretch: condensed;
+  letter-spacing: -0.54px;
+  line-height: 22px;
+  text-decoration: line-through;
+  color: rgba(3, 7, 18, 0.55);
+}
+
+.playerDuoName {
+  font-size: 18px;
+  font-weight: 600;
+  font-stretch: condensed;
+  letter-spacing: -0.54px;
+  line-height: 22px;
+  margin-top: 2px;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.playerDuoBigScore {
+  font-size: 54px;
+  font-weight: 300;
+  font-stretch: condensed;
+  line-height: 54px;
+  letter-spacing: -2.16px;
+  flex-shrink: 0;
+}
+
+/* —— Scoreboard multi (3–6 игроков) —— */
+.scoreboardMulti {
+  display: flex;
+  gap: 0;
+  flex-shrink: 0;
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.scoreboardMulti::-webkit-scrollbar {
+  display: none;
+}
+
+.playerCompact {
+  flex: 1 1 0;
+  min-width: 72px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  box-shadow: none;
+}
+
+.playerCompactActive {
+  background: var(--g-yellow);
+  transform-origin: center;
+  animation: activePlayerPulse 2.2s ease-in-out infinite;
+}
+
+.playerCompactBust {
+  background: var(--g-danger);
+}
+
+.playerCompactBust .playerCompactName,
+.playerCompactBust .playerCompactScore {
+  color: var(--g-white);
+}
+
+.playerCompactIdle {
+  background: var(--g-idle);
+}
+
+.playerCompactDisplay {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 6px;
+  text-align: center;
+}
+
+.playerCompactScore {
+  font-size: 36px;
+  font-weight: 300;
+  font-stretch: condensed;
+  line-height: 1;
+  letter-spacing: -1.44px;
+}
+
+.playerCompactName {
+  font-size: 13px;
+  font-weight: 500;
+  font-stretch: condensed;
+  letter-spacing: -0.39px;
+  line-height: 16px;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  width: 100%;
+}
+
+.pprBar {
+  flex-shrink: 0;
+  margin: 0;
+  background: var(--g-ink);
+  color: var(--g-white);
+  text-align: center;
+  padding: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  font-stretch: condensed;
+  letter-spacing: -0.39px;
+  line-height: 16px;
+}
+
+/* —— Keypad —— */
+.keypadArea {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--g-ink);
+  gap: 1px;
+}
+
+.keypadGridPortrait {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.keypadGridLandscape {
+  display: none;
+}
+
+.bullColumn {
+  display: flex;
+  flex-direction: row;
+  gap: 1px;
+  flex-shrink: 0;
+  height: 96px;
+}
+
+.numRow {
+  display: flex;
+  gap: 1px;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.keyBtn {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  font-stretch: condensed;
+  letter-spacing: -0.48px;
+  line-height: 16px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  position: relative;
+  padding: 4px;
+  color: var(--g-ink);
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.keyBtn:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.keyBtn:active:not(:disabled) {
+  filter: brightness(0.95);
+}
+
+.keyBtnPressed {
+  transform: scale(0.94);
+  filter: brightness(0.88);
+  transition: transform 0.08s ease, filter 0.08s ease;
+}
+
+.keySingle {
+  background: var(--g-yellow-pale);
+}
+
+.keyDouble {
+  background: var(--g-yellow-mid);
+}
+
+.keyTriple {
+  background: var(--g-yellow);
+}
+
+.keyDots {
+  display: flex;
+  gap: 4px;
+}
+
+.keyDots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--g-ink);
+}
+
+.keypadActions {
+  display: flex;
+  gap: 1px;
+  flex-shrink: 0;
+  height: 88px;
+}
+
+.undoAction {
+  flex: 0 0 88px;
+  font-size: 16px;
+  background: var(--g-ink);
+  color: var(--g-white);
+}
+
+.nextAction {
+  flex: 1 1 0;
+  font-size: 16px;
+  font-weight: 500;
+  font-stretch: condensed;
+  letter-spacing: -0.48px;
+  text-transform: uppercase;
+}
+
+.nextActionLabelCompact {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  line-height: 1.1;
+}
+
+.nextActionLabelCompact span {
+  display: block;
+}
+
+.nextActionIdle {
+  background: var(--g-green-500);
+  color: var(--g-white);
+}
+
+.nextActionReady {
+  background: var(--g-danger);
+  color: var(--g-white);
+  animation: nextPlayerPulse 1.1s ease-in-out infinite;
+}
+
+@keyframes nextPlayerPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 32, 86, 0.45);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 0 6px rgba(255, 32, 86, 0);
+  }
+}
+
+@keyframes activePlayerPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0.45);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: inset 0 0 0 6px rgba(255, 255, 255, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .playerDuoActive,
+  .playerCompactActive {
+    animation: none;
+  }
+}
+
+.syncHint {
+  margin: 0;
+  padding: 6px 12px 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(3, 7, 18, 0.55);
+  text-align: center;
+}
+
+.gameFinished {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 24px;
+  background: var(--g-bg);
+  color: var(--g-ink);
+}
+
+.gameFinished a {
+  color: var(--g-ink);
+  font-weight: 600;
+}
+
+/* —— Landscape (Figma 6758:2464) —— */
+@media (orientation: landscape) {
+  .gameScreen[data-game-screen] {
+    box-sizing: border-box;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 0 48px;
+    background: var(--bg, #1a1a1a);
+    --app-inset-left: 0px;
+    --app-inset-right: 0px;
+    --app-inset-bottom: 0px;
+    --app-inset-top: 0px;
+  }
+
+  .gameTopStrip {
+    flex-shrink: 0;
+  }
+
+  .header {
+    box-sizing: border-box;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    min-height: var(--game-chrome-top);
+    height: var(--game-chrome-top);
+    padding: 0;
+    padding-left: max(
+      120px,
+      var(--tg-content-safe-area-inset-left, 0px),
+      env(safe-area-inset-left, 0px)
+    );
+    padding-right: max(
+      120px,
+      var(--tg-content-safe-area-inset-right, 0px),
+      env(safe-area-inset-right, 0px)
+    );
+  }
+
+  .headerContent {
+    justify-content: flex-start;
+    flex: 0 1 auto;
+    align-self: center;
+  }
+
+  .headerContent:has(.headerTournament) {
+    justify-content: flex-start;
+    align-items: center;
+  }
+
+  .headerVisit {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    align-items: center;
+    align-self: center;
+    justify-content: flex-end;
+    padding-right: 4px;
+  }
+
+  .header:has(.menuWrap) .headerVisit {
+    padding-right: 0;
+  }
+
+  .header:has(.menuWrap) .menuWrap {
+    top: 50%;
+    right: max(
+      120px,
+      var(--tg-content-safe-area-inset-right, 0px),
+      env(safe-area-inset-right, 0px)
+    );
+    transform: translateY(-50%);
+  }
+
+  .visitBar,
+  .visitBarBust {
+    display: none;
+  }
+
+  .headerMode {
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  .headerRound {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .headerDivider {
+    height: 14px;
+  }
+
+  .headerTournamentTitle {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .headerTournamentSubtitle {
+    font-size: 9px;
+    line-height: 12px;
+  }
+
+  .syncHint {
+    padding: 0 8px;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  .visitBar .dartFlightIcon,
+  .visitBarBust .dartFlightIcon {
+    width: 14px;
+    height: 11px;
+  }
+
+  .playerDuoRow {
+    min-height: 0;
+    padding: 16px 12px;
+    gap: 8px;
+  }
+
+  .playerDuoMeta {
+    gap: 8px;
+  }
+
+  .playerDuoMetaTop {
+    gap: 8px;
+  }
+
+  .playerDuoBigScore {
+    font-size: 54px;
+    line-height: 54px;
+    letter-spacing: -2.16px;
+  }
+
+  .playerDuoName,
+  .startScoreStrike {
+    font-size: 13px;
+    line-height: 16px;
+    letter-spacing: -0.39px;
+  }
+
+  .playerCompactDisplay {
+    padding: 16px 12px;
+    gap: 4px;
+  }
+
+  .playerCompactScore {
+    font-size: 36px;
+  }
+
+  .playerCompactName {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .pprBar {
+    padding: 2px 4px;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .keypadArea {
+    flex: 1 1 0;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 1px;
+    padding-bottom: 0;
+  }
+
+  .bullColumn {
+    display: grid;
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+    gap: 1px;
+    flex: 0 0 88px;
+    width: 88px;
+    min-height: 0;
+    align-self: stretch;
+    height: 100%;
+  }
+
+  .bullColumn .keyBtn {
+    min-height: 0;
+    font-size: 16px;
+    line-height: 16px;
+    letter-spacing: -0.48px;
+    padding: 4px 2px;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .bullColumn .keyBtn:nth-child(1) {
+    grid-row: 1;
+    grid-column: 1;
+    height: 100%;
+  }
+
+  .bullColumn .keyBtn:nth-child(2) {
+    grid-row: 2 / 4;
+    grid-column: 1;
+    height: 100%;
+  }
+
+  .bullColumn .keyBtn:nth-child(3) {
+    grid-row: 4 / 6;
+    grid-column: 1;
+    height: 100%;
+  }
+
+  .keyBtn {
+    overflow: hidden;
+    line-height: 1;
+    font-size: 16px;
+  }
+
+  .keypadGridPortrait {
+    display: none;
+  }
+
+  .keypadGridLandscape {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    gap: 1px;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .keypadGridLandscape .keyDots {
+    gap: 3px;
+  }
+
+  .keypadActions {
+    display: grid;
+    grid-template-rows: repeat(5, minmax(0, 1fr));
+    grid-template-columns: 1fr;
+    gap: 1px;
+    flex: 0 0 88px;
+    width: 88px;
+    min-height: 0;
+    align-self: stretch;
+    height: 100%;
+  }
+
+  .undoAction {
+    grid-row: 1;
+    grid-column: 1;
+    align-self: stretch;
+    justify-self: stretch;
+    width: 100%;
+    height: 100%;
+    flex: unset;
+    min-height: unset;
+    background: var(--g-yellow-pale);
+    color: var(--g-ink);
+  }
+
+  .nextAction {
+    grid-row: 2 / 6;
+    grid-column: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: unset;
+    white-space: normal;
+    padding: 4px 2px;
+    text-align: center;
+  }
+
+  .nextActionLabelFull {
+    display: none;
+  }
+
+  .nextActionLabelCompact {
+    display: flex;
+  }
+}
+
+/* —— Short portrait: компактные размеры —— */
+@media (orientation: portrait) and (max-height: 520px) {
+  .header {
+    padding-bottom: 4px;
+    min-height: 0;
+  }
+
+  .headerMode {
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .headerRound {
+    font-size: 14px;
+    line-height: 20px;
+  }
+
+  .headerTournamentTitle {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  .headerTournamentSubtitle {
+    font-size: 10px;
+    line-height: 13px;
+  }
+
+  .visitBar,
+  .visitBarBust {
+    min-height: 36px;
+    padding: 8px 16px;
+  }
+
+  .visitBarInner {
+    gap: 12px;
+  }
+
+  .dartFlightIcon {
+    width: 20px;
+    height: 16px;
+  }
+
+  .playerDuoRow {
+    min-height: 48px;
+    padding: 6px 10px;
+    gap: 6px;
+  }
+
+  .playerDuoBigScore {
+    font-size: 36px;
+    line-height: 36px;
+    letter-spacing: -1.44px;
+  }
+
+  .playerDuoName,
+  .startScoreStrike {
+    font-size: 14px;
+    line-height: 18px;
+  }
+
+  .playerDuoMeta {
+    gap: 6px;
+  }
+
+  .playerCompactDisplay {
+    padding: 4px 4px;
+    gap: 4px;
+  }
+
+  .playerCompactScore {
+    font-size: 28px;
+  }
+
+  .playerCompactName {
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .pprBar {
+    padding: 2px 4px;
+    font-size: 11px;
+    line-height: 14px;
+  }
+
+  .bullColumn {
+    height: 44px;
+  }
+
+  .keyBtn {
+    font-size: 13px;
+    letter-spacing: -0.36px;
+    padding: 2px;
+    gap: 8px;
+  }
+
+  .keyDots {
+    gap: 3px;
+  }
+
+  .keyDots span {
+    width: 3px;
+    height: 3px;
+  }
+
+  .keypadActions {
+    height: 52px;
+  }
+
+  .undoAction {
+    flex: 0 0 52px;
+    font-size: 14px;
+  }
+
+  .nextAction {
+    font-size: 14px;
+  }
+
+  .syncHint {
+    padding: 2px 12px 0;
+    font-size: 11px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 420px) {
+  .gameScreen[data-game-screen] {
+    --game-chrome-top: max(
+      var(--tg-content-safe-area-inset-top, 0px),
+      var(--tg-header-fallback-top, 48px),
+      42px
+    );
+  }
+
+  .keypadGridLandscape .keyBtn {
+    font-size: 11px;
+  }
+
+  .bullColumn .keyBtn {
+    font-size: 14px;
+    line-height: 14px;
+    letter-spacing: -0.42px;
+  }
+
+  .playerDuoBigScore {
+    font-size: clamp(36px, 12vmin, 54px);
+    line-height: 1;
+  }
+
+  .bullColumn,
+  .keypadActions {
+    flex-basis: 72px;
+    width: 72px;
+  }
+}

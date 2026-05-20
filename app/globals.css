@@ -1,0 +1,423 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --app-inset-top: max(
+    env(safe-area-inset-top, 0px),
+    var(--tg-content-safe-area-inset-top, 0px),
+    var(--tg-safe-area-inset-top, 0px),
+    var(--tg-header-fallback-top, 0px)
+  );
+  --app-inset-right: max(
+    env(safe-area-inset-right, 0px),
+    var(--tg-content-safe-area-inset-right, 0px),
+    var(--tg-safe-area-inset-right, 0px)
+  );
+  --app-inset-bottom: max(
+    env(safe-area-inset-bottom, 0px),
+    var(--tg-content-safe-area-inset-bottom, 0px),
+    var(--tg-safe-area-inset-bottom, 0px)
+  );
+  --app-inset-left: max(
+    env(safe-area-inset-left, 0px),
+    var(--tg-content-safe-area-inset-left, 0px),
+    var(--tg-safe-area-inset-left, 0px)
+  );
+  --bg: #1a1a1a;
+  --surface: #252525;
+  --text: #ffffff;
+  --muted: #999;
+  --accent: #f5a623;
+  --danger: #c62828;
+  --font-darts-fallback: system-ui, sans-serif;
+  --home-bg: #ffdf20;
+  --home-ink: #030712;
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-darts), var(--font-darts-fallback);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
+
+.appShell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--app-inset-top) var(--app-inset-right) var(--app-inset-bottom)
+    var(--app-inset-left);
+}
+
+/* Home (Figma bg-brand-primary): жёлтый на весь viewport, без тёмных полос */
+html:has([data-home-screen]),
+body:has([data-home-screen]) {
+  background: var(--home-bg);
+  color: var(--home-ink);
+}
+
+.appShell:has([data-home-screen]) {
+  padding: 0;
+  background: var(--home-bg);
+}
+
+/* Stats / players / games archive (same brand surface as home) */
+html:has([data-stats-screen]),
+body:has([data-stats-screen]) {
+  background: var(--home-bg);
+  color: var(--home-ink);
+}
+
+.appShell:has([data-stats-screen]) {
+  padding: 0;
+  background: var(--home-bg);
+}
+
+body:has([data-stats-screen]) a:not([class]) {
+  color: inherit;
+}
+
+/* Ссылки с классом (pill и т.д.) — свой color; без класса наследуют ink */
+body:has([data-home-screen]) a:not([class]) {
+  color: inherit;
+}
+
+/* New game / tournament screens (Figma bg-danger-primary) */
+html:has([data-new-game-screen]):not(:has([data-tournament-kenny])),
+html:has([data-tournament-screen]):not(:has([data-tournament-kenny])),
+body:has([data-new-game-screen]):not(:has([data-tournament-kenny])),
+body:has([data-tournament-screen]):not(:has([data-tournament-kenny])) {
+  background: #ff2056;
+  color: #fff;
+  overflow: hidden;
+}
+
+.appShell:has([data-new-game-screen]):not(:has([data-tournament-kenny])),
+.appShell:has([data-tournament-screen]):not(:has([data-tournament-kenny])) {
+  padding: 0;
+  background: #ff2056;
+  /* Lock viewport height so inner .scroll can scroll (Telegram WebView). */
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Турнир Кенни — зелёный shell (как кнопка на главной) */
+html:has([data-tournament-kenny]),
+body:has([data-tournament-kenny]) {
+  background: #15803d;
+  color: #fff;
+  overflow: hidden;
+}
+
+.appShell:has([data-tournament-kenny]) {
+  padding: 0;
+  background: #15803d;
+  height: 100dvh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Перебивает .screen { background: var(--ng-bg) } из CSS Modules (порядок в бандле) */
+[data-tournament-screen][data-tournament-kenny] {
+  --ng-bg: #15803d;
+  background: #15803d;
+}
+
+/* Scoring screen */
+html:has([data-game-screen]),
+body:has([data-game-screen]) {
+  background: #f9fafb;
+  color: #030712;
+}
+
+.appShell:has([data-game-screen]) {
+  padding: 0;
+  background: #f9fafb;
+}
+
+@media (orientation: landscape) {
+  html:has([data-game-screen]),
+  body:has([data-game-screen]) {
+    background: var(--bg);
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  .appShell:has([data-game-screen]) {
+    height: 100dvh;
+    max-height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+    background: var(--bg);
+  }
+}
+
+.page {
+  padding: 16px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.pageTitle {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  letter-spacing: 0.04em;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  border: none;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  letter-spacing: 0.06em;
+}
+
+.btnPrimary {
+  background: var(--accent);
+  color: #1a1a1a;
+}
+
+.btnSecondary {
+  background: #333;
+  color: #fff;
+}
+
+.btnDanger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.listItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #333;
+}
+
+.listItem:last-child {
+  border-bottom: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  margin: 4px;
+  border-radius: 20px;
+  background: #333;
+  border: 2px solid transparent;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.chipSelected {
+  border-color: var(--accent);
+  background: #3d3d20;
+}
+
+.formLabel {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.select,
+.input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border: 1px solid #444;
+  background: #111;
+  color: #fff;
+  font-family: inherit;
+  font-size: 16px;
+}
+
+.error {
+  color: #ff6b6b;
+  padding: 12px;
+  background: #3a1a1a;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.statGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.statBox {
+  background: #111;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.statValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+@theme inline {
+  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

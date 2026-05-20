@@ -1,0 +1,87 @@
+.heatmapWrap {
+  --heatmap-board-size: 200;
+  --heatmap-extent-pad: 30;
+  --heatmap-extent: calc(
+    var(--heatmap-board-size) + 2 * var(--heatmap-extent-pad)
+  );
+  width: 100%;
+  margin: 0;
+  align-self: stretch;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
+}
+
+.heatmapWrap .heatmapSvg {
+  overflow: visible;
+}
+
+.heatmapBoard {
+  opacity: 0.68;
+  filter: saturate(0.82) brightness(0.9);
+}
+
+.heatmapSvg {
+  display: block;
+  width: calc(
+    100% * var(--heatmap-extent) / var(--heatmap-board-size)
+  );
+  max-width: none;
+  margin-left: calc(
+    -100% * var(--heatmap-extent-pad) / var(--heatmap-board-size)
+  );
+  margin-bottom: calc(
+    -100% *
+      (var(--heatmap-extent) - var(--heatmap-board-size)) /
+      var(--heatmap-extent)
+  );
+  height: auto;
+  aspect-ratio: 1;
+  overflow: visible;
+}
+
+.heatmapWrapTight .heatmapSvg {
+  width: 100%;
+  margin-left: 0;
+  margin-bottom: 0;
+}
+
+.heatmapLayer {
+  mix-blend-mode: screen;
+  opacity: 1;
+}
+
+.heatmapWires {
+  opacity: 0.28;
+}
+
+.heatmapWire {
+  fill: none;
+  stroke: rgba(3, 7, 18, 0.4);
+  stroke-width: 0.5;
+}
+
+.heatmapOuterRing {
+  fill: #0f1419;
+  stroke: #030712;
+  stroke-width: 1.5;
+}
+
+.heatmapNumberRing {
+  stroke: rgba(3, 7, 18, 0.35);
+  stroke-width: 0.35;
+}
+
+.heatmapLabels {
+  font-family: inherit;
+}
+
+.heatmapLabel {
+  fill: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  paint-order: stroke fill;
+  stroke: rgba(3, 7, 18, 0.65);
+  stroke-width: 2px;
+}

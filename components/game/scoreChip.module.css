@@ -1,0 +1,88 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 60px;
+  height: 24px;
+  padding: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  font-weight: 500;
+  font-stretch: condensed;
+}
+
+.white {
+  background: var(--g-white);
+  color: var(--g-ink);
+}
+
+.whiteVisitBar {
+  font-size: 16px;
+  letter-spacing: -0.48px;
+  line-height: 16px;
+}
+
+.whiteScoreboard {
+  width: fit-content;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+  letter-spacing: -0.39px;
+  line-height: 16px;
+}
+
+.dark {
+  background: var(--g-ink);
+  color: var(--g-white);
+  font-size: 16px;
+  letter-spacing: -0.48px;
+  line-height: 16px;
+}
+
+.slot {
+  padding: 0;
+}
+
+.bust {
+  width: auto;
+  min-width: 60px;
+  padding: 4px 10px;
+  background: var(--g-white);
+  color: var(--g-danger);
+  font-size: 16px;
+  font-weight: 800;
+  font-stretch: extra-expanded;
+  letter-spacing: -0.32px;
+  line-height: 16px;
+  text-transform: uppercase;
+}
+
+@media (orientation: landscape) {
+  .chip:not(.chipPortrait) {
+    width: 40px;
+    height: 18px;
+    padding: 2px;
+    border-radius: 3px;
+  }
+
+  .chip:not(.chipPortrait).whiteVisitBar,
+  .chip:not(.chipPortrait).dark {
+    font-size: 11px;
+    letter-spacing: -0.33px;
+    line-height: 12px;
+  }
+
+  .chip:not(.chipPortrait).whiteScoreboard {
+    padding: 2px 5px;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  .chip:not(.chipPortrait).bust {
+    min-width: 48px;
+    padding: 2px 6px;
+    font-size: 11px;
+    line-height: 12px;
+  }
+}

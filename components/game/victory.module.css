@@ -1,0 +1,332 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(16px + var(--app-inset-top))
+    calc(16px + var(--app-inset-right))
+    calc(16px + var(--app-inset-bottom))
+    calc(16px + var(--app-inset-left));
+  background: rgba(3, 7, 18, 0.58);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: victoryBackdropIn 0.35s ease-out both;
+}
+
+.panel {
+  width: min(100%, 400px);
+  height: fit-content;
+  max-height: min(92dvh, 90dvh);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 24px;
+  background: #374151;
+  box-shadow: 0 24px 48px rgba(3, 7, 18, 0.45);
+  animation: victoryPanelIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.panelConfirm {
+  gap: 20px;
+}
+
+.panelStats {
+  gap: 20px;
+  max-height: none;
+  overflow: visible;
+}
+
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
+.vampireWrap {
+  width: 147px;
+  height: 147px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform-origin: 50% 85%;
+  animation: victoryHeadBob 2.6s cubic-bezier(0.42, 0, 0.58, 1) infinite;
+}
+
+.vampireImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.title {
+  margin: 0;
+  width: 100%;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 28px;
+  letter-spacing: -0.02em;
+  text-align: center;
+  color: #fff;
+}
+
+.statsTitle {
+  margin: 0;
+  width: 100%;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 22px;
+  letter-spacing: -0.02em;
+  text-align: center;
+  color: #fff;
+}
+
+.playersGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  overflow: visible;
+}
+
+.playersGrid[data-count="1"] {
+  grid-template-columns: 1fr;
+  max-width: 200px;
+  margin-inline: auto;
+}
+
+.playersGrid[data-count="2"] {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.playerCard {
+  display: grid;
+  grid-template-rows: auto auto auto auto auto auto;
+  align-items: start;
+  justify-items: center;
+  min-width: 0;
+  width: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  overflow: visible;
+  opacity: 0;
+  animation: victoryCardIn 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.playerNameRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 28px;
+  margin: 0 0 8px;
+  box-sizing: border-box;
+}
+
+.playerName {
+  margin: 0;
+  max-width: 100%;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: -0.03em;
+  text-align: center;
+  text-transform: uppercase;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.winnerChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  max-width: 100%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #ffdf20;
+  color: #101828;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 16px;
+  letter-spacing: -0.02em;
+  text-align: center;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playerBigScore {
+  margin: 0 0 8px;
+  width: 100%;
+  font-size: 36px;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  text-align: center;
+  color: #fff;
+}
+
+.pprChip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 0 12px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #030712;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dartCount {
+  margin: 10px 0 8px;
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: -0.02em;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.throwChips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin: 0 0 10px;
+  width: 100%;
+}
+
+.throwChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: -0.02em;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.actionsConfirm {
+  margin-top: 4px;
+}
+
+.btnSecondary,
+.btnPrimary {
+  height: 56px;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  cursor: pointer;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.btnSecondary {
+  flex: 0 0 auto;
+  padding: 0 24px;
+  background: #030712;
+  color: #fff;
+}
+
+.btnPrimary {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 0 24px;
+  background: #ffdf20;
+  color: #101828;
+}
+
+.btnSecondary:active,
+.btnPrimary:active {
+  transform: scale(0.98);
+}
+
+@keyframes victoryBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes victoryPanelIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes victoryHeadBob {
+  0%,
+  100% {
+    transform: rotate(-3deg) translateY(0) scale(1);
+  }
+  33% {
+    transform: rotate(2deg) translateY(-5px) scale(1.015);
+  }
+  66% {
+    transform: rotate(3deg) translateY(-3px) scale(1.008);
+  }
+}
+
+@keyframes victoryCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .backdrop,
+  .panel,
+  .playerCard,
+  .vampireWrap {
+    animation: none;
+  }
+
+  .playerCard {
+    opacity: 1;
+  }
+}

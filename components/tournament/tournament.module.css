@@ -1,0 +1,1005 @@
+.loading {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 50dvh;
+  color: #fff;
+}
+
+.screen {
+  --ng-bg: #ff2056;
+  --ng-ink: #030712;
+  --ng-card: #ffffff;
+  --ng-cta: #ffdf20;
+  --ng-muted: rgba(255, 255, 255, 0.7);
+  --ng-pill-radius: 12px;
+  --ng-card-radius: 24px;
+
+  flex: 1 1 auto;
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--ng-bg);
+  color: #fff;
+  box-sizing: border-box;
+}
+
+.screen[data-tournament-kenny] {
+  --ng-bg: #15803d;
+  background: #15803d;
+}
+
+.confettiCanvasPortal {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: calc(24px + var(--app-inset-top))
+    calc(24px + var(--app-inset-right))
+    calc(24px + var(--app-inset-bottom))
+    calc(24px + var(--app-inset-left));
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 20px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+}
+
+.titleBlock {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.kennyLogo {
+  display: block;
+  width: 200px;
+  height: auto;
+  margin: 0 0 12px;
+}
+
+.title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  font-stretch: extra-expanded;
+  line-height: 22px;
+}
+
+.status {
+  margin: 0;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--ng-muted);
+}
+
+.errorBanner {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-ink);
+  color: #fff;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.section {
+  width: 100%;
+  background: var(--ng-card);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--ng-card-radius);
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ng-ink);
+}
+
+.sectionTitleStatic {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--ng-ink);
+}
+
+.sectionToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.sectionToggleText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sectionMeta {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.chevron {
+  flex-shrink: 0;
+  display: block;
+  color: var(--ng-ink);
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(0deg);
+}
+
+.chevronClosed {
+  transform: rotate(-90deg);
+}
+
+.sectionBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.playoffHeader {
+  margin-bottom: 12px;
+}
+
+.playoffHint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 15px;
+  color: #6b7280;
+}
+
+.playoffCta {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-cta);
+  color: var(--ng-ink);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.playoffCta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rrGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drawPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.drawHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: rgba(3, 7, 18, 0.65);
+  text-align: center;
+}
+
+.drawSpinnerWrap {
+  display: flex;
+  justify-content: center;
+  padding: 28px 0;
+}
+
+.drawError {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: #c62828;
+  text-align: center;
+}
+
+@keyframes rrPairReveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.97);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.rrPairReveal {
+  animation: rrPairReveal 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.playoffTabs {
+  margin-bottom: 12px;
+}
+
+.bracket {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bracketStack {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.roundBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.roundMatches {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playoffEmpty {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: #6b7280;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.tournamentFooter {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.finishTournamentBtn {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-cta);
+  color: var(--ng-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.finishTournamentBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tournamentCompletedBanner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: var(--ng-pill-radius);
+  background: rgba(255, 255, 255, 0.18);
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.tournamentCompletedTitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 20px;
+  color: #fff;
+}
+
+.tournamentCompletedDate {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  color: var(--ng-muted);
+}
+
+.deleteTournamentBtn {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: var(--ng-pill-radius);
+  background: var(--ng-ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.deleteTournamentBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.playoffTabBar {
+  display: flex;
+  width: 100%;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 3px;
+  border-radius: var(--ng-pill-radius);
+  background: #f9fafb;
+  box-shadow:
+    inset 2px 2px 5px rgba(3, 7, 18, 0.1),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.9);
+}
+
+.playoffTab {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  border-radius: 10px;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.playoffTabIdle {
+  background: transparent;
+  color: var(--ng-ink);
+}
+
+.playoffTabActive {
+  background: var(--ng-ink);
+  color: #fff;
+}
+
+.bracketAvatarLoser {
+  opacity: 0.5;
+}
+
+.avatarWrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.avatarWrapLarge {
+  margin-top: 8px;
+}
+
+.crown {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-size: 16px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.18));
+  pointer-events: none;
+}
+
+/* Card-colored notch where crown meets the avatar gradient */
+.avatarWrapWinner::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  z-index: 2;
+  width: 22px;
+  height: 11px;
+  border-radius: 9999px;
+  background: var(--avatar-notch-bg, #f9fafb);
+  box-shadow: 0 0 0 2px var(--avatar-notch-bg, #f9fafb);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.avatarWrapLarge.avatarWrapWinner::after {
+  top: -4px;
+  width: 30px;
+  height: 14px;
+}
+
+.avatarWrapLarge .crown {
+  top: -12px;
+  font-size: 22px;
+}
+
+.avatarWrapXlarge.avatarWrapWinner::after {
+  top: -5px;
+  width: 36px;
+  height: 16px;
+}
+
+.avatarWrapXlarge .crown {
+  top: -22px;
+  font-size: 26px;
+}
+
+
+.avatarNameLarge {
+  font-size: 11px;
+  max-width: 88px;
+  margin-top: 4px;
+}
+
+.avatarPlaceholderLarge {
+  width: 80px;
+  height: 80px;
+}
+
+.matchCardLarge {
+  padding: 20px 16px;
+}
+
+.matchPlayersLarge {
+  gap: 20px;
+}
+
+.playBtnDone {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #e5e7eb;
+  color: #6b7280;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: not-allowed;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* —— Playoff stage card —— */
+.playoffCard {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px 16px;
+  border-radius: var(--ng-card-radius);
+  background: var(--ng-card);
+  border: 1px solid #e5e7eb;
+  box-sizing: border-box;
+}
+
+.playoffCard .playoffHint {
+  margin: 0;
+  text-align: center;
+}
+
+.playoffCard .bracket,
+.playoffCard .bracketStack {
+  width: 100%;
+  overflow-x: visible;
+}
+
+.playoffCard .roundColumn,
+.playoffCard .roundBlock {
+  width: 100%;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.playoffCard .roundMatches {
+  width: 100%;
+}
+
+.playoffCard .matchCard {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.playoffCard .avatarName {
+  max-width: 120px;
+}
+
+/* —— Final stage card —— */
+.finalCard {
+  --avatar-notch-bg: #ffffff;
+  position: relative;
+  overflow: visible;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 16px 16px;
+  border-radius: var(--ng-card-radius);
+  background: linear-gradient(180deg, #fffef8 0%, #ffffff 32%);
+  border: 1px solid #fde68a;
+  box-shadow: 0 4px 20px rgba(253, 224, 71, 0.15);
+  box-sizing: border-box;
+}
+
+.finalChampionSection[data-celebrating] {
+  border-top-color: transparent;
+}
+
+.finalChampionSection[data-celebrating] .championPortrait {
+  position: relative;
+  z-index: 60;
+  transform: translateZ(0);
+}
+
+.finalTitle {
+  margin: 0;
+  font-size: 40px;
+  font-weight: 800;
+  font-stretch: extra-expanded;
+  line-height: 44px;
+  letter-spacing: 0.02em;
+  color: var(--ng-ink);
+  text-align: center;
+}
+
+.finalSubtitle {
+  margin: -8px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0.02em;
+  color: #6b7280;
+  text-align: center;
+}
+
+.finalMatchBlock {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+}
+
+.finalVs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40px;
+  flex-shrink: 0;
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1;
+  color: #9ca3af;
+}
+
+.avatarWrapXlarge {
+  margin-top: 6px;
+}
+
+
+.avatarNameXlarge {
+  font-size: 12px;
+  max-width: 100px;
+  margin-top: 6px;
+}
+
+.avatarPlaceholderXlarge {
+  width: 96px;
+  height: 96px;
+  margin-top: 6px;
+  border-radius: 9999px;
+  border: 2px dashed #d1d5db;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  flex-shrink: 0;
+}
+
+.finalChampionSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.championHeading {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  font-stretch: semi-expanded;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b7280;
+  text-align: center;
+}
+
+.championPortrait {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+}
+
+.championCircle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffd54f, #ff2056);
+  box-shadow: 0 8px 24px rgba(255, 32, 86, 0.25);
+}
+
+.championPortrait > .championCircle {
+  margin-top: 12px;
+}
+
+.championCircleEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: 2px dashed #d1d5db;
+  box-shadow: none;
+}
+
+.championFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 32px;
+  font-weight: 800;
+}
+
+.championPlaceholderMark {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+  color: #9ca3af;
+}
+
+.championName {
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 18px;
+  color: var(--ng-ink);
+  text-align: center;
+  max-width: 200px;
+}
+
+.finalCard .playBtn,
+.finalCard .playBtnSecondary {
+  max-width: 280px;
+}
+
+/* Kenny grand prize (Figma 6793:1057) */
+.kennyPrizeBanner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #ffdf20;
+  box-sizing: border-box;
+}
+
+.kennyPrizeHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 24px;
+  background: #016630;
+  border-radius: 16px 16px 0 0;
+  box-sizing: border-box;
+}
+
+.kennyPrizeHeaderText {
+  margin: 0;
+  flex: 1;
+  font-size: 16px;
+  font-weight: 700;
+  font-stretch: extra-expanded;
+  line-height: 24px;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.kennyPrizeBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  padding: 12px 24px 16px;
+  box-sizing: border-box;
+}
+
+.kennyPrizeSubtitle {
+  margin: 0;
+  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  font-stretch: semi-expanded;
+  line-height: 16px;
+  letter-spacing: 0.11px;
+  text-align: center;
+  text-transform: uppercase;
+  color: #ff2056;
+}
+
+.kennyPrizeAmount {
+  display: block;
+  width: 179px;
+  height: auto;
+  max-width: 100%;
+}
+
+.roundColumn {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  gap: 16px;
+  min-width: 148px;
+  flex-shrink: 0;
+}
+
+.roundLabel {
+  margin: 0 0 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  text-align: center;
+}
+
+.matchCard {
+  --avatar-notch-bg: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px;
+  border-radius: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.matchCardPlayed {
+  opacity: 0.72;
+}
+
+.matchCardPreview {
+  --avatar-notch-bg: #ffffff;
+  border-style: dashed;
+  background: #fff;
+}
+
+.matchCardPreview .avatarPlaceholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+}
+
+.placeholderMark {
+  font-size: 16px;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.matchPlayers {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  justify-content: center;
+}
+
+.matchVs {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1;
+  color: #9ca3af;
+}
+
+.bracketAvatar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+
+.avatarCircle {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: linear-gradient(145deg, #ffb347, #ff2056);
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatarFallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.avatarCircle.avatarCircleLarge {
+  width: 80px;
+  height: 80px;
+}
+
+.avatarCircle.avatarCircleXlarge {
+  width: 96px;
+  height: 96px;
+}
+
+.avatarFallback.avatarFallbackLarge {
+  font-size: 22px;
+}
+
+.avatarFallback.avatarFallbackXlarge {
+  font-size: 26px;
+}
+
+.avatarName {
+  font-size: 9px;
+  line-height: 11px;
+  font-weight: 500;
+  color: var(--ng-ink);
+  max-width: 56px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.avatarPlaceholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  border: 2px dashed #d1d5db;
+  flex-shrink: 0;
+}
+
+.matchScore {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ng-ink);
+}
+
+.playBtn {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--ng-ink);
+  color: #fff;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.playBtn:active {
+  transform: scale(0.98);
+}
+
+.playBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.playBtnSecondary {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  border-radius: 10px;
+  background: #e5e7eb;
+  color: var(--ng-ink);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+  box-sizing: border-box;
+  display: block;
+}
