@@ -1,55 +1,25 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { apiFetch } from "@/lib/api/client";
 import {
   finishRuleToDoubleOut,
+  UNLIMITED_ROUNDS,
   type ScoringRule,
 } from "@/lib/darts/rules";
+import { type ChannelMember } from "@/lib/channel/members";
 import {
   buildPlayerMetas,
   createAndSaveLocalGame,
 } from "@/lib/game/local/create";
 import { useTelegram } from "@/components/TelegramProvider";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import { PlayerAvatar } from "./PlayerAvatar";
+import { AppBackButton } from "@/components/AppBackButton";
+import { PlayerRosterSection } from "./PlayerRosterSection";
 import { SegmentedControl } from "./SegmentedControl";
 import styles from "./newGame.module.css";
 
 const MAX_PLAYERS = 6;
-
-type MemberUser = {
-  first_name: string;
-  username: string | null;
-  photo_url: string | null;
-};
-
-export type ChannelMember = {
-  user_id: number;
-  users: MemberUser | MemberUser[] | null;
-};
-
-function resolveUser(member: ChannelMember): MemberUser | null {
-  const u = member.users;
-  if (!u) return null;
-  return Array.isArray(u) ? (u[0] ?? null) : u;
-}
-
-function displayName(user: MemberUser | null, userId: number): string {
-  if (!user) return String(userId);
-  return user.username ?? user.first_name ?? String(userId);
-}
-
-function photoFor(
-  userId: number,
-  user: MemberUser | null,
-  session: { id: number; photo_url?: string } | undefined
-): string | null {
-  if (userId === session?.id && session.photo_url) return session.photo_url;
-  return user?.photo_url ?? null;
-}
 
 export function NewGameScreen() {
   const router = useRouter();
@@ -69,8 +39,6 @@ export function NewGameScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reptileMsg, setReptileMsg] = useState(false);
-
-  const maxRounds = mode === "301" ? 15 : 20;
 
   useEffect(() => {
     if (modeParam === "301" || modeParam === "501") setMode(modeParam);
@@ -112,53 +80,13 @@ export function NewGameScreen() {
     ];
   }, [members, session]);
 
-  const selectedRoster = useMemo(() => {
-    const ids = selected;
-    return ids.map((userId) => {
-      const member = members.find((m) => m.user_id === userId);
-      const user = member ? resolveUser(member) : null;
-      if (userId === session?.user.id && session) {
-        return {
-          userId,
-          name: displayName(
-            {
-              first_name: session.user.first_name,
-              username: session.user.username ?? null,
-              photo_url: session.user.photo_url ?? user?.photo_url ?? null,
-            },
-            userId
-          ),
-          photoUrl: photoFor(userId, user, session.user),
-        };
-      }
-      return {
-        userId,
-        name: displayName(user, userId),
-        photoUrl: photoFor(userId, user, session?.user),
-      };
-    });
-  }, [selected, members, session]);
-
-  const togglePlayer = useCallback((id: number) => {
-    setReptileMsg(false);
-    setError(null);
-
-    if (selected.includes(id)) {
-      setSelected((prev) => prev.filter((x) => x !== id));
-      return;
-    }
-
-    if (selected.length >= MAX_PLAYERS) {
-      setReptileMsg(true);
-      return;
-    }
-
-    setSelected((prev) => [...prev, id]);
-  }, [selected]);
-
   const start = async () => {
     if (selected.length < 1) {
       setError("Выберите хотя бы одного игрока");
+      return;
+    }
+    if (!channelId) {
+      setError("Канал не найден. Откройте приложение из группы.");
       return;
     }
     setLoading(true);
@@ -171,7 +99,7 @@ export function NewGameScreen() {
         players: buildPlayerMetas(selected, channelPickerList),
         createdBy: session?.user.id ?? 1,
         settings: {
-          maxRounds,
+          maxRounds: UNLIMITED_ROUNDS,
           legsToWin: 1,
           doubleOut: finishRuleToDoubleOut(finishRule),
           startRule,
@@ -189,17 +117,10 @@ export function NewGameScreen() {
     <div className={styles.screen} data-new-game-screen>
       <div className={styles.scroll}>
         <section className={styles.modeBlock} aria-label="Режим игры">
-          <div className={styles.roundsRow}>
-            <Image
-              src="/game-new/rounds-icon.svg"
-              alt=""
-              width={50}
-              height={12}
-              className={styles.roundsIcon}
-            />
-            <span className={styles.roundsLabel}>
-              {maxRounds} {maxRounds === 15 ? "раундов" : "раундов"}
-            </span>
+          <div className={styles.pageNav}>
+            <Suspense fallback={null}>
+              <AppBackButton tone="light" />
+            </Suspense>
           </div>
           <h1 className={styles.modeTitle}>{mode}</h1>
         </section>
@@ -234,53 +155,23 @@ export function NewGameScreen() {
           </p>
         )}
 
-        <section className={styles.playersCard} aria-label="Кто играет">
-          <h2 className={styles.sectionTitle}>Кто играет?</h2>
-          <div className={styles.avatarGrid}>
-            {selectedRoster.length === 0 ? (
-              <p className={styles.emptyHint}>Выберите игроков ниже</p>
-            ) : (
-              selectedRoster.map((p) => (
-                <PlayerAvatar
-                  key={p.userId}
-                  name={p.name}
-                  photoUrl={p.photoUrl}
-                  size="play"
-                  onClick={() => togglePlayer(p.userId)}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className={styles.channelSection} aria-label="Участники канала">
-          <h2 className={styles.channelTitle}>Участники канала</h2>
-          {membersLoading ? (
-            <LoadingSpinner className={styles.channelLoading} label="" />
-          ) : channelPickerList.length === 0 ? (
-            <p className={styles.emptyHint}>
-              Нет игроков в реестре. Участники должны один раз открыть апп из
-              канала.
-            </p>
-          ) : (
-            <div className={styles.avatarGridChannel}>
-              {channelPickerList.map((m) => {
-                const user = resolveUser(m);
-                const name = displayName(user, m.user_id);
-                const isSelected = selected.includes(m.user_id);
-                return (
-                  <PlayerAvatar
-                    key={m.user_id}
-                    name={name}
-                    photoUrl={photoFor(m.user_id, user, session?.user)}
-                    selected={isSelected}
-                    onClick={() => togglePlayer(m.user_id)}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
+        {channelId ? (
+          <PlayerRosterSection
+            channelId={channelId}
+            members={members}
+            membersLoading={membersLoading}
+            selected={selected}
+            sessionUser={session?.user}
+            maxSelected={MAX_PLAYERS}
+            onSelectedChange={setSelected}
+            onMembersChange={setMembers}
+            onMaxReached={() => setReptileMsg(true)}
+            selectedTitle="Кто играет?"
+            rosterTitle="Игроки"
+          />
+        ) : (
+          <p className={styles.emptyHint}>Загрузка клуба…</p>
+        )}
       </div>
 
       <div className={styles.startBar}>

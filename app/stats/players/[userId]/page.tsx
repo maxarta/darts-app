@@ -93,8 +93,7 @@ function PlayerDetailContent() {
     ? formatStatsPlayerSummary(
         stats.gamesPlayed,
         stats.avgPpr,
-        stats.wins,
-        stats.avgWinRound
+        stats.wins
       )
     : undefined;
 

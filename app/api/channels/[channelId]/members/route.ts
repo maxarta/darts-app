@@ -1,6 +1,5 @@
-import { authenticateRequest, jsonError } from "@/lib/api/auth";
+import { authenticateRequest, isWebSession, jsonError } from "@/lib/api/auth";
 import { getChannelMembers } from "@/lib/db/channels";
-import { ensureDevGuestsInChannel, isDevAuthEnabled } from "@/lib/dev/guest-players";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
   resolveStoredPhotoUrl,
@@ -26,34 +25,26 @@ export async function GET(
 
   if (!member) return jsonError("Not a channel member", 403);
 
-  if (isDevAuthEnabled() && auth.ctx.initData === "dev") {
-    const { data: channel } = await db
-      .from("channels")
-      .select("telegram_chat_id")
-      .eq("id", channelId)
-      .single();
-    if (channel?.telegram_chat_id) {
-      await ensureDevGuestsInChannel(channelId, channel.telegram_chat_id);
-    }
-  }
-
   const members = await getChannelMembers(channelId);
 
-  const toSync = members.flatMap((m) => {
-    const u = Array.isArray(m.users) ? m.users[0] : m.users;
-    if (!u) return [];
-    return [
-      {
-        id: m.user_id as number,
-        photo_url: u.photo_url ?? undefined,
-        existingPhotoUrl: u.photo_url ?? null,
-      },
-    ];
-  });
+  // Skip Telegram photo sync for local web club — manual photos are stored as data URLs
+  if (!isWebSession(auth.ctx.initData)) {
+    const toSync = members.flatMap((m) => {
+      const u = Array.isArray(m.users) ? m.users[0] : m.users;
+      if (!u) return [];
+      return [
+        {
+          id: m.user_id as number,
+          photo_url: u.photo_url ?? undefined,
+          existingPhotoUrl: u.photo_url ?? null,
+        },
+      ];
+    });
 
-  void syncUserProfilePhotos(toSync).catch((e) =>
-    console.warn("[channels/members] sync photos", e)
-  );
+    void syncUserProfilePhotos(toSync).catch((e) =>
+      console.warn("[channels/members] sync photos", e)
+    );
+  }
 
   const membersWithPhotos = members.map((m) => {
     const u = Array.isArray(m.users) ? m.users[0] : m.users;

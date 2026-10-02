@@ -1,4 +1,9 @@
-import { authenticateRequest, jsonError } from "@/lib/api/auth";
+import {
+  authenticateRequest,
+  isWebSession,
+  jsonError,
+  WEB_CLUB_CHAT_ID,
+} from "@/lib/api/auth";
 import { getUserPhotoUrl, upsertUser } from "@/lib/db/users";
 import { pickPhotoUrlToStore } from "@/lib/telegram/user-photo";
 import {
@@ -7,7 +12,6 @@ import {
   registerChannelMember,
   type ChannelMemberRole,
 } from "@/lib/db/channels";
-import { ensureDevGuestsInChannel } from "@/lib/dev/guest-players";
 import { parseStartParam } from "@/lib/telegram/init-data";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
@@ -43,25 +47,21 @@ export async function POST(req: Request) {
 
     let channel = null;
     let isChannelAdmin = false;
-    const chatId =
-      channelChatId ??
-      (auth.ctx.initData === "dev" ? -1000000000001 : undefined);
+    const web = isWebSession(auth.ctx.initData);
+    const chatId = channelChatId ?? (web ? WEB_CLUB_CHAT_ID : undefined);
 
     if (chatId) {
       channel = await ensureChannel(
         chatId,
-        body.channelTitle ??
-          (auth.ctx.initData === "dev" ? "Dev Channel" : undefined)
+        body.channelTitle ?? (web ? "Клуб" : undefined)
       );
       const role: ChannelMemberRole = await registerChannelMember(
         channel.id,
         chatId,
-        auth.ctx.user.id
+        auth.ctx.user.id,
+        web ? "creator" : undefined
       );
       isChannelAdmin = ADMIN_ROLES.has(role);
-      if (auth.ctx.initData === "dev") {
-        await ensureDevGuestsInChannel(channel.id, chatId);
-      }
     }
 
     return Response.json({
@@ -74,10 +74,7 @@ export async function POST(req: Request) {
     const message = e instanceof Error ? e.message : "Server error";
 
     if (message === "NOT_CHANNEL_MEMBER") {
-      return jsonError(
-        "Откройте приложение из группы, где вы участник, через кнопку «Играть» после /start",
-        403
-      );
+      return jsonError("Нет доступа к этому клубу", 403);
     }
     if (
       message.includes("Invalid URL") ||

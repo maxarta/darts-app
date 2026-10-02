@@ -16,9 +16,10 @@ describe("telegram user photo", () => {
     ).toBe("https://t.me/i/userpic/320/abc.jpg");
   });
 
-  it("falls back to proxy when photo is missing", () => {
-    expect(resolveStoredPhotoUrl(99, null)).toBe("/api/telegram/avatar/99");
-    expect(resolveStoredPhotoUrl(99, "")).toBe("/api/telegram/avatar/99");
+  it("returns null when photo is missing (no Telegram proxy fallback)", () => {
+    expect(resolveStoredPhotoUrl(99, null)).toBeNull();
+    expect(resolveStoredPhotoUrl(99, "")).toBeNull();
+    expect(resolveStoredPhotoUrl(99, "/api/telegram/avatar/99")).toBeNull();
   });
 
   it("keeps existing t.me url when initData has no photo", () => {

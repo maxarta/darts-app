@@ -48,17 +48,7 @@ export function HomeScreen({
   };
 
   const openAuthor = () => {
-    void import("@twa-dev/sdk")
-      .then(({ default: WebApp }) => {
-        if (AUTHOR_URL.startsWith("https://t.me/")) {
-          WebApp.openTelegramLink(AUTHOR_URL);
-        } else {
-          WebApp.openLink(AUTHOR_URL);
-        }
-      })
-      .catch(() => {
-        window.open(AUTHOR_URL, "_blank", "noopener,noreferrer");
-      });
+    window.open(AUTHOR_URL, "_blank", "noopener,noreferrer");
   };
 
   useEffect(() => {
@@ -90,7 +80,7 @@ export function HomeScreen({
           <div className={styles.statusBlock}>
             {loading && (
               <LoadingSpinner
-                label="Загрузка канала…"
+                label="Загрузка…"
                 className={styles.statusSpinner}
               />
             )}
@@ -111,8 +101,7 @@ export function HomeScreen({
             )}
             {!loading && !channelId && !error && (
               <p className={styles.status}>
-                Откройте мини-приложение из канала (кнопка меню бота), чтобы
-                попасть в реестр игроков.
+                Не удалось открыть клуб. Нажмите «Повторить».
               </p>
             )}
           </div>

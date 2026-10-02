@@ -1,3 +1,4 @@
+import { WEB_CLUB_CHAT_ID } from "@/lib/api/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { getTelegramBot } from "@/lib/telegram/bot";
 
@@ -72,8 +73,9 @@ export async function registerChannelMember(
   role?: ChannelMemberRole
 ) {
   const skipVerify =
-    process.env.NODE_ENV === "development" &&
-    process.env.ALLOW_DEV_AUTH === "true";
+    telegramChatId === WEB_CLUB_CHAT_ID ||
+    (process.env.NODE_ENV === "development" &&
+      process.env.ALLOW_DEV_AUTH === "true");
 
   let resolvedRole = role;
   if (!skipVerify) {

@@ -67,8 +67,7 @@ function PlayersContent() {
               meta={formatStatsLeaderboardMeta(
                 p.gamesPlayed,
                 p.wins,
-                p.legsWon,
-                p.avgWinRound
+                p.legsWon
               )}
             />
           ))}

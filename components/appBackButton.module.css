@@ -1,0 +1,33 @@
+.backArrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  margin: 0;
+  margin-left: -8px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.backArrow:active {
+  opacity: 0.55;
+}
+
+.tone_dark {
+  color: #030712;
+}
+
+.tone_light {
+  color: #ffffff;
+}
+
+.tone_auto {
+  color: inherit;
+}

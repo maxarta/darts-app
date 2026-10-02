@@ -63,8 +63,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    // Optional Telegram chrome when opened inside Mini App
     void import("@twa-dev/sdk")
       .then(({ default: WebApp }) => {
+        if (!WebApp.initData) return;
         WebApp.ready();
         WebApp.expand();
         document.documentElement.dataset.twa = "1";
@@ -136,9 +138,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
             "База на сервере не настроена: проверьте Supabase в Vercel и выполните SQL из supabase/migrations/001_initial.sql"
           );
         } else if (msg.includes("Invalid init data")) {
-          setError(
-            "BOT_TOKEN на Vercel не совпадает с ботом, из которого открыто приложение"
-          );
+          setError("Ошибка авторизации");
         } else {
           setError(msg);
         }

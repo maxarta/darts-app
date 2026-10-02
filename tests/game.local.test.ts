@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   createLocalGameRecord,
   localGameEndVisit,
+  localGameRemovePlayer,
   localGameThrow,
   localGameUndo,
 } from "@/lib/game/local/actions";
@@ -107,5 +108,55 @@ describe("local game replay", () => {
     expect(replayed.players[0].remaining_score).toBe(
       record.snapshot.players[0].remaining_score
     );
+  });
+});
+
+describe("localGameRemovePlayer", () => {
+  it("removes a waiting player and keeps turn", () => {
+    let record = createLocalGameRecord({ id: "g-rm1", meta });
+    record = localGameThrow(record, { segment: 20, multiplier: 1 })!;
+    record = localGameRemovePlayer(record, 2)!;
+
+    expect(record.snapshot.players).toHaveLength(1);
+    expect(record.snapshot.players[0].user_id).toBe(1);
+    expect(record.snapshot.game.current_player_index).toBe(0);
+    expect(record.snapshot.activeVisitThrows).toHaveLength(1);
+    expect(record.meta.playerIds).toEqual([1]);
+    expect(record.events).toHaveLength(0);
+  });
+
+  it("removes the active player and clears the visit", () => {
+    let record = createLocalGameRecord({
+      id: "g-rm2",
+      meta: {
+        ...meta,
+        playerIds: [1, 2, 3],
+        players: [
+          { userId: 1, firstName: "A", username: null },
+          { userId: 2, firstName: "B", username: null },
+          { userId: 3, firstName: "C", username: null },
+        ],
+      },
+    });
+    record = localGameThrow(record, { segment: 20, multiplier: 3 })!;
+    record = localGameRemovePlayer(record, 1)!;
+
+    expect(record.snapshot.players.map((p) => p.user_id)).toEqual([2, 3]);
+    expect(record.snapshot.game.current_player_index).toBe(0);
+    expect(record.snapshot.players[0].user_id).toBe(2);
+    expect(record.snapshot.activeVisitThrows).toHaveLength(0);
+    expect(record.snapshot.players[0].awaiting_visit_end).toBe(false);
+  });
+
+  it("refuses to remove the last player", () => {
+    const record = createLocalGameRecord({
+      id: "g-rm3",
+      meta: {
+        ...meta,
+        playerIds: [1],
+        players: [{ userId: 1, firstName: "A", username: null }],
+      },
+    });
+    expect(localGameRemovePlayer(record, 1)).toBeNull();
   });
 });

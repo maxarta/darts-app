@@ -8,11 +8,13 @@ export function telegramAvatarPath(telegramId: number): string {
 }
 
 export function resolveStoredPhotoUrl(
-  telegramId: number,
+  _userId: number,
   photoUrl: string | null | undefined
-): string {
-  if (photoUrl && photoUrl.length > 0) return photoUrl;
-  return telegramAvatarPath(telegramId);
+): string | null {
+  if (!photoUrl || photoUrl.length === 0) return null;
+  // Legacy Telegram proxy paths 404 without bot photos — treat as no photo.
+  if (photoUrl.startsWith("/api/telegram/avatar/")) return null;
+  return photoUrl;
 }
 
 function botFileUrl(filePath: string): string {

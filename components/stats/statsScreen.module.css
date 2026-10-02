@@ -39,9 +39,18 @@
   flex-shrink: 0;
 }
 
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 36px;
+}
+
 .title {
   margin: 0;
-  width: 100%;
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 24px;
   font-weight: 800;
   font-stretch: extra-expanded;

@@ -15,6 +15,7 @@ import type { GameSnapshot } from "@/lib/game/optimistic";
 import {
   localGameCancel,
   localGameEndVisit,
+  localGameRemovePlayer,
   localGameRestart,
   localGameThrow,
   localGameUndo,
@@ -25,7 +26,6 @@ import type { LocalGameRecord } from "@/lib/game/local/types";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
-import { TelegramGameMenu } from "@/components/TelegramGameMenu";
 import { GameHeader } from "./GameHeader";
 import {
   GameAchievements,
@@ -34,6 +34,7 @@ import {
 import { preloadAchievementImages } from "@/lib/game/achievements/images";
 import { preloadVictoryVampireImage } from "@/lib/game/victory-images";
 import { GameVictoryConfirmOverlay } from "./GameVictoryConfirmOverlay";
+import { GameConfirmOverlay } from "./GameConfirmOverlay";
 import { GameVictoryOverlay } from "./GameVictoryOverlay";
 import { PlayerScoreboard, type PlayerDisplay } from "./PlayerScoreboard";
 import { ScoringKeypad } from "./ScoringKeypad";
@@ -52,6 +53,10 @@ export function GameScreen({ gameId }: { gameId: string }) {
     null
   );
   const [victoryConfirmDismissed, setVictoryConfirmDismissed] = useState(false);
+  const [pendingRemove, setPendingRemove] = useState<{
+    userId: number;
+    name: string;
+  } | null>(null);
 
   const persist = useCallback(async (next: LocalGameRecord) => {
     recordRef.current = next;
@@ -253,6 +258,27 @@ export function GameScreen({ gameId }: { gameId: string }) {
     router.push("/");
   };
 
+  const onRemovePlayer = (userId: number) => {
+    const prev = recordRef.current;
+    if (!prev) return;
+    const player = prev.meta.players.find((p) => p.userId === userId);
+    setPendingRemove({
+      userId,
+      name: player?.firstName ?? "игрока",
+    });
+  };
+
+  const confirmRemovePlayer = async () => {
+    const pending = pendingRemove;
+    setPendingRemove(null);
+    if (!pending) return;
+    const prev = recordRef.current;
+    if (!prev) return;
+    const next = localGameRemovePlayer(prev, pending.userId);
+    if (!next) return;
+    await persist(next);
+  };
+
   const returnToTournament = async (
     prev: LocalGameRecord,
     options?: { celebrateFinal?: boolean }
@@ -419,17 +445,10 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
   return (
     <div className={styles.gameScreen} data-game-screen>
-      <TelegramGameMenu
-        onRestart={onRestart}
-        onLeave={onLeave}
-        disabled={finished}
-      />
-
       <div className={styles.gameTopStrip}>
         <GameHeader
           mode={game.mode}
           round={game.current_round}
-          maxRounds={game.settings.maxRounds}
           leg={game.current_leg}
           legsToWin={scoringSettings.legsToWin}
           showLegCounter={!singleMatch}
@@ -445,6 +464,20 @@ export function GameScreen({ gameId }: { gameId: string }) {
                 }
               : null
           }
+          removablePlayers={
+            !finished &&
+            !record.tournamentContext &&
+            sorted.length > 1
+              ? sorted.map((p) => ({
+                  userId: p.user_id,
+                  name:
+                    p.users?.first_name ??
+                    p.users?.username ??
+                    `Игрок ${p.user_id}`,
+                }))
+              : []
+          }
+          onRemovePlayer={onRemovePlayer}
           onRestart={onRestart}
           onLeave={onLeave}
           disabled={finished}
@@ -494,6 +527,15 @@ export function GameScreen({ gameId }: { gameId: string }) {
         <GameAchievements
           active={activeAchievements}
           onRemove={removeAchievement}
+        />
+      ) : null}
+
+      {pendingRemove ? (
+        <GameConfirmOverlay
+          title={`Убрать ${pendingRemove.name} из игры?`}
+          confirmLabel="Убрать"
+          onCancel={() => setPendingRemove(null)}
+          onConfirm={() => void confirmRemovePlayer()}
         />
       ) : null}
 

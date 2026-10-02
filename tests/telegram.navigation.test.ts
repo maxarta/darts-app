@@ -14,6 +14,9 @@ describe("resolveTelegramBackPath", () => {
     expect(
       resolveTelegramBackPath("/stats/players", params({ channelId: "abc" }))
     ).toBe("/?channelId=abc");
+    expect(
+      resolveTelegramBackPath("/stats/current", params({ channelId: "abc" }))
+    ).toBe("/?channelId=abc");
   });
 
   it("returns stats or players list from player profile", () => {

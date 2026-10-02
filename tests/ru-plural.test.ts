@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   formatStatsLeaderboardMeta,
   formatStatsPlayerSummary,
-  formatVictoryRoundMeta,
   ruGamesCount,
   ruLegsCount,
   ruWinsCount,
@@ -39,19 +38,6 @@ describe("ru plural stats labels", () => {
   it("formats player summary", () => {
     expect(formatStatsPlayerSummary(2, 42.5, 1)).toBe(
       "2 игры · PPR 42.5 · 1 победа"
-    );
-    expect(formatStatsPlayerSummary(2, 42.5, 1, 12)).toBe(
-      "2 игры · PPR 42.5 · 1 победа · ср. раунд 12"
-    );
-  });
-
-  it("formats victory round on game card", () => {
-    expect(formatVictoryRoundMeta(7)).toBe("победа · раунд 7");
-  });
-
-  it("formats leaderboard meta with avg win round", () => {
-    expect(formatStatsLeaderboardMeta(2, 1, 3, 10)).toBe(
-      "2 игры · 1 победа · 3 лега · ср. раунд 10"
     );
   });
 });

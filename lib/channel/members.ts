@@ -19,14 +19,15 @@ export function resolveUser(member: ChannelMember): MemberUser | null {
 
 export function displayName(user: MemberUser | null, userId: number): string {
   if (!user) return String(userId);
-  return user.username ?? user.first_name ?? String(userId);
+  // Prefer first_name so manual rename always wins over Telegram username
+  return user.first_name || user.username || String(userId);
 }
 
 export function photoFor(
   userId: number,
   user: MemberUser | null,
   session: { id: number; photo_url?: string } | undefined
-): string {
+): string | null {
   if (userId === session?.id && session.photo_url) {
     return resolveStoredPhotoUrl(userId, session.photo_url);
   }

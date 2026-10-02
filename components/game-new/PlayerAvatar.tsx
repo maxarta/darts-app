@@ -37,15 +37,25 @@ export function PlayerAvatar({
     <>
       <div className={`${styles.avatarCircle} ${sizeClass}`}>
         {showImage ? (
-          <Image
-            src={photoUrl!}
-            alt=""
-            width={64}
-            height={64}
-            className={styles.avatarImg}
-            unoptimized
-            onError={() => setImgFailed(true)}
-          />
+          photoUrl!.startsWith("data:") ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={photoUrl!}
+              alt=""
+              className={styles.avatarImg}
+              onError={() => setImgFailed(true)}
+            />
+          ) : (
+            <Image
+              src={photoUrl!}
+              alt=""
+              width={64}
+              height={64}
+              className={styles.avatarImg}
+              unoptimized
+              onError={() => setImgFailed(true)}
+            />
+          )
         ) : (
           <span className={styles.avatarFallback}>{initials(name)}</span>
         )}

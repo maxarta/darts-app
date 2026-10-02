@@ -17,6 +17,7 @@ export function resolveTelegramBackPath(
   if (pathname === "/stats") return homePath(channelId);
   if (pathname === "/stats/players") return homePath(channelId);
   if (pathname === "/stats/games") return homePath(channelId);
+  if (pathname === "/stats/current") return homePath(channelId);
 
   if (pathname.startsWith("/stats/players/")) {
     if (searchParams.get("from") === "stats") {

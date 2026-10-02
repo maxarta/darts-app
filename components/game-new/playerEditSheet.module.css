@@ -1,0 +1,160 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 0;
+}
+
+.sheet {
+  width: min(100%, 480px);
+  max-height: min(88vh, 640px);
+  overflow: auto;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 8px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  animation: sheetUp 0.22s ease;
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(24px);
+    opacity: 0.6;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  margin: 4px auto 12px;
+}
+
+.title {
+  margin: 0 0 16px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 24px;
+  color: #111827;
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.photoBtn {
+  width: 88px;
+  height: 88px;
+  border-radius: 9999px;
+  border: 2px dashed #d1d5db;
+  background: #f9fafb;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.photoImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.photoPlaceholder {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.fileInput {
+  display: none;
+}
+
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 16px;
+  font-family: inherit;
+  color: #111827;
+  background: #fff;
+}
+
+.input:focus {
+  outline: 2px solid #111827;
+  outline-offset: 1px;
+}
+
+.error {
+  margin: 0;
+  width: 100%;
+  font-size: 13px;
+  color: #b91c1c;
+  text-align: center;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  margin-top: 4px;
+}
+
+.primary,
+.secondary,
+.danger {
+  width: 100%;
+  border: none;
+  border-radius: 9999px;
+  padding: 14px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  background: #111827;
+  color: #fff;
+}
+
+.primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.secondary {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.danger {
+  background: #fef2f2;
+  color: #b91c1c;
+}

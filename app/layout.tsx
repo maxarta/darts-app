@@ -1,16 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
-import Script from "next/script";
-import { Suspense } from "react";
-import { SyncOnOnline } from "@/components/game/SyncOnOnline";
-import { TelegramBackButton } from "@/components/TelegramBackButton";
-import { TelegramChrome } from "@/components/TelegramChrome";
-import { TelegramProvider } from "@/components/TelegramProvider";
-import "./globals.css";
 import { Geist } from "next/font/google";
+import { SyncOnOnline } from "@/components/game/SyncOnOnline";
+import { TelegramProvider } from "@/components/TelegramProvider";
 import { cn } from "@/lib/utils";
+import "./globals.css";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 const martianGrotesk = localFont({
   src: "./fonts/MartianGrotesk-VF.woff2",
@@ -22,7 +18,7 @@ const martianGrotesk = localFont({
 
 export const metadata: Metadata = {
   title: "Darts Score",
-  description: "Подсчёт очков 301/501 для Telegram канала",
+  description: "Подсчёт очков 301/501, турниры и статистика",
 };
 
 export const viewport: Viewport = {
@@ -48,21 +44,9 @@ export default function RootLayout({
       className={cn("font-sans", geist.variable)}
       suppressHydrationWarning
     >
-      <head>
-        <Script
-          src="https://telegram.org/js/telegram-web-app.js"
-          strategy="beforeInteractive"
-        />
-      </head>
       <body className={martianGrotesk.className}>
         <TelegramProvider>
           <SyncOnOnline />
-          <Suspense fallback={null}>
-            <TelegramChrome />
-          </Suspense>
-          <Suspense fallback={null}>
-            <TelegramBackButton />
-          </Suspense>
           <div className="appShell">{children}</div>
         </TelegramProvider>
       </body>

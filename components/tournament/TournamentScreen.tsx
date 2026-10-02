@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  Suspense,
   type CSSProperties,
 } from "react";
 import { apiFetch } from "@/lib/api/client";
@@ -28,6 +29,7 @@ import {
   createAndSaveLocalGame,
 } from "@/lib/game/local/create";
 import { useTelegram } from "@/components/TelegramProvider";
+import { AppBackButton } from "@/components/AppBackButton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { roundRobinWinnerId } from "@/lib/tournament/round-robin";
 import { stableRoundRobinOrder } from "@/lib/tournament/stable-match-order";
@@ -631,6 +633,11 @@ export function TournamentScreen({ tournamentId }: Props) {
     <div {...tournamentScreenShellProps(isKenny)}>
       <div ref={scrollContainerRef} className={styles.scroll}>
         <header className={styles.header}>
+          <div className={styles.pageNav}>
+            <Suspense fallback={null}>
+              <AppBackButton tone="light" />
+            </Suspense>
+          </div>
           <div className={styles.titleBlock}>
             {isKenny ? (
               <Image

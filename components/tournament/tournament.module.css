@@ -52,26 +52,17 @@
 
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   gap: 12px;
+  position: relative;
 }
 
-.backBtn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 12px;
-  border-radius: var(--ng-pill-radius);
-  background: var(--ng-ink);
-  color: #fff;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 20px;
-  border: none;
-  cursor: pointer;
-  font-family: inherit;
-  text-decoration: none;
+.pageNav {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 2;
 }
 
 .titleBlock {

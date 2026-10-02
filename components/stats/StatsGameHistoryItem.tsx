@@ -3,7 +3,7 @@ import type { CSSProperties } from "react";
 import { StatsDartboardHeatmap } from "@/components/stats/StatsDartboardHeatmap";
 import { StatsPlayerAvatar } from "@/components/stats/StatsPlayerAvatar";
 import type { ThrowInput } from "@/lib/darts/rules";
-import { formatVictoryRoundMeta, ruLegsCount } from "@/lib/i18n/ru-plural";
+import { ruLegsCount } from "@/lib/i18n/ru-plural";
 import type { StatsGamePlayer } from "@/components/stats/StatsGameLink";
 import styles from "./statsScreen.module.css";
 
@@ -47,9 +47,6 @@ export function StatsGameHistoryItem({
   throws,
 }: StatsGameHistoryItemProps) {
   const overlap = avatarOverlapPx(players.length);
-  const victoryRound = players.find(
-    (p) => p.isWinner && p.victoryRound != null
-  )?.victoryRound;
   const avatarStyle = {
     "--game-card-avatars-width": `${gameCardAvatarsWidthPx()}px`,
     ...(overlap > 0
@@ -111,9 +108,6 @@ export function StatsGameHistoryItem({
             <div className={styles.gameCardMetaRow}>
               <span className={styles.gameCardModeSub}>
                 {mode} • {ruLegsCount(legsPlayed)}
-                {victoryRound != null
-                  ? ` • ${formatVictoryRoundMeta(victoryRound)}`
-                  : null}
               </span>
               <time className={styles.gameCardDate} dateTime={dateIso}>
                 {dateLabel}

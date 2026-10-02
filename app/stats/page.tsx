@@ -79,12 +79,6 @@ function StatsContent() {
             <div className={styles.statValue}>{stats.avgPpr}</div>
             <div className={styles.statLabel}>Средний PPR</div>
           </div>
-          {stats.wins > 0 && stats.avgWinRound != null ? (
-            <div className={styles.statBox}>
-              <div className={styles.statValue}>{stats.avgWinRound}</div>
-              <div className={styles.statLabel}>Ср. раунд победы</div>
-            </div>
-          ) : null}
           </div>
         </>
       )}

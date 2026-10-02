@@ -60,7 +60,6 @@ export function buildArchivePlayers(g: ArchiveGameRow): StatsGamePlayer[] {
       })
     : getFinishedGameWinnerIds(g.game_players ?? [], finished);
   const ordered = sortPlayersWinnerFirst(g.game_players ?? [], finished);
-  const victoryRound = g.current_round ?? null;
 
   return ordered.map((p) => {
     const user = resolveGameUser(p.users);
@@ -69,7 +68,6 @@ export function buildArchivePlayers(g: ArchiveGameRow): StatsGamePlayer[] {
       name: user?.first_name ?? String(p.user_id),
       legsWon: p.legs_won,
       isWinner,
-      victoryRound: isWinner && victoryRound != null ? victoryRound : null,
       photoUrl: resolveStoredPhotoUrl(p.user_id, user?.photo_url),
     };
   });

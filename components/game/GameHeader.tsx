@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { useTelegramEnv } from "@/lib/telegram/use-is-telegram";
 import styles from "./game.module.css";
 
 type TournamentHeader = {
@@ -10,18 +9,23 @@ type TournamentHeader = {
   subtitle: string;
 };
 
+export type RemovablePlayer = {
+  userId: number;
+  name: string;
+};
+
 type Props = {
   mode: "301" | "501";
   round: number;
-  maxRounds: number;
   leg: number;
   legsToWin: number;
   showLegCounter?: boolean;
   tournament?: TournamentHeader | null;
+  removablePlayers?: RemovablePlayer[];
+  onRemovePlayer?: (userId: number) => void;
   onRestart?: () => void;
   onLeave?: () => void;
   disabled?: boolean;
-  /** Броски визита справа в шапке (landscape). */
   visitSlot?: ReactNode;
 };
 
@@ -32,7 +36,7 @@ function HeaderCounter({
 }: {
   prefix: string;
   value: number;
-  max: number;
+  max?: number;
 }) {
   return (
     <span className={styles.headerRound}>
@@ -40,7 +44,9 @@ function HeaderCounter({
         {prefix}
         {value}
       </span>
-      <span className={styles.headerRoundMax}>/{max}</span>
+      {max != null ? (
+        <span className={styles.headerRoundMax}>/{max}</span>
+      ) : null}
     </span>
   );
 }
@@ -48,24 +54,19 @@ function HeaderCounter({
 export function GameHeader({
   mode,
   round,
-  maxRounds,
   leg,
   legsToWin,
   showLegCounter = true,
   tournament,
+  removablePlayers = [],
+  onRemovePlayer,
   onRestart,
   onLeave,
   disabled,
   visitSlot,
 }: Props) {
-  const telegramEnv = useTelegramEnv();
   const [open, setOpen] = useState(false);
-  const [showBrowserMenu, setShowBrowserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setShowBrowserMenu(telegramEnv === "browser");
-  }, [telegramEnv]);
 
   useEffect(() => {
     if (!open) return;
@@ -78,8 +79,13 @@ export function GameHeader({
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
+  const roundCounter = <HeaderCounter prefix="Р" value={round} />;
+  const legCounter = showLegCounter ? (
+    <HeaderCounter prefix="И" value={leg} max={legsToWin} />
+  ) : null;
+
   const meta = tournament ? (
-  <>
+    <>
       <div className={styles.headerTournament}>
         <span className={styles.headerTournamentTitle}>{tournament.name}</span>
         <span className={styles.headerTournamentSubtitle}>
@@ -87,10 +93,8 @@ export function GameHeader({
         </span>
       </div>
       <div className={styles.headerStats}>
-        <HeaderCounter prefix="Р" value={round} max={maxRounds} />
-        {showLegCounter ? (
-          <HeaderCounter prefix="И" value={leg} max={legsToWin} />
-        ) : null}
+        {roundCounter}
+        {legCounter}
       </div>
     </>
   ) : (
@@ -98,59 +102,78 @@ export function GameHeader({
       <span className={styles.headerMode}>{mode}</span>
       <span className={styles.headerDivider} aria-hidden />
       <div className={styles.headerStats}>
-        <HeaderCounter prefix="Р" value={round} max={maxRounds} />
-        {showLegCounter ? (
-          <HeaderCounter prefix="И" value={leg} max={legsToWin} />
-        ) : null}
+        {roundCounter}
+        {legCounter}
       </div>
     </div>
   );
 
+  const canRemove = removablePlayers.length > 0 && onRemovePlayer != null;
+
   return (
     <header className={styles.header}>
+      <div ref={menuRef} className={styles.menuWrap}>
+        <button
+          type="button"
+          className={styles.menuBtnFallback}
+          aria-label="Меню"
+          aria-expanded={open}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
+          ⋯
+        </button>
+        {open && (
+          <div className={styles.menuDropdown} role="menu">
+            <button
+              type="button"
+              className={styles.menuItem}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onRestart?.();
+              }}
+            >
+              Заново
+            </button>
+            {canRemove ? (
+              <>
+                <div className={styles.menuSectionLabel} role="presentation">
+                  Убрать из игры
+                </div>
+                {removablePlayers.map((p) => (
+                  <button
+                    key={p.userId}
+                    type="button"
+                    className={styles.menuItem}
+                    role="menuitem"
+                    onClick={() => {
+                      setOpen(false);
+                      onRemovePlayer(p.userId);
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </>
+            ) : null}
+            <button
+              type="button"
+              className={`${styles.menuItem} ${styles.menuItemDanger}`}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLeave?.();
+              }}
+            >
+              Покинуть игру
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className={styles.headerContent}>{meta}</div>
       {visitSlot}
-
-      {showBrowserMenu ? (
-        <div ref={menuRef} className={styles.menuWrap}>
-          <button
-            type="button"
-            className={styles.menuBtnFallback}
-            aria-label="Меню"
-            aria-expanded={open}
-            disabled={disabled}
-            onClick={() => setOpen((v) => !v)}
-          >
-            ⋯
-          </button>
-          {open && (
-            <div className={styles.menuDropdown} role="menu">
-              <button
-                type="button"
-                className={styles.menuItem}
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onRestart?.();
-                }}
-              >
-                Заново
-              </button>
-              <button
-                type="button"
-                className={`${styles.menuItem} ${styles.menuItemDanger}`}
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onLeave?.();
-                }}
-              >
-                Покинуть игру
-              </button>
-            </div>
-          )}
-        </div>
-      ) : null}
     </header>
   );
 }

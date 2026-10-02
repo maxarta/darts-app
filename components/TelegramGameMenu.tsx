@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { setGameMenuHandler } from "@/lib/telegram/game-menu-bridge";
 import { showTelegramGameMenu } from "@/lib/telegram/game-menu-popup";
+import { useTelegramEnv } from "@/lib/telegram/use-is-telegram";
 
 type Props = {
   onRestart?: () => void;
@@ -11,23 +12,25 @@ type Props = {
 };
 
 /**
- * В игре: нативная кнопка «Назад» (←) открывает меню (см. TelegramBackButton).
- * Закрытие мини-приложения (×) — только у Telegram; включаем подтверждение.
+ * В Telegram: нативная «Назад» открывает popup-меню.
+ * В браузере меню регистрирует GameHeader (⋯ / кнопка «Меню»).
  */
 export function TelegramGameMenu({ onRestart, onLeave, disabled }: Props) {
+  const env = useTelegramEnv();
   const callbacksRef = useRef({ onRestart, onLeave });
   callbacksRef.current = { onRestart, onLeave };
 
   useEffect(() => {
+    if (env !== "telegram") return;
     const open = () => {
       void showTelegramGameMenu(callbacksRef.current);
     };
     setGameMenuHandler(open);
     return () => setGameMenuHandler(null);
-  }, []);
+  }, [env]);
 
   useEffect(() => {
-    if (disabled) return;
+    if (disabled || env !== "telegram") return;
 
     let cancelled = false;
     void import("@twa-dev/sdk")
@@ -45,7 +48,7 @@ export function TelegramGameMenu({ onRestart, onLeave, disabled }: Props) {
         })
         .catch(() => {});
     };
-  }, [disabled]);
+  }, [disabled, env]);
 
   return null;
 }

@@ -1,10 +1,10 @@
 /* Figma baskr — экран подсчёта 6758:1748 */
 
 .gameScreen {
-  /* Высота нативной шапки Telegram (назад / меню) */
+  /* Высота верхней зоны под статус-бар / notch */
   --game-chrome-top: max(
-    var(--tg-content-safe-area-inset-top, 0px),
-    var(--tg-header-fallback-top, 56px)
+    env(safe-area-inset-top, 0px),
+    12px
   );
   --g-bg: #f9fafb;
   --g-ink: #030712;
@@ -50,7 +50,7 @@
   position: relative;
   box-sizing: border-box;
   min-height: 0;
-  padding: max(48px, var(--game-chrome-top, 44px))
+  padding: max(12px, var(--game-chrome-top, 12px))
     max(16px, var(--app-inset-right))
     8px
     max(16px, var(--app-inset-left));
@@ -82,13 +82,14 @@
 }
 
 .header:has(.menuWrap) .headerContent {
-  padding-right: 36px;
+  padding-left: 36px;
+  padding-right: 0;
 }
 
 .menuWrap {
   position: absolute;
   top: 50%;
-  right: max(12px, var(--app-inset-right));
+  left: max(8px, var(--app-inset-left));
   z-index: 2;
   transform: translateY(-50%);
 }
@@ -117,8 +118,10 @@
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
+  right: auto;
   z-index: 50;
   min-width: 180px;
+  max-width: min(220px, calc(100vw - 24px));
   background: var(--g-white);
   border: 1px solid var(--g-border);
   border-radius: 12px;
@@ -142,6 +145,16 @@
 
 .menuItem:active {
   background: var(--g-idle);
+}
+
+.menuSectionLabel {
+  padding: 10px 16px 4px;
+  color: var(--g-muted, #6b7280);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-top: 1px solid var(--g-border);
 }
 
 .menuItemDanger {
@@ -737,11 +750,12 @@
 
   .header:has(.menuWrap) .menuWrap {
     top: 50%;
-    right: max(
-      120px,
-      var(--tg-content-safe-area-inset-right, 0px),
-      env(safe-area-inset-right, 0px)
+    left: max(
+      16px,
+      var(--tg-content-safe-area-inset-left, 0px),
+      env(safe-area-inset-left, 0px)
     );
+    right: auto;
     transform: translateY(-50%);
   }
 

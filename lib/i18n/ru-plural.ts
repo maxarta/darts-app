@@ -53,35 +53,20 @@ export function ruDartsWord(n: number): string {
   return ruWord(n, RU_DARTS);
 }
 
-/** e.g. `победа · раунд 7` */
-export function formatVictoryRoundMeta(round: number): string {
-  return `победа · раунд ${round}`;
-}
-
-/** Leaderboard row meta: games · wins · legs [· avg win round] */
+/** Leaderboard row meta: games · wins · legs */
 export function formatStatsLeaderboardMeta(
   gamesPlayed: number,
   wins: number,
-  legsWon: number,
-  avgWinRound?: number | null
+  legsWon: number
 ): string {
-  const base = `${ruGamesCount(gamesPlayed)} · ${ruWinsCount(wins)} · ${ruLegsCount(legsWon)}`;
-  if (wins > 0 && avgWinRound != null) {
-    return `${base} · ср. раунд ${avgWinRound}`;
-  }
-  return base;
+  return `${ruGamesCount(gamesPlayed)} · ${ruWinsCount(wins)} · ${ruLegsCount(legsWon)}`;
 }
 
-/** Player profile summary: games · PPR · wins [· avg win round] */
+/** Player profile summary: games · PPR · wins */
 export function formatStatsPlayerSummary(
   gamesPlayed: number,
   avgPpr: number,
-  wins: number,
-  avgWinRound?: number | null
+  wins: number
 ): string {
-  const base = `${ruGamesCount(gamesPlayed)} · PPR ${avgPpr} · ${ruWinsCount(wins)}`;
-  if (wins > 0 && avgWinRound != null) {
-    return `${base} · ср. раунд ${avgWinRound}`;
-  }
-  return base;
+  return `${ruGamesCount(gamesPlayed)} · PPR ${avgPpr} · ${ruWinsCount(wins)}`;
 }

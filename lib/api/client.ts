@@ -12,11 +12,13 @@ export function getInitData(): string {
   }
 }
 
-function devHeaders(): Record<string, string> {
-  if (process.env.NEXT_PUBLIC_DEV_MODE === "true") {
-    return { "x-dev-auth": "local" };
+function authHeaders(): Record<string, string> {
+  const initData = getInitData();
+  if (initData) {
+    return { "x-telegram-init-data": initData };
   }
-  return {};
+  // Plain web app — no Telegram Mini App
+  return { "x-web-auth": "local" };
 }
 
 export async function apiFetch<T>(
@@ -27,8 +29,7 @@ export async function apiFetch<T>(
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "x-telegram-init-data": getInitData(),
-      ...devHeaders(),
+      ...authHeaders(),
       ...options.headers,
     },
   });
@@ -72,7 +73,7 @@ export async function apiFetch<T>(
       typeof data.error === "string" && data.error.length > 0
         ? data.error
         : res.status === 500
-          ? "Ошибка сервера. Проверьте Supabase и BOT_TOKEN на Vercel."
+          ? "Ошибка сервера. Проверьте Supabase на Vercel."
           : "Request failed";
     throw new Error(serverMessage);
   }

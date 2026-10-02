@@ -8,8 +8,6 @@ export type StatsGamePlayer = {
   name: string;
   legsWon: number;
   isWinner?: boolean;
-  /** Номер раунда, в котором игрок выиграл матч (только у победителя). */
-  victoryRound?: number | null;
   photoUrl?: string | null;
 };
 

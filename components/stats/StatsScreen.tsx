@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Suspense } from "react";
+import { AppBackButton } from "@/components/AppBackButton";
 import { StatsPlayerAvatar } from "@/components/stats/StatsPlayerAvatar";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import styles from "./statsScreen.module.css";
@@ -26,6 +28,11 @@ export function StatsScreen({
       <header className={styles.header}>
         {profile ? (
           <div className={styles.profileHero}>
+            <div className={styles.titleRow}>
+              <Suspense fallback={null}>
+                <AppBackButton tone="dark" />
+              </Suspense>
+            </div>
             <StatsPlayerAvatar
               name={profile.name}
               photoUrl={profile.photoUrl}
@@ -38,7 +45,12 @@ export function StatsScreen({
           </div>
         ) : (
           <>
-            {title ? <h1 className={styles.title}>{title}</h1> : null}
+            <div className={styles.titleRow}>
+              <Suspense fallback={null}>
+                <AppBackButton tone="dark" />
+              </Suspense>
+              {title ? <h1 className={styles.title}>{title}</h1> : null}
+            </div>
             {summary ? <p className={styles.summary}>{summary}</p> : null}
           </>
         )}

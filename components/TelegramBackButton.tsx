@@ -2,6 +2,7 @@
 
 import { openGameMenuFromTelegramBack } from "@/lib/telegram/game-menu-bridge";
 import { resolveTelegramBackPath } from "@/lib/telegram/navigation";
+import { useTelegramEnv } from "@/lib/telegram/use-is-telegram";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect } from "react";
 
@@ -12,6 +13,7 @@ export function TelegramBackButton() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const target = resolveTelegramBackPath(pathname, searchParams);
+  const env = useTelegramEnv();
 
   const onClick = useCallback(() => {
     if (!target) return;
@@ -27,6 +29,7 @@ export function TelegramBackButton() {
   }, [router, target]);
 
   useEffect(() => {
+    if (env !== "telegram") return;
     let cancelled = false;
 
     void import("@twa-dev/sdk")
@@ -70,7 +73,7 @@ export function TelegramBackButton() {
         })
         .catch(() => {});
     };
-  }, [target, onClick]);
+  }, [target, onClick, env]);
 
   return null;
 }

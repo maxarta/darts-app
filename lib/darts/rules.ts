@@ -11,10 +11,14 @@ export type GameSettings = {
   startingScore: 301 | 501;
   doubleOut: boolean;
   legsToWin: number;
+  /** Kept for schema compatibility; rounds are unlimited in play. */
   maxRounds: number;
   startRule?: ScoringRule;
   finishRule?: ScoringRule;
 };
+
+/** Sentinel stored in settings — rounds never stop by count. */
+export const UNLIMITED_ROUNDS = 9999;
 
 export function defaultSettings(mode: 301 | 501 | "301" | "501"): GameSettings {
   const score = typeof mode === "string" ? (Number(mode) as 301 | 501) : mode;
@@ -22,7 +26,7 @@ export function defaultSettings(mode: 301 | 501 | "301" | "501"): GameSettings {
     startingScore: score,
     doubleOut: true,
     legsToWin: 3,
-    maxRounds: score === 301 ? 15 : 20,
+    maxRounds: UNLIMITED_ROUNDS,
     startRule: "straight",
     finishRule: "double",
   };

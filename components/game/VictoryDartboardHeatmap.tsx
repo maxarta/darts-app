@@ -228,9 +228,9 @@ export function VictoryDartboardHeatmap({
         </g>
 
         <g className={styles.heatmapWires} pointerEvents="none">
-          {RING_STROKES.map((radius) => (
+          {RING_STROKES.map((radius, index) => (
             <circle
-              key={radius}
+              key={`ring-${index}`}
               cx={BOARD_CX}
               cy={BOARD_CY}
               r={radius}

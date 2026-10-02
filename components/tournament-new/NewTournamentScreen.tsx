@@ -1,14 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { apiFetch } from "@/lib/api/client";
-import {
-  type ChannelMember,
-  displayName,
-  photoFor,
-  resolveUser,
-} from "@/lib/channel/members";
+import { type ChannelMember } from "@/lib/channel/members";
 import { generateTournamentName } from "@/lib/tournament/name";
 import {
   KENNY_THEME_COLOR,
@@ -21,9 +16,9 @@ import {
   type TournamentLegsToWin,
 } from "@/lib/tournament/settings";
 import { useTelegram } from "@/components/TelegramProvider";
+import { AppBackButton } from "@/components/AppBackButton";
 import { OptionSegmented } from "@/components/game-new/OptionSegmented";
-import { PlayerAvatar } from "@/components/game-new/PlayerAvatar";
-import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { PlayerRosterSection } from "@/components/game-new/PlayerRosterSection";
 import styles from "@/components/game-new/newGame.module.css";
 
 const PLAYOFF_OPTIONS = [
@@ -79,58 +74,9 @@ export function NewTournamentScreen() {
     }
   }, [session?.user.id]);
 
-  const channelPickerList = useMemo(() => {
-    if (!session?.user.id) return members;
-    if (members.some((m) => m.user_id === session.user.id)) return members;
-    return [
-      {
-        user_id: session.user.id,
-        users: {
-          first_name: session.user.first_name,
-          username: session.user.username ?? null,
-          photo_url: session.user.photo_url ?? null,
-        },
-      },
-      ...members,
-    ];
-  }, [members, session]);
-
-  const selectedRoster = useMemo(() => {
-    return selected.map((userId) => {
-      const member = members.find((m) => m.user_id === userId);
-      const user = member ? resolveUser(member) : null;
-      if (userId === session?.user.id && session) {
-        return {
-          userId,
-          name: displayName(
-            {
-              first_name: session.user.first_name,
-              username: session.user.username ?? null,
-              photo_url: session.user.photo_url ?? user?.photo_url ?? null,
-            },
-            userId
-          ),
-          photoUrl: photoFor(userId, user, session.user),
-        };
-      }
-      return {
-        userId,
-        name: displayName(user, userId),
-        photoUrl: photoFor(userId, user, session?.user),
-      };
-    });
-  }, [selected, members, session]);
-
-  const togglePlayer = useCallback((id: number) => {
-    setError(null);
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }, []);
-
   const create = async () => {
     if (!channelId) {
-      setError("Канал не выбран. Откройте приложение из канала.");
+      setError("Клуб не найден");
       return;
     }
     const participantIds = [...new Set(selected)];
@@ -139,7 +85,9 @@ export function NewTournamentScreen() {
       return;
     }
     if (participantIds.length < playoffSize) {
-      setError(`Для плей-офф топ-${playoffSize} нужно минимум ${playoffSize} игроков`);
+      setError(
+        `Для плей-офф топ-${playoffSize} нужно минимум ${playoffSize} игроков`
+      );
       return;
     }
     setLoading(true);
@@ -187,6 +135,11 @@ export function NewTournamentScreen() {
     >
       <div className={styles.scroll}>
         <section className={styles.modeBlock} aria-label="Турнир">
+          <div className={styles.pageNav}>
+            <Suspense fallback={null}>
+              <AppBackButton tone="light" />
+            </Suspense>
+          </div>
           <h1 className={styles.tournamentModeTitle}>
             {variant === "kenny"
               ? TOURNAMENT_VARIANT_LABEL.kenny
@@ -223,53 +176,21 @@ export function NewTournamentScreen() {
           </p>
         )}
 
-        <section className={styles.playersCard} aria-label="Участники турнира">
-          <h2 className={styles.sectionTitle}>Участники</h2>
-          <div className={styles.avatarGrid}>
-            {selectedRoster.length === 0 ? (
-              <p className={styles.emptyHint}>Выберите игроков ниже</p>
-            ) : (
-              selectedRoster.map((p) => (
-                <PlayerAvatar
-                  key={p.userId}
-                  name={p.name}
-                  photoUrl={p.photoUrl}
-                  size="play"
-                  onClick={() => togglePlayer(p.userId)}
-                />
-              ))
-            )}
-          </div>
-        </section>
-
-        <section className={styles.channelSection} aria-label="Участники канала">
-          <h2 className={styles.channelTitle}>Участники канала</h2>
-          {membersLoading ? (
-            <LoadingSpinner className={styles.channelLoading} label="" />
-          ) : channelPickerList.length === 0 ? (
-            <p className={styles.emptyHint}>
-              Нет игроков в реестре. Участники должны один раз открыть апп из
-              канала.
-            </p>
-          ) : (
-            <div className={styles.avatarGridChannel}>
-              {channelPickerList.map((m) => {
-                const user = resolveUser(m);
-                const name = displayName(user, m.user_id);
-                const isSelected = selected.includes(m.user_id);
-                return (
-                  <PlayerAvatar
-                    key={m.user_id}
-                    name={name}
-                    photoUrl={photoFor(m.user_id, user, session?.user)}
-                    selected={isSelected}
-                    onClick={() => togglePlayer(m.user_id)}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </section>
+        {channelId ? (
+          <PlayerRosterSection
+            channelId={channelId}
+            members={members}
+            membersLoading={membersLoading}
+            selected={selected}
+            sessionUser={session?.user}
+            onSelectedChange={setSelected}
+            onMembersChange={setMembers}
+            selectedTitle="Участники"
+            rosterTitle="Игроки"
+          />
+        ) : (
+          <p className={styles.emptyHint}>Загрузка клуба…</p>
+        )}
       </div>
 
       <div className={styles.startBar}>

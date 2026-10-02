@@ -137,6 +137,79 @@ export function localGameCancel(record: LocalGameRecord): LocalGameRecord {
   );
 }
 
+/**
+ * Drop a player mid-game. Keeps remaining scores, reindexes turn order,
+ * and clears undo history (snapshot becomes the new baseline).
+ * Not allowed in tournament matches or when only one player remains.
+ */
+export function localGameRemovePlayer(
+  record: LocalGameRecord,
+  userId: number
+): LocalGameRecord | null {
+  if (record.snapshot.game.status !== "active") return null;
+  if (record.tournamentContext) return null;
+
+  const sorted = [...record.snapshot.players].sort(
+    (a, b) => a.order_index - b.order_index
+  );
+  if (sorted.length <= 1) return null;
+
+  const removedIdx = sorted.findIndex((p) => p.user_id === userId);
+  if (removedIdx < 0) return null;
+
+  const remaining = sorted.filter((p) => p.user_id !== userId);
+  const reindexed = remaining.map((p, order_index) => ({
+    ...p,
+    order_index,
+  }));
+
+  let current = record.snapshot.game.current_player_index;
+  let activeVisitThrows = record.snapshot.activeVisitThrows;
+  let players = reindexed;
+
+  if (removedIdx < current) {
+    current -= 1;
+  } else if (removedIdx === current) {
+    current = current % players.length;
+    activeVisitThrows = [];
+    const nextActive = players[current];
+    players = players.map((p, i) =>
+      i === current
+        ? {
+            ...nextActive,
+            visit_score: 0,
+            awaiting_visit_end: false,
+            score_at_visit_start: nextActive.remaining_score,
+          }
+        : p
+    );
+  }
+
+  const metaPlayers = record.meta.players.filter((p) => p.userId !== userId);
+  const meta: LocalGameMeta = {
+    ...record.meta,
+    players: metaPlayers,
+    playerIds: metaPlayers.map((p) => p.userId),
+  };
+
+  return touch({
+    ...record,
+    meta,
+    events: [],
+    snapshot: {
+      ...record.snapshot,
+      game: {
+        ...record.snapshot.game,
+        current_player_index: current,
+      },
+      players,
+      activeVisitThrows,
+    },
+    syncStatus: "local",
+    syncError: null,
+  });
+}
+
 export function markLocalGameSyncing(record: LocalGameRecord): LocalGameRecord {
   return touch({ ...record, syncStatus: "syncing", syncError: null });
 }
