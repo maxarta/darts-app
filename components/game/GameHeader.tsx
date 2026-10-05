@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { RulesOverlay } from "@/components/home/RulesOverlay";
 import styles from "./game.module.css";
 
 type TournamentHeader = {
@@ -66,6 +67,7 @@ export function GameHeader({
   visitSlot,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -111,69 +113,82 @@ export function GameHeader({
   const canRemove = removablePlayers.length > 0 && onRemovePlayer != null;
 
   return (
-    <header className={styles.header}>
-      <div ref={menuRef} className={styles.menuWrap}>
+    <>
+      <header className={styles.header}>
+        <div ref={menuRef} className={styles.menuWrap}>
+          <button
+            type="button"
+            className={styles.menuBtnFallback}
+            aria-label="Меню"
+            aria-expanded={open}
+            disabled={disabled}
+            onClick={() => setOpen((v) => !v)}
+          >
+            ⋯
+          </button>
+          {open && (
+            <div className={styles.menuDropdown} role="menu">
+              <button
+                type="button"
+                className={styles.menuItem}
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onRestart?.();
+                }}
+              >
+                Заново
+              </button>
+              {canRemove ? (
+                <>
+                  <div className={styles.menuSectionLabel} role="presentation">
+                    Убрать из игры
+                  </div>
+                  {removablePlayers.map((p) => (
+                    <button
+                      key={p.userId}
+                      type="button"
+                      className={styles.menuItem}
+                      role="menuitem"
+                      onClick={() => {
+                        setOpen(false);
+                        onRemovePlayer(p.userId);
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </>
+              ) : null}
+              <button
+                type="button"
+                className={`${styles.menuItem} ${styles.menuItemDanger}`}
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onLeave?.();
+                }}
+              >
+                Покинуть игру
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className={styles.headerContent}>{meta}</div>
+
         <button
           type="button"
-          className={styles.menuBtnFallback}
-          aria-label="Меню"
-          aria-expanded={open}
-          disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
+          className={styles.headerRulesBtn}
+          onClick={() => setRulesOpen(true)}
         >
-          ⋯
+          Правила
         </button>
-        {open && (
-          <div className={styles.menuDropdown} role="menu">
-            <button
-              type="button"
-              className={styles.menuItem}
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onRestart?.();
-              }}
-            >
-              Заново
-            </button>
-            {canRemove ? (
-              <>
-                <div className={styles.menuSectionLabel} role="presentation">
-                  Убрать из игры
-                </div>
-                {removablePlayers.map((p) => (
-                  <button
-                    key={p.userId}
-                    type="button"
-                    className={styles.menuItem}
-                    role="menuitem"
-                    onClick={() => {
-                      setOpen(false);
-                      onRemovePlayer(p.userId);
-                    }}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </>
-            ) : null}
-            <button
-              type="button"
-              className={`${styles.menuItem} ${styles.menuItemDanger}`}
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onLeave?.();
-              }}
-            >
-              Покинуть игру
-            </button>
-          </div>
-        )}
-      </div>
 
-      <div className={styles.headerContent}>{meta}</div>
-      {visitSlot}
-    </header>
+        {visitSlot}
+      </header>
+
+      <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
+    </>
   );
 }

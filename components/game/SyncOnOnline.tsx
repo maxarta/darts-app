@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { isGuestMode } from "@/lib/app-mode";
 import { syncAllPendingGames } from "@/lib/game/sync/client";
 import { syncPendingMembers } from "@/lib/offline/members-service";
 
 async function syncAllOfflineData() {
+  if (isGuestMode()) return;
   await syncPendingMembers();
   await syncAllPendingGames();
 }

@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -9,6 +10,13 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api/client";
 import {
+  getAppMode,
+  lockToGuest,
+  tryUnlockExtended,
+  type AppMode,
+} from "@/lib/app-mode";
+import {
+  buildGuestSession,
   buildOfflineWebSession,
   isProbablyOfflineError,
   readCachedSession,
@@ -31,23 +39,45 @@ type TelegramContextValue = {
   channel: Channel | null;
   isChannelAdmin: boolean;
   offline: boolean;
+  appMode: AppMode;
   refreshSession: () => Promise<void>;
-  patchSessionUser: (
-    patch: Partial<CachedSession["user"]>
-  ) => void;
+  unlockExtended: (code: string) => Promise<boolean>;
+  switchToGuest: () => void;
+  patchSessionUser: (patch: Partial<CachedSession["user"]>) => void;
 };
 
 const TelegramContext = createContext<TelegramContextValue | null>(null);
+
+function applyGuestSession(
+  setSession: (s: Session) => void,
+  setError: (e: string | null) => void,
+  setOffline: (v: boolean) => void
+) {
+  const guest = buildGuestSession();
+  writeCachedSession(guest);
+  setSession(guest);
+  setError(null);
+  setOffline(typeof navigator !== "undefined" ? !navigator.onLine : false);
+}
 
 export function TelegramProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [appMode, setAppModeState] = useState<AppMode>(() =>
+    typeof window === "undefined" ? "guest" : getAppMode()
+  );
   const [offline, setOffline] = useState(
     typeof navigator !== "undefined" ? !navigator.onLine : false
   );
 
-  const refreshSession = async () => {
+  const refreshSession = useCallback(async () => {
+    if (getAppMode() === "guest") {
+      applyGuestSession(setSession, setError, setOffline);
+      setAppModeState("guest");
+      return;
+    }
+
     const params = new URLSearchParams(window.location.search);
     let startParam =
       params.get("tgWebAppStartParam") ?? params.get("startapp") ?? undefined;
@@ -69,6 +99,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       setSession(data);
       setError(null);
       setOffline(false);
+      setAppModeState("extended");
     } catch (e) {
       const cached = readCachedSession();
       if (cached || isProbablyOfflineError(e)) {
@@ -81,12 +112,34 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       }
       throw e;
     }
-  };
+  }, []);
+
+  const unlockExtended = useCallback(
+    async (code: string) => {
+      if (!tryUnlockExtended(code)) return false;
+      setAppModeState("extended");
+      try {
+        await refreshSession();
+      } catch {
+        /* session/network errors stay visible on home; mode is already extended */
+      }
+      return true;
+    },
+    [refreshSession]
+  );
+
+  const switchToGuest = useCallback(() => {
+    lockToGuest();
+    setAppModeState("guest");
+    applyGuestSession(setSession, setError, setOffline);
+  }, []);
 
   useEffect(() => {
     const onOnline = () => {
       setOffline(false);
-      void refreshSession().catch(() => setOffline(!navigator.onLine));
+      if (getAppMode() === "extended") {
+        void refreshSession().catch(() => setOffline(!navigator.onLine));
+      }
     };
     const onOffline = () => setOffline(true);
     window.addEventListener("online", onOnline);
@@ -95,10 +148,9 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
     };
-  }, []);
+  }, [refreshSession]);
 
   useEffect(() => {
-    // Optional Telegram chrome when opened inside Mini App
     void import("@twa-dev/sdk")
       .then(({ default: WebApp }) => {
         if (!WebApp.initData) return;
@@ -154,7 +206,15 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {});
 
-    // Instant paint from cache while network session resolves.
+    const mode = getAppMode();
+    setAppModeState(mode);
+
+    if (mode === "guest") {
+      applyGuestSession(setSession, setError, setOffline);
+      setReady(true);
+      return;
+    }
+
     const cached = readCachedSession();
     if (cached) setSession(cached);
 
@@ -177,7 +237,7 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         }
       })
       .finally(() => setReady(true));
-  }, []);
+  }, [refreshSession]);
 
   const patchSessionUser = (patch: Partial<CachedSession["user"]>) => {
     setSession((prev) => {
@@ -200,7 +260,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         channel: session?.channel ?? null,
         isChannelAdmin: session?.isChannelAdmin === true,
         offline,
+        appMode,
         refreshSession,
+        unlockExtended,
+        switchToGuest,
         patchSessionUser,
       }}
     >

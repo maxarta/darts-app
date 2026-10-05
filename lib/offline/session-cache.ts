@@ -1,6 +1,7 @@
 "use client";
 
-import { WEB_CLUB_CHAT_ID } from "@/lib/api/auth";
+import { GUEST_CLUB_CHAT_ID, WEB_CLUB_CHAT_ID } from "@/lib/api/auth";
+import { getGuestChannelId, isGuestMode } from "@/lib/app-mode";
 
 const SESSION_KEY = "darts.session.v1";
 const OFFLINE_CHANNEL_KEY = "darts.offline-channel-id.v1";
@@ -35,7 +36,7 @@ export function writeCachedSession(session: CachedSession): void {
   if (typeof localStorage === "undefined") return;
   try {
     localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-    if (session.channel?.id) {
+    if (session.channel?.id && !isGuestMode()) {
       localStorage.setItem(OFFLINE_CHANNEL_KEY, session.channel.id);
     }
   } catch {
@@ -52,10 +53,33 @@ function offlineChannelId(): string {
   return id;
 }
 
+/** Temporary local-only club — never synced to the server. */
+export function buildGuestSession(): CachedSession {
+  return {
+    user: {
+      id: 1,
+      first_name: "Игрок",
+    },
+    channel: {
+      id: getGuestChannelId(),
+      telegram_chat_id: GUEST_CLUB_CHAT_ID,
+      title: "Временная игра",
+    },
+    isChannelAdmin: true,
+  };
+}
+
 /** Local club session when there is no network and no prior server session. */
 export function buildOfflineWebSession(): CachedSession {
+  if (isGuestMode()) return buildGuestSession();
+
   const cached = readCachedSession();
-  if (cached?.channel?.id) return cached;
+  if (
+    cached?.channel?.id &&
+    cached.channel.telegram_chat_id !== GUEST_CLUB_CHAT_ID
+  ) {
+    return cached;
+  }
 
   return {
     user: {

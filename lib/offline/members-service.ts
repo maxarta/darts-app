@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch } from "@/lib/api/client";
+import { isGuestMode } from "@/lib/app-mode";
 import type { ChannelMember } from "@/lib/channel/members";
 import { isOnline } from "@/lib/game/sync/client";
 import { isProbablyOfflineError } from "./session-cache";
@@ -32,12 +33,25 @@ function memberFromFields(
   };
 }
 
+async function saveLocalOnly(
+  channelId: string,
+  name: string,
+  photoUrl: string | null
+): Promise<ChannelMember> {
+  const localUserId = allocateLocalPlayerId();
+  const member = memberFromFields(localUserId, name, photoUrl);
+  const members = await readCachedMembers(channelId);
+  await writeCachedMembers(channelId, upsertMemberInList(members, member));
+  return member;
+}
+
 export async function loadChannelMembers(
   channelId: string
 ): Promise<ChannelMember[]> {
   const cached = await readCachedMembers(channelId);
 
-  if (!isOnline()) return cached;
+  // Temporary (guest) mode never reads/writes members on the server.
+  if (isGuestMode() || !isOnline()) return cached;
 
   try {
     const data = await apiFetch<{ members: ChannelMember[] }>(
@@ -59,6 +73,10 @@ export async function createChannelPlayerOfflineFirst(
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Введите имя");
 
+  if (isGuestMode()) {
+    return saveLocalOnly(channelId, trimmed, photoUrl);
+  }
+
   if (isOnline()) {
     try {
       const data = await apiFetch<{ member: ChannelMember }>(
@@ -79,15 +97,12 @@ export async function createChannelPlayerOfflineFirst(
     }
   }
 
-  const localUserId = allocateLocalPlayerId();
-  const member = memberFromFields(localUserId, trimmed, photoUrl);
-  const members = await readCachedMembers(channelId);
-  await writeCachedMembers(channelId, upsertMemberInList(members, member));
+  const member = await saveLocalOnly(channelId, trimmed, photoUrl);
   await enqueuePendingMemberOp({
     id: crypto.randomUUID(),
     channelId,
     type: "create",
-    localUserId,
+    localUserId: member.user_id,
     name: trimmed,
     photo_url: photoUrl,
     createdAt: Date.now(),
@@ -100,7 +115,9 @@ export async function updateChannelPlayerOfflineFirst(
   userId: number,
   patch: { name?: string; photo_url?: string | null }
 ): Promise<ChannelMember> {
-  if (isOnline()) {
+  const guest = isGuestMode();
+
+  if (!guest && isOnline()) {
     try {
       const data = await apiFetch<{ member: ChannelMember }>(
         `/api/channels/${channelId}/players/${userId}`,
@@ -131,15 +148,17 @@ export async function updateChannelPlayerOfflineFirst(
     patch.photo_url !== undefined ? patch.photo_url : current?.photo_url ?? null;
   const member = memberFromFields(userId, nextName, nextPhoto);
   await writeCachedMembers(channelId, upsertMemberInList(members, member));
-  await enqueuePendingMemberOp({
-    id: crypto.randomUUID(),
-    channelId,
-    type: "update",
-    userId,
-    name: patch.name,
-    photo_url: patch.photo_url,
-    createdAt: Date.now(),
-  });
+  if (!guest) {
+    await enqueuePendingMemberOp({
+      id: crypto.randomUUID(),
+      channelId,
+      type: "update",
+      userId,
+      name: patch.name,
+      photo_url: patch.photo_url,
+      createdAt: Date.now(),
+    });
+  }
   return member;
 }
 
@@ -147,7 +166,9 @@ export async function deleteChannelPlayerOfflineFirst(
   channelId: string,
   userId: number
 ): Promise<void> {
-  if (isOnline()) {
+  const guest = isGuestMode();
+
+  if (!guest && isOnline()) {
     try {
       await apiFetch(`/api/channels/${channelId}/players/${userId}`, {
         method: "DELETE",
@@ -165,13 +186,15 @@ export async function deleteChannelPlayerOfflineFirst(
 
   const members = await readCachedMembers(channelId);
   await writeCachedMembers(channelId, removeMemberFromList(members, userId));
-  await enqueuePendingMemberOp({
-    id: crypto.randomUUID(),
-    channelId,
-    type: "delete",
-    userId,
-    createdAt: Date.now(),
-  });
+  if (!guest) {
+    await enqueuePendingMemberOp({
+      id: crypto.randomUUID(),
+      channelId,
+      type: "delete",
+      userId,
+      createdAt: Date.now(),
+    });
+  }
 }
 
 async function flushOp(op: PendingMemberOp): Promise<void> {
@@ -226,7 +249,7 @@ async function flushOp(op: PendingMemberOp): Promise<void> {
 }
 
 export async function syncPendingMembers(): Promise<void> {
-  if (!isOnline()) return;
+  if (isGuestMode() || !isOnline()) return;
   const ops = await listPendingMemberOps();
   for (const op of ops) {
     try {

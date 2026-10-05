@@ -10,6 +10,10 @@ export default defineConfig(({ mode }) => {
     env.VITE_AUTHOR_TELEGRAM ||
     env.NEXT_PUBLIC_AUTHOR_TELEGRAM ||
     "https://t.me/maxartemyev";
+  const extendedAccessCode =
+    env.VITE_EXTENDED_ACCESS_CODE ||
+    env.NEXT_PUBLIC_EXTENDED_ACCESS_CODE ||
+    "polyana";
 
   return {
     plugins: [
@@ -80,6 +84,12 @@ export default defineConfig(({ mode }) => {
     },
     define: {
       "process.env.NEXT_PUBLIC_AUTHOR_TELEGRAM": JSON.stringify(authorTelegram),
+      "process.env.VITE_EXTENDED_ACCESS_CODE": JSON.stringify(
+        extendedAccessCode
+      ),
+      "process.env.NEXT_PUBLIC_EXTENDED_ACCESS_CODE": JSON.stringify(
+        extendedAccessCode
+      ),
       "process.env.NODE_ENV": JSON.stringify(
         mode === "production" ? "production" : "development"
       ),

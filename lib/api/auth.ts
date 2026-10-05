@@ -11,6 +11,9 @@ export type AuthContext = {
 /** Local club chat id used for plain web sessions (not a Telegram chat). */
 export const WEB_CLUB_CHAT_ID = -1000000000001;
 
+/** Synthetic chat id for temporary (guest) local-only sessions. */
+export const GUEST_CLUB_CHAT_ID = -1000000000002;
+
 export function getInitDataFromRequest(req: Request): string | null {
   const header = req.headers.get("x-telegram-init-data");
   if (header) return header;

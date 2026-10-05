@@ -12,6 +12,7 @@ import {
   buildPlayerMetas,
   createAndSaveLocalGame,
 } from "@/lib/game/local/create";
+import { readLastRoster, writeLastRoster } from "@/lib/app-mode";
 import { loadChannelMembers } from "@/lib/offline/members-service";
 import { useTelegram } from "@/components/TelegramProvider";
 import { AppBackButton } from "@/components/AppBackButton";
@@ -20,6 +21,23 @@ import { SegmentedControl } from "./SegmentedControl";
 import styles from "./newGame.module.css";
 
 const MAX_PLAYERS = 6;
+
+function resolveInitialSelection(
+  channelId: string,
+  members: ChannelMember[],
+  sessionUserId: number | undefined
+): number[] {
+  const known = new Set(members.map((m) => m.user_id));
+  if (sessionUserId) known.add(sessionUserId);
+
+  const saved = readLastRoster(channelId);
+  if (saved && saved.length > 0) {
+    const restored = saved.filter((id) => known.has(id)).slice(0, MAX_PLAYERS);
+    if (restored.length > 0) return restored;
+  }
+
+  return sessionUserId ? [sessionUserId] : [];
+}
 
 export function NewGameScreen() {
   const router = useRouter();
@@ -31,6 +49,7 @@ export function NewGameScreen() {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
+  const [rosterReady, setRosterReady] = useState(false);
   const [mode, setMode] = useState<"501" | "301">(
     modeParam === "301" ? "301" : "501"
   );
@@ -47,22 +66,46 @@ export function NewGameScreen() {
   useEffect(() => {
     if (!channelId) {
       setMembersLoading(false);
+      setRosterReady(false);
       return;
     }
+    let cancelled = false;
     setMembersLoading(true);
+    setRosterReady(false);
     loadChannelMembers(channelId)
-      .then((list) => setMembers(list))
-      .catch((e) => setError(e instanceof Error ? e.message : "Ошибка загрузки"))
-      .finally(() => setMembersLoading(false));
-  }, [channelId]);
+      .then((list) => {
+        if (cancelled) return;
+        setMembers(list);
+        setSelected(
+          resolveInitialSelection(channelId, list, session?.user.id)
+        );
+        setRosterReady(true);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Ошибка загрузки");
+        setSelected(
+          resolveInitialSelection(channelId, [], session?.user.id)
+        );
+        setRosterReady(true);
+      })
+      .finally(() => {
+        if (!cancelled) setMembersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [channelId, session?.user.id]);
 
   useEffect(() => {
-    if (session?.user.id) {
-      setSelected((prev) =>
-        prev.length === 0 ? [session.user.id] : prev
-      );
-    }
-  }, [session?.user.id]);
+    if (!channelId || !rosterReady) return;
+    writeLastRoster(channelId, selected);
+  }, [channelId, selected, rosterReady]);
+
+  const onSelectedChange = (next: number[]) => {
+    setSelected(next);
+    if (channelId) writeLastRoster(channelId, next);
+  };
 
   const channelPickerList = useMemo(() => {
     if (!session?.user.id) return members;
@@ -92,6 +135,7 @@ export function NewGameScreen() {
     setLoading(true);
     setError(null);
     try {
+      writeLastRoster(channelId, selected);
       const gameId = await createAndSaveLocalGame({
         channelId,
         mode,
@@ -163,7 +207,7 @@ export function NewGameScreen() {
             selected={selected}
             sessionUser={session?.user}
             maxSelected={MAX_PLAYERS}
-            onSelectedChange={setSelected}
+            onSelectedChange={onSelectedChange}
             onMembersChange={setMembers}
             onMaxReached={() => setReptileMsg(true)}
             selectedTitle="Кто играет?"

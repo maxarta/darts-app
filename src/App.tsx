@@ -1,4 +1,5 @@
 import { Route, Routes } from "react-router-dom";
+import { ExtendedOnly } from "@/components/ExtendedOnly";
 import { SyncOnOnline } from "@/components/game/SyncOnOnline";
 import { TelegramProvider } from "@/components/TelegramProvider";
 import { HomePage } from "@/src/pages/HomePage";
@@ -21,13 +22,62 @@ export function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/game/new" element={<NewGamePage />} />
           <Route path="/game/:id" element={<GamePage />} />
-          <Route path="/tournament/new" element={<NewTournamentPage />} />
-          <Route path="/tournament/:id" element={<TournamentPage />} />
-          <Route path="/stats" element={<StatsPage />} />
-          <Route path="/stats/players" element={<StatsPlayersPage />} />
-          <Route path="/stats/players/:userId" element={<StatsPlayerPage />} />
-          <Route path="/stats/current" element={<StatsCurrentPage />} />
-          <Route path="/stats/games" element={<StatsGamesPage />} />
+          <Route
+            path="/tournament/new"
+            element={
+              <ExtendedOnly>
+                <NewTournamentPage />
+              </ExtendedOnly>
+            }
+          />
+          <Route
+            path="/tournament/:id"
+            element={
+              <ExtendedOnly>
+                <TournamentPage />
+              </ExtendedOnly>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ExtendedOnly>
+                <StatsPage />
+              </ExtendedOnly>
+            }
+          />
+          <Route
+            path="/stats/players"
+            element={
+              <ExtendedOnly>
+                <StatsPlayersPage />
+              </ExtendedOnly>
+            }
+          />
+          <Route
+            path="/stats/players/:userId"
+            element={
+              <ExtendedOnly>
+                <StatsPlayerPage />
+              </ExtendedOnly>
+            }
+          />
+          <Route
+            path="/stats/current"
+            element={
+              <ExtendedOnly>
+                <StatsCurrentPage />
+              </ExtendedOnly>
+            }
+          />
+          <Route
+            path="/stats/games"
+            element={
+              <ExtendedOnly>
+                <StatsGamesPage />
+              </ExtendedOnly>
+            }
+          />
         </Routes>
       </div>
     </TelegramProvider>

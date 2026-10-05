@@ -68,7 +68,8 @@ export function ScoringKeypad({
             tap("b25", () => onThrow({ segment: "bull25", multiplier: 1 }), "light", scoringLocked)
           }
         >
-          БУЛЛ (25)
+          ПОЛУБУЛЛ
+          <span className={styles.keyScore}>25</span>
         </button>
         <button
           type="button"
@@ -78,11 +79,8 @@ export function ScoringKeypad({
             tap("b50", () => onThrow({ segment: "bull50", multiplier: 1 }), "light", scoringLocked)
           }
         >
-          БУЛЛ (50)
-          <span className={styles.keyDots} aria-hidden>
-            <span />
-            <span />
-          </span>
+          БУЛЛ
+          <span className={styles.keyScore}>50</span>
         </button>
       </div>
 

@@ -79,7 +79,32 @@
 
 .header:has(.menuWrap) .headerContent {
   padding-left: 36px;
-  padding-right: 0;
+  padding-right: 72px;
+}
+
+.headerRulesBtn {
+  position: absolute;
+  top: 50%;
+  right: max(8px, var(--app-inset-right));
+  z-index: 2;
+  transform: translateY(-50%);
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 6px 4px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 16px;
+  color: var(--g-ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.headerRulesBtn:active {
+  opacity: 0.7;
 }
 
 .menuWrap {
@@ -520,11 +545,11 @@
   min-width: 0;
   border: none;
   font-family: inherit;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
   font-stretch: condensed;
-  letter-spacing: -0.48px;
-  line-height: 16px;
+  letter-spacing: -0.4px;
+  line-height: 22px;
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -574,6 +599,14 @@
   height: 4px;
   border-radius: 9999px;
   background: var(--g-ink);
+}
+
+.keyScore {
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.2px;
+  opacity: 0.85;
 }
 
 .keypadActions {
@@ -755,6 +788,19 @@
     transform: translateY(-50%);
   }
 
+  .header:has(.menuWrap) .headerContent {
+    padding-right: 0;
+  }
+
+  .headerRulesBtn {
+    position: static;
+    top: auto;
+    right: auto;
+    transform: none;
+    flex-shrink: 0;
+    margin-right: 8px;
+  }
+
   .visitBar,
   .visitBarBust {
     display: none;
@@ -866,9 +912,9 @@
 
   .bullColumn .keyBtn {
     min-height: 0;
-    font-size: 16px;
-    line-height: 16px;
-    letter-spacing: -0.48px;
+    font-size: 18px;
+    line-height: 18px;
+    letter-spacing: -0.4px;
     padding: 4px 2px;
     white-space: normal;
     word-break: break-word;
@@ -895,7 +941,7 @@
   .keyBtn {
     overflow: hidden;
     line-height: 1;
-    font-size: 16px;
+    font-size: 20px;
   }
 
   .keypadGridPortrait {
@@ -1051,7 +1097,7 @@
   }
 
   .keyBtn {
-    font-size: 13px;
+    font-size: 17px;
     letter-spacing: -0.36px;
     padding: 2px;
     gap: 8px;
@@ -1095,13 +1141,13 @@
   }
 
   .keypadGridLandscape .keyBtn {
-    font-size: 11px;
+    font-size: 14px;
   }
 
   .bullColumn .keyBtn {
-    font-size: 14px;
-    line-height: 14px;
-    letter-spacing: -0.42px;
+    font-size: 16px;
+    line-height: 16px;
+    letter-spacing: -0.4px;
   }
 
   .playerDuoBigScore {

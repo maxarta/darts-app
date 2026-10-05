@@ -1,6 +1,7 @@
 "use client";
 
 import { apiFetch } from "@/lib/api/client";
+import { getGuestChannelId, isGuestMode } from "@/lib/app-mode";
 import {
   markLocalGameSynced,
   markLocalGameSyncFailed,
@@ -8,18 +9,28 @@ import {
   needsSync,
 } from "@/lib/game/local/actions";
 import { buildSyncPayload } from "@/lib/game/local/export-sync";
-import { getLocalGame, listPendingSyncGames, saveLocalGame } from "@/lib/game/local/store";
+import {
+  getLocalGame,
+  listPendingSyncGames,
+  saveLocalGame,
+} from "@/lib/game/local/store";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 
 export function isOnline(): boolean {
   return typeof navigator !== "undefined" ? navigator.onLine : true;
 }
 
+function shouldSyncToServer(record: LocalGameRecord): boolean {
+  if (isGuestMode()) return false;
+  if (record.meta.channelId === getGuestChannelId()) return false;
+  return needsSync(record);
+}
+
 export async function syncLocalGame(
   gameId: string
 ): Promise<LocalGameRecord | null> {
   const record = await getLocalGame(gameId);
-  if (!record || !needsSync(record)) return record;
+  if (!record || !shouldSyncToServer(record)) return record;
 
   if (!isOnline()) {
     return record;
@@ -48,9 +59,10 @@ export async function syncLocalGame(
 }
 
 export async function syncAllPendingGames(): Promise<void> {
-  if (!isOnline()) return;
+  if (isGuestMode() || !isOnline()) return;
   const pending = await listPendingSyncGames();
   for (const record of pending) {
+    if (!shouldSyncToServer(record)) continue;
     await syncLocalGame(record.id);
   }
 }
