@@ -2,7 +2,6 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { apiFetch } from "@/lib/api/client";
 import {
   finishRuleToDoubleOut,
   UNLIMITED_ROUNDS,
@@ -13,6 +12,7 @@ import {
   buildPlayerMetas,
   createAndSaveLocalGame,
 } from "@/lib/game/local/create";
+import { loadChannelMembers } from "@/lib/offline/members-service";
 import { useTelegram } from "@/components/TelegramProvider";
 import { AppBackButton } from "@/components/AppBackButton";
 import { PlayerRosterSection } from "./PlayerRosterSection";
@@ -50,8 +50,8 @@ export function NewGameScreen() {
       return;
     }
     setMembersLoading(true);
-    apiFetch<{ members: ChannelMember[] }>(`/api/channels/${channelId}/members`)
-      .then((d) => setMembers(d.members))
+    loadChannelMembers(channelId)
+      .then((list) => setMembers(list))
       .catch((e) => setError(e instanceof Error ? e.message : "Ошибка загрузки"))
       .finally(() => setMembersLoading(false));
   }, [channelId]);

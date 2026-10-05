@@ -27,6 +27,8 @@ type Props = {
   player: (id: number | null) => BracketPlayer | null;
   matchLoading: string | null;
   onPlay: (matchId: string) => void;
+  continueGameId?: string | null;
+  localFinished?: boolean;
   /** Показать блок главного приза (турнир Кенни) */
   showKennyPrize?: boolean;
   confettiVariant?: "kenny" | "default";
@@ -103,6 +105,8 @@ export const FinalStageCard = forwardRef<HTMLElement, Props>(function FinalStage
     player,
     matchLoading,
     onPlay,
+    continueGameId = null,
+    localFinished = false,
     showKennyPrize = false,
     confettiVariant = "default",
     celebrating = false,
@@ -124,12 +128,14 @@ export const FinalStageCard = forwardRef<HTMLElement, Props>(function FinalStage
   const p1 = match ? player(match.player1_id) : null;
   const p2 = match ? player(match.player2_id) : null;
   const ready = Boolean(p1 && p2);
+  const resumeId = continueGameId ?? match?.game_id ?? null;
   const canPlay =
     match &&
     !match.isPreview &&
     ready &&
     !match.winner_id &&
-    !match.game_id &&
+    !localFinished &&
+    !resumeId &&
     matchLoading !== match.id;
 
   const championId = match?.winner_id ?? null;
@@ -192,8 +198,14 @@ export const FinalStageCard = forwardRef<HTMLElement, Props>(function FinalStage
         </button>
       )}
 
-      {match?.game_id && !match.winner_id && (
-        <Link href={`/game/${match.game_id}`} className={styles.playBtnSecondary}>
+      {localFinished && !match?.winner_id ? (
+        <button type="button" className={styles.playBtnDone} disabled>
+          Сохраняем…
+        </button>
+      ) : null}
+
+      {resumeId && !match?.winner_id && !localFinished && (
+        <Link href={`/game/${resumeId}`} className={styles.playBtnSecondary}>
           Продолжить финал
         </Link>
       )}

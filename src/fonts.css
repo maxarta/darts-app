@@ -1,0 +1,20 @@
+@font-face {
+  font-family: "Martian Grotesk";
+  src: url("/fonts/MartianGrotesk-VF.woff2") format("woff2");
+  font-weight: 100 1000;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-darts: "Martian Grotesk", system-ui, sans-serif;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+
+body {
+  font-family: var(--font-darts);
+}

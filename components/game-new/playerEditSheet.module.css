@@ -1,7 +1,8 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  /* Above fixed CTA bars (.startBar z-index: 10) — portaled to body. */
+  z-index: 200;
   background: rgba(15, 23, 42, 0.45);
   display: flex;
   align-items: flex-end;

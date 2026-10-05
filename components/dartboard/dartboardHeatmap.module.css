@@ -7,9 +7,10 @@
   width: 100%;
   margin: 0;
   align-self: stretch;
-  overflow: visible;
+  overflow: hidden;
   position: relative;
-  z-index: 1;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .heatmapWrap .heatmapSvg {

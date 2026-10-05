@@ -435,6 +435,12 @@
   z-index: 10;
 }
 
+/* Hide CTA while player edit sheet is open (sheet is portaled to body). */
+:global(body:has([data-player-edit-sheet])) .startBar {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .startBtn {
   pointer-events: auto;
   width: 100%;

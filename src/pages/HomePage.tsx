@@ -1,9 +1,7 @@
-"use client";
-
 import { HomeScreen } from "@/components/home/HomeScreen";
 import { useTelegram } from "@/components/TelegramProvider";
 
-export default function HomePage() {
+export function HomePage() {
   const { ready, error, channel, isChannelAdmin, refreshSession } =
     useTelegram();
 

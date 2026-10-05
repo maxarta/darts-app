@@ -7,9 +7,15 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import { apiFetch } from "@/lib/api/client";
+import { createPortal } from "react-dom";
 import type { ChannelMember } from "@/lib/channel/members";
 import { compressImageToDataUrl } from "@/lib/channel/compress-image";
+import {
+  createChannelPlayerOfflineFirst,
+  deleteChannelPlayerOfflineFirst,
+  updateChannelPlayerOfflineFirst,
+} from "@/lib/offline/members-service";
+import { useBodyScrollLock } from "@/lib/ui/use-body-scroll-lock";
 import styles from "./playerEditSheet.module.css";
 
 type Props = {
@@ -45,6 +51,11 @@ export function PlayerEditSheet({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -63,7 +74,9 @@ export function PlayerEditSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  useBodyScrollLock(open);
+
+  if (!open || !mounted) return null;
 
   const save = async (e?: FormEvent) => {
     e?.preventDefault();
@@ -71,37 +84,22 @@ export function PlayerEditSheet({
     setError(null);
     try {
       if (isCreate) {
-        const data = await apiFetch<{ member: ChannelMember }>(
-          `/api/channels/${channelId}/players`,
-          {
-            method: "POST",
-            body: JSON.stringify({ name }),
-          }
+        const member = await createChannelPlayerOfflineFirst(
+          channelId,
+          name,
+          photoUrl
         );
-        let member = data.member;
-        if (photoUrl) {
-          const patched = await apiFetch<{ member: ChannelMember }>(
-            `/api/channels/${channelId}/players/${member.user_id}`,
-            {
-              method: "PATCH",
-              body: JSON.stringify({ photo_url: photoUrl }),
-            }
-          );
-          member = patched.member;
-        }
         onSaved(member);
         onClose();
         return;
       }
 
-      const data = await apiFetch<{ member: ChannelMember }>(
-        `/api/channels/${channelId}/players/${player.userId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({ name, photo_url: photoUrl }),
-        }
+      const member = await updateChannelPlayerOfflineFirst(
+        channelId,
+        player.userId,
+        { name, photo_url: photoUrl }
       );
-      onSaved(data.member);
+      onSaved(member);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -116,9 +114,7 @@ export function PlayerEditSheet({
     setBusy(true);
     setError(null);
     try {
-      await apiFetch(`/api/channels/${channelId}/players/${player.userId}`, {
-        method: "DELETE",
-      });
+      await deleteChannelPlayerOfflineFirst(channelId, player.userId);
       onDeleted(player.userId);
       onClose();
     } catch (err) {
@@ -142,8 +138,13 @@ export function PlayerEditSheet({
     }
   };
 
-  return (
-    <div className={styles.backdrop} role="presentation" onClick={onClose}>
+  return createPortal(
+    <div
+      className={styles.backdrop}
+      data-player-edit-sheet
+      role="presentation"
+      onClick={onClose}
+    >
       <div
         className={styles.sheet}
         role="dialog"
@@ -165,7 +166,6 @@ export function PlayerEditSheet({
             aria-label="Сделать или выбрать фото"
           >
             {photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
               <img src={photoUrl} alt="" className={styles.photoImg} />
             ) : (
               <span className={styles.photoPlaceholder}>Фото</span>
@@ -241,6 +241,7 @@ export function PlayerEditSheet({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -7,6 +7,7 @@ import {
   photoFor,
   resolveUser,
 } from "@/lib/channel/members";
+import { useTelegram } from "@/components/TelegramProvider";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { PlayerEditSheet } from "./PlayerEditSheet";
@@ -46,6 +47,7 @@ export function PlayerRosterSection({
   selectedTitle = "Кто играет?",
   rosterTitle = "Игроки",
 }: Props) {
+  const { patchSessionUser } = useTelegram();
   const [editingId, setEditingId] = useState<number | null | "new">(null);
 
   const roster = useMemo(() => {
@@ -114,8 +116,24 @@ export function PlayerRosterSection({
           onSelectedChange([...selected, member.user_id]);
         }
       }
+      if (sessionUser && member.user_id === sessionUser.id) {
+        const user = resolveUser(member);
+        patchSessionUser({
+          first_name: user?.first_name || sessionUser.first_name,
+          username: user?.username ?? undefined,
+          photo_url: user?.photo_url ?? undefined,
+        });
+      }
     },
-    [members, selected, maxSelected, onMembersChange, onSelectedChange]
+    [
+      members,
+      selected,
+      maxSelected,
+      onMembersChange,
+      onSelectedChange,
+      sessionUser,
+      patchSessionUser,
+    ]
   );
 
   const removeMember = useCallback(

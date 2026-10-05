@@ -97,8 +97,9 @@ describe("victory stats", () => {
 
     expect(alice.remainingScore).toBe(501);
     expect(bob.remainingScore).toBe(0);
-    expect(alice.photoUrl).toBe("/api/telegram/avatar/1");
-    expect(bob.photoUrl).toBe("/api/telegram/avatar/2");
+    // Without a local record there is no stored photo — proxy paths are not invented.
+    expect(alice.photoUrl).toBeNull();
+    expect(bob.photoUrl).toBeNull();
     expect(alice.throws).toEqual([]);
     expect(bob.throws).toEqual([]);
     expect(stats.every((p) => !("mode" in p))).toBe(true);

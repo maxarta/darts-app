@@ -1,8 +1,12 @@
-import type { StaticImageData } from "next/image";
+import { asStaticImage, type StaticImageData } from "@/lib/image";
 
 import imgVictoryVampire from "@/assets/game/victory-vampire.webp";
 
-export const VICTORY_VAMPIRE_IMAGE: StaticImageData = imgVictoryVampire;
+export const VICTORY_VAMPIRE_IMAGE: StaticImageData = asStaticImage(
+  imgVictoryVampire,
+  1024,
+  1024
+);
 
 let preloadPromise: Promise<void> | null = null;
 

@@ -1,6 +1,8 @@
 "use client";
 
 import type { DisplayPlayoffMatch } from "@/lib/tournament/playoff-display";
+import type { LocalMatchOccupancy } from "@/lib/tournament/local-match-occupancy";
+import { matchPlayControls } from "@/lib/tournament/local-match-occupancy";
 import { MatchupCard, type BracketPlayer } from "./MatchupCard";
 import styles from "./tournament.module.css";
 
@@ -13,6 +15,7 @@ type Props = {
   avatarSize?: "default" | "large";
   layout?: "stack" | "row";
   onPlay: (matchId: string) => void;
+  localOccupancy?: Map<string, LocalMatchOccupancy>;
 };
 
 export function PlayoffBracket({
@@ -24,6 +27,7 @@ export function PlayoffBracket({
   avatarSize = "default",
   layout = "stack",
   onPlay,
+  localOccupancy,
 }: Props) {
   if (rounds.length === 0) {
     return <p className={styles.playoffEmpty}>Нет матчей на этом этапе</p>;
@@ -47,11 +51,16 @@ export function PlayoffBracket({
                 const p1 = player(m.player1_id);
                 const p2 = player(m.player2_id);
                 const ready = Boolean(m.player1_id && m.player2_id);
+                const controls = matchPlayControls({
+                  serverPlayed: Boolean(m.winner_id),
+                  serverGameId: m.game_id,
+                  serverWinnerId: m.winner_id,
+                  local: localOccupancy?.get(m.id),
+                });
                 const canPlay =
                   !m.isPreview &&
                   ready &&
-                  !m.winner_id &&
-                  !m.game_id &&
+                  controls.canPlay &&
                   matchLoading !== m.id;
 
                 return (
@@ -62,7 +71,9 @@ export function PlayoffBracket({
                     played={Boolean(m.winner_id)}
                     preview={m.isPreview}
                     gameId={m.game_id}
-                    winnerUserId={m.winner_id}
+                    continueGameId={controls.continueGameId}
+                    localFinished={controls.showLocalFinished}
+                    winnerUserId={controls.effectiveWinnerId ?? m.winner_id}
                     avatarSize={avatarSize}
                     canPlay={canPlay}
                     onPlay={canPlay ? () => onPlay(m.id) : undefined}

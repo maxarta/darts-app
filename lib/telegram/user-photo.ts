@@ -7,6 +7,37 @@ export function telegramAvatarPath(telegramId: number): string {
   return `/api/telegram/avatar/${telegramId}`;
 }
 
+/** Club-edited avatars (data URLs) must never be overwritten by Telegram sync. */
+export function isCustomClubPhoto(
+  photoUrl: string | null | undefined
+): boolean {
+  return Boolean(photoUrl?.startsWith("data:image/"));
+}
+
+/**
+ * Club UI clears username on rename. Preserve that custom first_name so
+ * Telegram session upserts don't wipe the player's club identity.
+ */
+export function shouldPreserveClubDisplayName(
+  existing: {
+    first_name: string;
+    username: string | null;
+    photo_url: string | null;
+  } | null,
+  telegramFirstName: string
+): boolean {
+  if (!existing) return false;
+  if (isCustomClubPhoto(existing.photo_url)) return true;
+  if (
+    existing.username == null &&
+    existing.first_name.trim().length > 0 &&
+    existing.first_name !== telegramFirstName
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function resolveStoredPhotoUrl(
   _userId: number,
   photoUrl: string | null | undefined
@@ -59,12 +90,16 @@ export function isPublicPhotoUrl(url: string): boolean {
   );
 }
 
-/** Какой URL писать в users.photo_url: initData → уже сохранённый → прокси. */
+/** Какой URL писать в users.photo_url: клубное фото → initData → уже сохранённый → прокси. */
 export function pickPhotoUrlToStore(
   telegramId: number,
   initPhotoUrl: string | null | undefined,
   existingPhotoUrl: string | null | undefined
 ): string {
+  // Manual club photo always wins over Telegram profile sync.
+  if (isCustomClubPhoto(existingPhotoUrl)) {
+    return existingPhotoUrl as string;
+  }
   if (initPhotoUrl && isPublicPhotoUrl(initPhotoUrl)) return initPhotoUrl;
   if (existingPhotoUrl && isPublicPhotoUrl(existingPhotoUrl)) {
     return existingPhotoUrl;
@@ -97,6 +132,10 @@ export async function syncUserProfilePhoto(
   user: Pick<TelegramUser, "id" | "photo_url">,
   existingPhotoUrl?: string | null
 ): Promise<string> {
+  if (isCustomClubPhoto(existingPhotoUrl)) {
+    return existingPhotoUrl as string;
+  }
+
   const db = getSupabaseAdmin();
   const stored = pickPhotoUrlToStore(
     user.id,
@@ -119,6 +158,8 @@ export async function syncUserProfilePhotos(
   })[]
 ): Promise<void> {
   await Promise.all(
-    users.map((u) => syncUserProfilePhoto(u, u.existingPhotoUrl))
+    users
+      .filter((u) => !isCustomClubPhoto(u.existingPhotoUrl))
+      .map((u) => syncUserProfilePhoto(u, u.existingPhotoUrl))
   );
 }

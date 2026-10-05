@@ -1,6 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { hapticImpact } from "@/lib/haptic";
+import { useBodyScrollLock } from "@/lib/ui/use-body-scroll-lock";
 import styles from "./victory.module.css";
 
 type Props = {
@@ -16,7 +19,16 @@ export function GameConfirmOverlay({
   onCancel,
   onConfirm,
 }: Props) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useBodyScrollLock(true);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
     <div
       className={styles.backdrop}
       data-victory-overlay
@@ -25,9 +37,11 @@ export function GameConfirmOverlay({
       aria-labelledby="game-confirm-title"
     >
       <div className={[styles.panel, styles.panelConfirm].join(" ")}>
-        <h2 id="game-confirm-title" className={styles.title}>
-          {title}
-        </h2>
+        <div className={styles.panelScroll}>
+          <h2 id="game-confirm-title" className={styles.title}>
+            {title}
+          </h2>
+        </div>
         <div className={[styles.actions, styles.actionsConfirm].join(" ")}>
           <button
             type="button"
@@ -51,6 +65,7 @@ export function GameConfirmOverlay({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

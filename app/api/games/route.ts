@@ -4,16 +4,13 @@ import { registerChannelMember } from "@/lib/db/channels";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
-  const auth = authenticateRequest(req as import("next/server").NextRequest);
+  const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
-
   const body = await req.json();
   const { channelId, mode, playerIds, settings, telegramChatId } = body;
-
   if (!channelId || !mode || !Array.isArray(playerIds) || playerIds.length < 1) {
     return jsonError("Invalid payload", 400);
   }
-
   if (telegramChatId) {
     await registerChannelMember(
       channelId,
@@ -21,25 +18,17 @@ export async function POST(req: Request) {
       auth.ctx.user.id
     );
   }
-
   const db = getSupabaseAdmin();
   for (const pid of playerIds) {
-    const { data: m } = await db
-      .from("channel_members")
-      .select("user_id")
-      .eq("channel_id", channelId)
-      .eq("user_id", pid)
-      .maybeSingle();
+    const { data: m } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).eq("user_id", pid).maybeSingle();
     if (!m) return jsonError(`Player ${pid} not in channel registry`, 400);
   }
-
   const result = await createGame({
     channelId,
     mode: mode === "301" ? "301" : "501",
     playerIds,
     createdBy: auth.ctx.user.id,
-    settings,
+    settings
   });
-
   return Response.json(result);
 }

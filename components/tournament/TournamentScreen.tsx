@@ -41,8 +41,15 @@ import {
   readTournamentCache,
   writeTournamentCache,
 } from "@/lib/tournament/session-cache";
-import { getLocalGame } from "@/lib/game/local/store";
+import { getLocalGame, listLocalGames } from "@/lib/game/local/store";
 import { getGameWinnerIds } from "@/lib/stats/player-stats";
+import {
+  loadTournamentLocalOccupancy,
+  matchPlayControls,
+  type LocalMatchOccupancy,
+} from "@/lib/tournament/local-match-occupancy";
+import { syncLocalGame } from "@/lib/game/sync/client";
+import { syncPendingMembers } from "@/lib/offline/members-service";
 import {
   KENNY_THEME_COLOR,
   normalizeTournamentVariant,
@@ -193,6 +200,9 @@ export function TournamentScreen({ tournamentId }: Props) {
   const [finalLocalWinnerId, setFinalLocalWinnerId] = useState<number | null>(
     null
   );
+  const [localOccupancy, setLocalOccupancy] = useState<
+    Map<string, LocalMatchOccupancy>
+  >(() => new Map());
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const finalCardRef = useRef<HTMLElement>(null);
   const championSaluteRef = useRef<HTMLDivElement>(null);
@@ -264,8 +274,26 @@ export function TournamentScreen({ tournamentId }: Props) {
 
   const playoffSize = (data?.tournament.playoff_size === 8 ? 8 : 4) as 4 | 8;
 
+  const refreshLocalOccupancy = useCallback(async () => {
+    if (!tournamentId) return;
+    const map = await loadTournamentLocalOccupancy(tournamentId);
+    setLocalOccupancy(map);
+    // Push any finished-but-unsynced tournament games.
+    for (const occ of map.values()) {
+      if (occ.status === "finished" && occ.syncStatus !== "synced") {
+        void syncPendingMembers()
+          .then(() => syncLocalGame(occ.localGameId))
+          .then(() =>
+            loadTournamentLocalOccupancy(tournamentId).then(setLocalOccupancy)
+          )
+          .catch(() => {});
+      }
+    }
+  }, [tournamentId]);
+
   const load = useCallback(() => {
     if (!tournamentId) return;
+    void refreshLocalOccupancy();
     apiFetch<TournamentData>(`/api/tournaments/${tournamentId}`)
       .then((next) => {
         writeTournamentCache(tournamentId, next);
@@ -274,7 +302,7 @@ export function TournamentScreen({ tournamentId }: Props) {
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Ошибка загрузки")
       );
-  }, [tournamentId, applyTournamentData]);
+  }, [tournamentId, applyTournamentData, refreshLocalOccupancy]);
 
   useEffect(() => {
     if (!readCelebrateFinal(tournamentId)) return;
@@ -287,6 +315,21 @@ export function TournamentScreen({ tournamentId }: Props) {
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [load, rrDrawBusy]);
+
+  useEffect(() => {
+    void refreshLocalOccupancy();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") {
+        void refreshLocalOccupancy();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
+    };
+  }, [refreshLocalOccupancy]);
 
   const playoffDisplay = useMemo(() => {
     if (!data) return [];
@@ -312,7 +355,17 @@ export function TournamentScreen({ tournamentId }: Props) {
   }, [data, totalPlayoffRounds]);
 
   useEffect(() => {
-    const gameId = finalDbMatch?.game_id ?? finalMatch?.game_id;
+    const matchId = finalDbMatch?.id ?? finalMatch?.id;
+    const localOcc = matchId ? localOccupancy.get(matchId) : null;
+    if (localOcc?.status === "finished" && localOcc.localWinnerId != null) {
+      setFinalLocalWinnerId(localOcc.localWinnerId);
+      return;
+    }
+
+    const gameId =
+      localOcc?.localGameId ??
+      finalDbMatch?.game_id ??
+      finalMatch?.game_id;
     if (!gameId) {
       setFinalLocalWinnerId(null);
       return;
@@ -341,7 +394,13 @@ export function TournamentScreen({ tournamentId }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [finalDbMatch?.game_id, finalMatch?.game_id]);
+  }, [
+    finalDbMatch?.id,
+    finalDbMatch?.game_id,
+    finalMatch?.id,
+    finalMatch?.game_id,
+    localOccupancy,
+  ]);
 
   const finalWinnerId =
     finalDbMatch?.winner_id ??
@@ -458,8 +517,30 @@ export function TournamentScreen({ tournamentId }: Props) {
   const startMatch = async (matchId: string, type: "rr" | "playoff") => {
     if (matchId.startsWith("preview-") || !data) return;
     if (data.tournament.status === "finished") return;
+    if (!session?.user.id) {
+      setError("Сессия ещё не готова — подождите секунду");
+      return;
+    }
     setMatchLoading(matchId);
     try {
+      // Resume in-progress / sync finished local match instead of starting a duplicate.
+      const existingLocal = (await listLocalGames()).find(
+        (g) =>
+          g.meta.tournamentMatchId === matchId &&
+          g.snapshot.game.status !== "cancelled"
+      );
+      if (existingLocal?.snapshot.game.status === "active") {
+        router.push(`/game/${existingLocal.id}`);
+        return;
+      }
+      if (existingLocal?.snapshot.game.status === "finished") {
+        await syncPendingMembers().catch(() => {});
+        await syncLocalGame(existingLocal.id);
+        await refreshLocalOccupancy();
+        load();
+        return;
+      }
+
       const rrMatch = data.roundRobinMatches.find((m) => m.id === matchId);
       const poMatch = data.playoffMatches.find((m) => m.id === matchId);
       const match = type === "rr" ? rrMatch : poMatch;
@@ -493,7 +574,7 @@ export function TournamentScreen({ tournamentId }: Props) {
         mode,
         playerIds,
         players: buildPlayerMetas(playerIds, participantsForMeta),
-        createdBy: session?.user.id ?? 1,
+        createdBy: session.user.id,
         settings: gameSettingsForTournament(mode, tournamentSettings, {
           final: isFinalMatch,
         }),
@@ -509,6 +590,7 @@ export function TournamentScreen({ tournamentId }: Props) {
         },
       });
 
+      await refreshLocalOccupancy();
       router.push(`/game/${gameId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка");
@@ -695,7 +777,14 @@ export function TournamentScreen({ tournamentId }: Props) {
                     ? `${m.points_p1} : ${m.points_p2}`
                     : null;
                 const winnerId = roundRobinWinnerId(m);
-                const canPlay = !m.played && !m.game_id;
+                const controls = matchPlayControls({
+                  serverPlayed: m.played,
+                  serverGameId: m.game_id,
+                  serverWinnerId: winnerId,
+                  local: localOccupancy.get(m.id),
+                });
+                const canPlay =
+                  controls.canPlay && matchLoading !== m.id;
 
                 return (
                   <MatchupCard
@@ -705,9 +794,11 @@ export function TournamentScreen({ tournamentId }: Props) {
                     played={m.played}
                     scoreLabel={score}
                     gameId={m.game_id}
+                    continueGameId={controls.continueGameId}
+                    localFinished={controls.showLocalFinished}
                     roundRobinComplete
-                    winnerUserId={winnerId}
-                    canPlay={canPlay && matchLoading !== m.id}
+                    winnerUserId={controls.effectiveWinnerId ?? winnerId}
+                    canPlay={canPlay}
                     onPlay={
                       canPlay ? () => void startMatch(m.id, "rr") : undefined
                     }
@@ -747,6 +838,7 @@ export function TournamentScreen({ tournamentId }: Props) {
             matchLoading={matchLoading}
             layout="stack"
             onPlay={(id) => void startMatch(id, "playoff")}
+            localOccupancy={localOccupancy}
           />
         </CollapsibleSection>
 
@@ -760,6 +852,26 @@ export function TournamentScreen({ tournamentId }: Props) {
           player={player}
           matchLoading={matchLoading}
           onPlay={(id) => void startMatch(id, "playoff")}
+          continueGameId={
+            finalMatch
+              ? matchPlayControls({
+                  serverPlayed: Boolean(finalMatch.winner_id),
+                  serverGameId: finalMatch.game_id,
+                  serverWinnerId: finalMatch.winner_id,
+                  local: localOccupancy.get(finalMatch.id),
+                }).continueGameId
+              : null
+          }
+          localFinished={
+            finalMatch
+              ? matchPlayControls({
+                  serverPlayed: Boolean(finalMatch.winner_id),
+                  serverGameId: finalMatch.game_id,
+                  serverWinnerId: finalMatch.winner_id,
+                  local: localOccupancy.get(finalMatch.id),
+                }).showLocalFinished
+              : false
+          }
           showKennyPrize={isKenny}
           confettiVariant={isKenny ? "kenny" : "default"}
           celebrating={showCelebration}

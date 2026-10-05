@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCustomClubPhoto,
   pickPhotoUrlToStore,
   resolveStoredPhotoUrl,
+  shouldPreserveClubDisplayName,
   telegramAvatarPath,
 } from "@/lib/telegram/user-photo";
 
@@ -39,5 +41,36 @@ describe("telegram user photo", () => {
     expect(pickPhotoUrlToStore(7, undefined, null)).toBe(
       "/api/telegram/avatar/7"
     );
+  });
+
+  it("never replaces club data-url avatars with Telegram photos", () => {
+    const club = "data:image/jpeg;base64,/9j/abc";
+    expect(isCustomClubPhoto(club)).toBe(true);
+    expect(
+      pickPhotoUrlToStore(1, "https://t.me/i/userpic/320/new.svg", club)
+    ).toBe(club);
+  });
+
+  it("preserves renamed club display names", () => {
+    expect(
+      shouldPreserveClubDisplayName(
+        {
+          first_name: "Макс",
+          username: null,
+          photo_url: null,
+        },
+        "Max"
+      )
+    ).toBe(true);
+    expect(
+      shouldPreserveClubDisplayName(
+        {
+          first_name: "Max",
+          username: "max",
+          photo_url: null,
+        },
+        "Max"
+      )
+    ).toBe(false);
   });
 });

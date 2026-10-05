@@ -1,4 +1,3 @@
-import { NextRequest } from "next/server";
 import {
   validateInitData,
   type TelegramUser,
@@ -12,21 +11,21 @@ export type AuthContext = {
 /** Local club chat id used for plain web sessions (not a Telegram chat). */
 export const WEB_CLUB_CHAT_ID = -1000000000001;
 
-export function getInitDataFromRequest(req: NextRequest): string | null {
+export function getInitDataFromRequest(req: Request): string | null {
   const header = req.headers.get("x-telegram-init-data");
   if (header) return header;
   const url = new URL(req.url);
   return url.searchParams.get("initData");
 }
 
-function isWebAuthHeader(req: NextRequest): boolean {
+function isWebAuthHeader(req: Request): boolean {
   const web = req.headers.get("x-web-auth");
   const legacy = req.headers.get("x-dev-auth");
   return web === "local" || legacy === "local";
 }
 
 /** Browser / web app guest — no Telegram required. */
-function webAuthUser(req: NextRequest): TelegramUser | null {
+function webAuthUser(req: Request): TelegramUser | null {
   if (!isWebAuthHeader(req)) return null;
   // Prefer Telegram when both are present
   const initData = getInitDataFromRequest(req);
@@ -39,7 +38,7 @@ function webAuthUser(req: NextRequest): TelegramUser | null {
 }
 
 export function authenticateRequest(
-  req: NextRequest
+  req: Request
 ): { ok: true; ctx: AuthContext } | { ok: false; error: string; status: number } {
   const webUser = webAuthUser(req);
   if (webUser) {

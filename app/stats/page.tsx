@@ -11,9 +11,9 @@ import {
 import styles from "@/components/stats/statsScreen.module.css";
 import { Button } from "@/components/ui/Button";
 import { statsFetchMessage } from "@/components/stats/statsFetchError";
-import { apiFetch } from "@/lib/api/client";
 import type { ThrowInput } from "@/lib/darts/rules";
 import { useTelegram } from "@/components/TelegramProvider";
+import { loadPlayerStatsOfflineFirst } from "@/lib/offline/stats-service";
 
 type PlayerStats = {
   gamesPlayed: number;
@@ -39,17 +39,24 @@ function StatsContent() {
       setLoading(false);
       return;
     }
+    let cancelled = false;
     setLoading(true);
     setError(null);
-    apiFetch<{ stats: PlayerStats; allThrows?: ThrowInput[] }>(
-      `/api/stats/player?channelId=${channelId}&userId=${userId}`
-    )
+    loadPlayerStatsOfflineFirst(channelId, userId)
       .then((d) => {
+        if (cancelled) return;
         setStats(d.stats);
         setAllThrows(d.allThrows ?? []);
       })
-      .catch((err) => setError(statsFetchMessage(err)))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (!cancelled) setError(statsFetchMessage(err));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [channelId, userId]);
 
   return (

@@ -1,32 +1,29 @@
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: calc(16px + var(--app-inset-top))
-    calc(16px + var(--app-inset-right))
-    calc(16px + var(--app-inset-bottom))
-    calc(16px + var(--app-inset-left));
+  padding: calc(12px + var(--app-inset-top))
+    calc(12px + var(--app-inset-right))
+    calc(12px + var(--app-inset-bottom))
+    calc(12px + var(--app-inset-left));
   background: rgba(3, 7, 18, 0.58);
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
+  touch-action: none;
+  overscroll-behavior: none;
   animation: victoryBackdropIn 0.35s ease-out both;
 }
 
 .panel {
   width: min(100%, 400px);
-  height: fit-content;
-  max-height: min(92dvh, 90dvh);
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  max-height: min(88vh, 88dvh);
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 24px;
+  overflow: hidden;
+  touch-action: auto;
   border-radius: 24px;
   background: #374151;
   box-shadow: 0 24px 48px rgba(3, 7, 18, 0.45);
@@ -34,13 +31,38 @@
 }
 
 .panelConfirm {
-  gap: 20px;
+  gap: 0;
+  height: auto;
 }
 
+/* Force a viewport-bounded shell so actions stay on screen. */
 .panelStats {
+  height: min(88vh, 88dvh);
+  max-height: min(88vh, 88dvh);
+}
+
+.panelScroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  padding: 20px 20px 8px;
+}
+
+.panelStats .panelScroll {
+  gap: 16px;
+}
+
+.panelConfirm .panelScroll {
   gap: 20px;
-  max-height: none;
-  overflow: visible;
+  padding-bottom: 8px;
 }
 
 .hero {
@@ -96,7 +118,11 @@
   align-items: start;
   gap: 10px;
   width: 100%;
+  min-width: 0;
+  /* Must NOT use overflow:hidden — as a flex child that would shrink
+     and clip throw lists instead of growing panelScroll. */
   overflow: visible;
+  flex-shrink: 0;
 }
 
 .playersGrid[data-count="1"] {
@@ -198,7 +224,7 @@
 }
 
 .dartCount {
-  margin: 10px 0 8px;
+  margin: 8px 0 0;
   width: 100%;
   font-size: 12px;
   font-weight: 600;
@@ -208,26 +234,10 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-.throwChips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px;
-  margin: 0 0 10px;
-  width: 100%;
-}
-
-.throwChip {
-  display: inline-flex;
-  align-items: center;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 14px;
-  letter-spacing: -0.02em;
+/* Keep heatmaps compact so CTAs stay above the fold. */
+.playerCard :global([class*="heatmapWrap"]) {
+  max-width: 140px;
+  margin-inline: auto;
 }
 
 .actions {
@@ -235,10 +245,22 @@
   gap: 4px;
   width: 100%;
   flex-shrink: 0;
+  position: relative;
+  z-index: 3;
+  padding: 12px 20px calc(14px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  background: #374151;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.btnSecondary:disabled,
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 
 .actionsConfirm {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .btnSecondary,

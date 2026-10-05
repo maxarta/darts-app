@@ -4,6 +4,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState, type CSSProperties } from "react";
 import { apiFetch } from "@/lib/api/client";
 import { type ChannelMember } from "@/lib/channel/members";
+import {
+  loadChannelMembers,
+  syncPendingMembers,
+} from "@/lib/offline/members-service";
+import { isOnline } from "@/lib/game/sync/client";
 import { generateTournamentName } from "@/lib/tournament/name";
 import {
   KENNY_THEME_COLOR,
@@ -58,8 +63,8 @@ export function NewTournamentScreen() {
       return;
     }
     setMembersLoading(true);
-    apiFetch<{ members: ChannelMember[] }>(`/api/channels/${channelId}/members`)
-      .then((d) => setMembers(d.members))
+    loadChannelMembers(channelId)
+      .then((list) => setMembers(list))
       .catch((e) =>
         setError(e instanceof Error ? e.message : "Ошибка загрузки")
       )
@@ -90,9 +95,15 @@ export function NewTournamentScreen() {
       );
       return;
     }
+    if (!isOnline()) {
+      setError("Нужен интернет, чтобы создать турнир");
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
+      // Flush offline-created players so participant IDs exist on the server.
+      await syncPendingMembers();
       const data = await apiFetch<{ tournament: { id: string } }>(
         "/api/tournaments",
         {

@@ -44,11 +44,14 @@ export async function assertChannelMembership(
 
 export async function createManualChannelPlayer(
   channelId: string,
-  name: string
+  name: string,
+  photoUrl?: string | null
 ) {
   const trimmed = name.trim();
   if (!trimmed) throw new Error("Введите имя");
   if (trimmed.length > 40) throw new Error("Имя слишком длинное");
+  const storedPhoto =
+    photoUrl === undefined ? null : assertPhotoUrl(photoUrl ?? null);
 
   const db = getSupabaseAdmin();
   const telegramId = allocateManualPlayerId();
@@ -58,7 +61,7 @@ export async function createManualChannelPlayer(
     username: null,
     first_name: trimmed,
     last_name: null,
-    photo_url: null,
+    photo_url: storedPhoto,
   });
   if (userError) throw userError;
 
@@ -78,7 +81,7 @@ export async function createManualChannelPlayer(
     users: {
       first_name: trimmed,
       username: null as string | null,
-      photo_url: null as string | null,
+      photo_url: storedPhoto,
     },
   };
 }

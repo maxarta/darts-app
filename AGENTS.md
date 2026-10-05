@@ -1,5 +1,11 @@
-<!-- BEGIN:nextjs-agent-rules -->
-# This is NOT the Next.js you know
+# Agent notes
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
-<!-- END:nextjs-agent-rules -->
+This app uses **Vite + React Router** for the SPA and **Hono** for `/api/*`.
+
+- Frontend: `src/`, `components/`, `lib/` (client-safe pieces)
+- API handlers: `app/api/**/route.ts` (Request/Response handlers)
+- API router: `server/app.ts` (Hono)
+- Local: `npm run dev` → Vite `:5001` + API `:5002` (proxy `/api`)
+- Production: Vite `dist/` + bundled `api/index.js` on Vercel
+
+Shims for legacy imports: `src/shims/next-{image,link,navigation}.*`

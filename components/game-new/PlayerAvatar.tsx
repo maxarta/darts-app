@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./newGame.module.css";
 
 type PlayerAvatarProps = {
@@ -30,6 +30,9 @@ export function PlayerAvatar({
   size = "pick",
 }: PlayerAvatarProps) {
   const [imgFailed, setImgFailed] = useState(false);
+  useEffect(() => {
+    setImgFailed(false);
+  }, [photoUrl]);
   const sizeClass = size === "play" ? styles.avatarPlay : styles.avatarPick;
   const showImage = Boolean(photoUrl) && !imgFailed;
 

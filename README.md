@@ -4,7 +4,8 @@
 
 ## Стек
 
-- Next.js 16, React 19
+- Vite + React 19 + React Router
+- Hono (API `/api/*`)
 - Supabase (Postgres)
 - Grammy (Telegram Bot)
 - `@twa-dev/sdk`
@@ -22,16 +23,12 @@
 
 ```bash
 npm install
-npm run dev          # порт 5001 (на Mac порт 5000 часто занят AirPlay)
-npm run dev:5000     # только если 5000 свободен
+npm run dev          # Vite :5001 + API :5002 (прокси /api)
 ```
 
-**Порт 5000 на Mac:** часто занят «Приёмником AirPlay». Отключите:  
-*Системные настройки → Основные → AirDrop и Handoff → Приёмник AirPlay → Выкл.*, затем `npm run dev`.
+Локально в браузере (без Telegram): откройте **http://localhost:5001** — web-сессия работает через заголовок `x-web-auth: local`.
 
-**Локально в браузере** (без Telegram): в `.env.local` включите `ALLOW_DEV_AUTH=true` и `NEXT_PUBLIC_DEV_MODE=true` → откройте **http://localhost:5001**
-
-**Миграция БД (один раз):** Supabase Dashboard → [SQL Editor](https://supabase.com/dashboard) → вставьте файл `supabase/migrations/001_initial.sql` → Run.
+**Миграция БД (один раз):** Supabase Dashboard → SQL Editor → `supabase/migrations/001_initial.sql` → Run.
 
 Тесты правил игры:
 
@@ -41,18 +38,13 @@ npm test
 
 ## Деплой: GitHub → Vercel
 
-GitHub **нужен** для хранения кода и автосборки, но связка делается **в интерфейсах**, а не через `GITHUB_TOKEN` в `.env` приложения.
-
 ```text
-git push → GitHub (maxarta/darts-app) → Vercel (webhook) → npm run build → production
+git push → GitHub (maxarta/darts-app) → Vercel → npm run build → dist/ + api/index.js
 ```
 
-1. Репозиторий на GitHub: `https://github.com/maxarta/darts-app`
-2. [Vercel](https://vercel.com) → **Add New Project** → Import из GitHub → выбрать `darts-app`
-3. В Vercel → **Settings → Environment Variables** добавить:
-   `BOT_TOKEN`, `WEBAPP_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
-4. Каждый `git push` в `main` (или выбранную ветку) запускает новый деплой
-
-**`GITHUB_TOKEN` в `.env.local`** — только если вы из терминала вызываете [`gh`](https://cli.github.com/) (создать PR, issues). Для обычного `git push` он **не нужен**: Git использует SSH-ключ или credential helper macOS.
+1. Репозиторий: `https://github.com/maxarta/darts-app`
+2. Vercel → Import `darts-app`
+3. Environment Variables: `BOT_TOKEN`, `WEBAPP_URL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+4. Framework Preset можно оставить Other / Vite; `vercel.json` задаёт `dist` и rewrite на SPA + `/api`
 
 Участники канала должны **один раз открыть** мини-апп из канала, чтобы попасть в список игроков (ограничение Telegram Bot API).

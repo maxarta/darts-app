@@ -8,6 +8,13 @@ import {
   type ReactNode,
 } from "react";
 import { apiFetch } from "@/lib/api/client";
+import {
+  buildOfflineWebSession,
+  isProbablyOfflineError,
+  readCachedSession,
+  writeCachedSession,
+  type CachedSession,
+} from "@/lib/offline/session-cache";
 
 type Channel = {
   id: string;
@@ -15,16 +22,7 @@ type Channel = {
   title: string;
 };
 
-type Session = {
-  user: {
-    id: number;
-    first_name: string;
-    username?: string;
-    photo_url?: string;
-  };
-  channel: Channel | null;
-  isChannelAdmin?: boolean;
-};
+type Session = CachedSession;
 
 type TelegramContextValue = {
   ready: boolean;
@@ -32,7 +30,11 @@ type TelegramContextValue = {
   error: string | null;
   channel: Channel | null;
   isChannelAdmin: boolean;
+  offline: boolean;
   refreshSession: () => Promise<void>;
+  patchSessionUser: (
+    patch: Partial<CachedSession["user"]>
+  ) => void;
 };
 
 const TelegramContext = createContext<TelegramContextValue | null>(null);
@@ -41,6 +43,9 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [offline, setOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
 
   const refreshSession = async () => {
     const params = new URLSearchParams(window.location.search);
@@ -55,12 +60,42 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const data = await apiFetch<Session>("/api/auth/session", {
-      method: "POST",
-      body: JSON.stringify({ startParam }),
-    });
-    setSession(data);
+    try {
+      const data = await apiFetch<Session>("/api/auth/session", {
+        method: "POST",
+        body: JSON.stringify({ startParam }),
+      });
+      writeCachedSession(data);
+      setSession(data);
+      setError(null);
+      setOffline(false);
+    } catch (e) {
+      const cached = readCachedSession();
+      if (cached || isProbablyOfflineError(e)) {
+        const fallback = cached ?? buildOfflineWebSession();
+        writeCachedSession(fallback);
+        setSession(fallback);
+        setOffline(true);
+        setError(null);
+        return;
+      }
+      throw e;
+    }
   };
+
+  useEffect(() => {
+    const onOnline = () => {
+      setOffline(false);
+      void refreshSession().catch(() => setOffline(!navigator.onLine));
+    };
+    const onOffline = () => setOffline(true);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
 
   useEffect(() => {
     // Optional Telegram chrome when opened inside Mini App
@@ -77,18 +112,12 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
           const cs = WebApp.contentSafeAreaInset;
           const minHeaderTop = 56;
           if (sa) {
-            root.style.setProperty(
-              "--tg-safe-area-inset-top",
-              `${sa.top}px`
-            );
+            root.style.setProperty("--tg-safe-area-inset-top", `${sa.top}px`);
             root.style.setProperty(
               "--tg-safe-area-inset-bottom",
               `${sa.bottom}px`
             );
-            root.style.setProperty(
-              "--tg-safe-area-inset-left",
-              `${sa.left}px`
-            );
+            root.style.setProperty("--tg-safe-area-inset-left", `${sa.left}px`);
             root.style.setProperty(
               "--tg-safe-area-inset-right",
               `${sa.right}px`
@@ -125,6 +154,10 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {});
 
+    // Instant paint from cache while network session resolves.
+    const cached = readCachedSession();
+    if (cached) setSession(cached);
+
     refreshSession()
       .catch((e) => {
         const msg = e instanceof Error ? e.message : "Auth failed";
@@ -146,6 +179,18 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
       .finally(() => setReady(true));
   }, []);
 
+  const patchSessionUser = (patch: Partial<CachedSession["user"]>) => {
+    setSession((prev) => {
+      if (!prev) return prev;
+      const next: Session = {
+        ...prev,
+        user: { ...prev.user, ...patch },
+      };
+      writeCachedSession(next);
+      return next;
+    });
+  };
+
   return (
     <TelegramContext.Provider
       value={{
@@ -154,7 +199,9 @@ export function TelegramProvider({ children }: { children: ReactNode }) {
         error,
         channel: session?.channel ?? null,
         isChannelAdmin: session?.isChannelAdmin === true,
+        offline,
         refreshSession,
+        patchSessionUser,
       }}
     >
       {children}

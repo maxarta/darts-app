@@ -39,8 +39,22 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const router = useRouter();
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [offline, setOffline] = useState(
+    typeof navigator !== "undefined" ? !navigator.onLine : false
+  );
   const ready = Boolean(channelId) && !loading;
   const showStatus = loading || Boolean(error) || (!loading && !channelId && !error);
+
+  useEffect(() => {
+    const onOnline = () => setOffline(false);
+    const onOffline = () => setOffline(true);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
 
   const go = (href: string | null) => {
     if (!href) return;
@@ -71,6 +85,11 @@ export function HomeScreen({
         <div className={styles.headerRow}>
           <DartsLogo />
           <p className={styles.locationLabel}>Красная Поляна</p>
+          {offline && (
+            <p className={styles.offlineLabel} role="status">
+              Офлайн — игры сохраняются на устройстве
+            </p>
+          )}
         </div>
 
       </header>

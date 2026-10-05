@@ -3,9 +3,8 @@ import { importLocalGame } from "@/lib/db/import-local-game";
 import type { GameSettings } from "@/lib/darts/rules";
 
 export async function POST(req: Request) {
-  const auth = authenticateRequest(req as import("next/server").NextRequest);
+  const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
-
   const body = await req.json();
   const {
     localId,
@@ -20,41 +19,29 @@ export async function POST(req: Request) {
     currentLeg,
     currentRound,
     players,
-    throws,
+    throws
   } = body;
-
-  if (
-    !localId ||
-    !channelId ||
-    !mode ||
-    !Array.isArray(playerIds) ||
-    playerIds.length < 1 ||
-    !Array.isArray(players) ||
-    !Array.isArray(throws)
-  ) {
+  if (!localId || !channelId || !mode || !Array.isArray(playerIds) || playerIds.length < 1 || !Array.isArray(players) || !Array.isArray(throws)) {
     return jsonError("Invalid payload", 400);
   }
-
   const result = await importLocalGame({
     localId,
     channelId,
     mode: mode === "301" ? "301" : "501",
-    settings: settings as GameSettings,
+    settings,
     playerIds,
     createdBy: auth.ctx.user.id,
     tournamentMatchId: tournamentMatchId ?? null,
     tournamentMatchType: tournamentMatchType ?? null,
-    status:
-      status === "finished" || status === "cancelled" ? status : "finished",
+    status: status === "finished" || status === "cancelled" ? status : "finished",
     currentPlayerIndex: Number(currentPlayerIndex) || 0,
     currentLeg: Number(currentLeg) || 1,
     currentRound: Number(currentRound) || 1,
     players,
-    throws,
+    throws
   });
-
   return Response.json({
     gameId: result.game.id,
-    game: result,
+    game: result
   });
 }

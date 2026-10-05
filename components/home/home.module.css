@@ -59,6 +59,16 @@
   color: var(--home-ink);
 }
 
+.offlineLabel {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+  text-align: center;
+  color: var(--home-ink);
+  opacity: 0.72;
+}
+
 .bottomNav {
   width: 100%;
   display: grid;
@@ -84,7 +94,8 @@
   align-items: center;
   gap: var(--spacing-mode-gap);
   width: 100%;
-  margin-top: var(--spacing-8);
+  /* Extra top room so the tournament trophy (overflows the card) clears the logo */
+  margin-top: var(--spacing-16);
 }
 
 .statusBlock {
@@ -106,6 +117,8 @@
   flex-direction: column;
   gap: var(--spacing-mode-gap);
   flex-shrink: 0;
+  /* Trophy is ~91px and sits above the 79px card — keep clear of header/logo */
+  padding-top: 48px;
 }
 
 .modeRow {

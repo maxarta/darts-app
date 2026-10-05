@@ -31,10 +31,6 @@
   font-family: var(--font-darts), system-ui, sans-serif;
 }
 
-.gameScreen:has([data-victory-overlay]) {
-  overflow: visible;
-}
-
 .gameTopStrip {
   flex-shrink: 0;
   display: flex;

@@ -16,8 +16,12 @@ type Props = {
   preview?: boolean;
   scoreLabel?: string | null;
   gameId?: string | null;
+  /** Prefer local game id for Continue when the match is in progress on device. */
+  continueGameId?: string | null;
   canPlay?: boolean;
   onPlay?: () => void;
+  /** Local finish not yet reflected on server */
+  localFinished?: boolean;
   /** Круговой этап: завершённый матч */
   roundRobinComplete?: boolean;
   winnerUserId?: number | null;
@@ -31,22 +35,27 @@ export function MatchupCard({
   preview = false,
   scoreLabel,
   gameId,
+  continueGameId = null,
   canPlay = false,
   onPlay,
+  localFinished = false,
   roundRobinComplete = false,
   winnerUserId = null,
   avatarSize = "default",
 }: Props) {
   const ready = Boolean(player1 && player2);
+  const resumeId = continueGameId ?? gameId;
   const showCompleted =
-    winnerUserId != null || (roundRobinComplete && played);
+    winnerUserId != null ||
+    (roundRobinComplete && played) ||
+    localFinished;
   const showPlay = !preview && canPlay && ready && onPlay && !showCompleted;
   const showPlayLocked =
     preview && ready && !played && !gameId && !showCompleted;
   const showContinue =
     !preview &&
     !showCompleted &&
-    gameId &&
+    resumeId &&
     !showPlay &&
     winnerUserId == null;
 
@@ -140,12 +149,12 @@ export function MatchupCard({
 
       {showCompleted && (
         <button type="button" className={styles.playBtnDone} disabled>
-          Игра завершена
+          {localFinished && !played ? "Сохраняем…" : "Игра завершена"}
         </button>
       )}
 
-      {showContinue && (
-        <Link href={`/game/${gameId}`} className={styles.playBtnSecondary}>
+      {showContinue && resumeId && (
+        <Link href={`/game/${resumeId}`} className={styles.playBtnSecondary}>
           Продолжить
         </Link>
       )}

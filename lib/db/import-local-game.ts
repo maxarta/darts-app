@@ -38,7 +38,9 @@ export type ImportLocalGameParams = {
   }>;
 };
 
-function findFinishedGameWinner(params: ImportLocalGameParams): number | null {
+export function findFinishedGameWinner(
+  params: ImportLocalGameParams
+): number | null {
   const settings = {
     ...defaultSettings(params.mode),
     ...params.settings,
@@ -68,6 +70,7 @@ async function handleTournamentMatchWin(
     .maybeSingle();
 
   if (rr) {
+    if (rr.played) return;
     const p1Win = rr.player1_id === winnerId;
     await db
       .from("round_robin_matches")
@@ -87,6 +90,7 @@ async function handleTournamentMatchWin(
     .maybeSingle();
 
   if (po) {
+    if (po.winner_id) return;
     await db
       .from("playoff_matches")
       .update({ winner_id: winnerId })
@@ -102,12 +106,45 @@ async function handleTournamentMatchWin(
 
     if (nextRound) {
       const field = po.slot % 2 === 0 ? "player1_id" : "player2_id";
-      await db
-        .from("playoff_matches")
-        .update({ [field]: winnerId })
-        .eq("id", nextRound.id);
+      // Don't overwrite a slot that already has a player.
+      if (nextRound[field] == null) {
+        await db
+          .from("playoff_matches")
+          .update({ [field]: winnerId })
+          .eq("id", nextRound.id);
+      }
     }
+  }
+}
 
+async function linkTournamentMatchGame(
+  matchId: string,
+  matchType: "rr" | "playoff",
+  gameId: string
+) {
+  const db = getSupabaseAdmin();
+  const table =
+    matchType === "rr" ? "round_robin_matches" : "playoff_matches";
+  await db.from(table).update({ game_id: gameId }).eq("id", matchId);
+}
+
+/** Idempotent: safe to call again after a dropped HTTP response. */
+async function applyFinishedTournamentResult(
+  params: ImportLocalGameParams,
+  gameId: string
+) {
+  if (!params.tournamentMatchId || !params.tournamentMatchType) return;
+  if (params.status !== "finished") return;
+
+  await linkTournamentMatchGame(
+    params.tournamentMatchId,
+    params.tournamentMatchType,
+    gameId
+  );
+
+  const winnerId = findFinishedGameWinner(params);
+  if (winnerId) {
+    await handleTournamentMatchWin(params.tournamentMatchId, winnerId);
   }
 }
 
@@ -116,11 +153,27 @@ export async function importLocalGame(params: ImportLocalGameParams) {
 
   const { data: existing } = await db
     .from("games")
-    .select("id")
+    .select("id, status")
     .eq("client_game_id", params.localId)
     .maybeSingle();
 
   if (existing) {
+    // Retry after a lost response: finish tournament advancement if needed.
+    if (params.status === "finished") {
+      if (existing.status !== "finished") {
+        await db
+          .from("games")
+          .update({
+            status: "finished",
+            finished_at: new Date().toISOString(),
+            current_player_index: params.currentPlayerIndex,
+            current_leg: params.currentLeg,
+            current_round: params.currentRound,
+          })
+          .eq("id", existing.id);
+      }
+      await applyFinishedTournamentResult(params, existing.id);
+    }
     return getGame(existing.id);
   }
 
@@ -198,15 +251,17 @@ export async function importLocalGame(params: ImportLocalGameParams) {
     if (tErr) throw tErr;
   }
 
-  if (params.tournamentMatchId && params.tournamentMatchType) {
-    const table =
-      params.tournamentMatchType === "rr"
-        ? "round_robin_matches"
-        : "playoff_matches";
-    await db
-      .from(table)
-      .update({ game_id: game.id })
-      .eq("id", params.tournamentMatchId);
+  // Never claim a tournament slot with a cancelled game — that soft-locks the match.
+  if (
+    params.status !== "cancelled" &&
+    params.tournamentMatchId &&
+    params.tournamentMatchType
+  ) {
+    await linkTournamentMatchGame(
+      params.tournamentMatchId,
+      params.tournamentMatchType,
+      game.id
+    );
   }
 
   if (params.status === "finished" && params.tournamentMatchId) {

@@ -28,8 +28,11 @@ export function photoFor(
   user: MemberUser | null,
   session: { id: number; photo_url?: string } | undefined
 ): string | null {
+  // Prefer the roster/DB photo (incl. manual data-URL avatars) over session.
+  const fromUser = resolveStoredPhotoUrl(userId, user?.photo_url);
+  if (fromUser) return fromUser;
   if (userId === session?.id && session.photo_url) {
     return resolveStoredPhotoUrl(userId, session.photo_url);
   }
-  return resolveStoredPhotoUrl(userId, user?.photo_url);
+  return null;
 }

@@ -24,6 +24,7 @@ import {
 import { getLocalGame, saveLocalGame } from "@/lib/game/local/store";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import { syncLocalGame } from "@/lib/game/sync/client";
+import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
 import { GameHeader } from "./GameHeader";
@@ -52,18 +53,32 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const [victoryStats, setVictoryStats] = useState<LocalGameRecord | null>(
     null
   );
+  const [victoryBusy, setVictoryBusy] = useState(false);
   const [victoryConfirmDismissed, setVictoryConfirmDismissed] = useState(false);
   const [pendingRemove, setPendingRemove] = useState<{
     userId: number;
     name: string;
   } | null>(null);
 
+  const persistGenRef = useRef(0);
   const persist = useCallback(async (next: LocalGameRecord) => {
+    const gen = ++persistGenRef.current;
     recordRef.current = next;
     setRecord(next);
     await saveLocalGame(next);
-    if (needsSync(next)) {
-      void syncLocalGame(next.id);
+    if (gen !== persistGenRef.current) return;
+    if (!needsSync(next)) return;
+    try {
+      if (next.tournamentContext) {
+        await syncPendingMembers();
+      }
+      if (gen !== persistGenRef.current) return;
+      await syncLocalGame(next.id);
+      if (gen !== persistGenRef.current) return;
+      const latest = recordRef.current;
+      if (latest) setRecord(latest);
+    } catch {
+      /* sync retries on online */
     }
   }, []);
 
@@ -156,6 +171,9 @@ export function GameScreen({ gameId }: { gameId: string }) {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setError(null);
+    setVictoryStats(null);
+    setVictoryConfirmDismissed(false);
     getLocalGame(gameId)
       .then((loaded) => {
         if (cancelled) return;
@@ -166,9 +184,9 @@ export function GameScreen({ gameId }: { gameId: string }) {
         }
         recordRef.current = loaded;
         setRecord(loaded);
-        if (loaded.snapshot.game.status === "finished") {
-          setVictoryStats(loaded);
-        }
+        setVictoryStats(
+          loaded.snapshot.game.status === "finished" ? loaded : null
+        );
         setLoading(false);
         if (needsSync(loaded)) {
           void syncLocalGame(loaded.id).then((synced) => {
@@ -229,6 +247,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
           settings
         ).legWon
       ) {
+        // Re-open checkout confirm if the player dismissed it by mistake.
+        setVictoryConfirmDismissed(false);
         return;
       }
     }
@@ -251,11 +271,33 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const onLeave = async () => {
     const prev = recordRef.current;
     if (!prev) return;
+
+    // Tournament: return to lobby without cancelling — cancel would soft-lock the match.
+    if (prev.tournamentContext) {
+      const ok = window.confirm(
+        "Вернуться к турниру? Матч можно продолжить позже."
+      );
+      if (!ok) return;
+      hapticImpact("medium");
+      const q = new URLSearchParams({ channelId: prev.meta.channelId });
+      if (prev.tournamentContext.variant === "kenny") {
+        q.set("variant", "kenny");
+      }
+      router.replace(
+        `/tournament/${prev.tournamentContext.tournamentId}?${q.toString()}`
+      );
+      return;
+    }
+
     const ok = window.confirm("Покинуть игру? Прогресс останется на устройстве.");
     if (!ok) return;
     hapticImpact("medium");
     await persist(localGameCancel(prev));
-    router.push("/");
+    router.push(
+      prev.meta.channelId
+        ? `/?channelId=${encodeURIComponent(prev.meta.channelId)}`
+        : "/"
+    );
   };
 
   const onRemovePlayer = (userId: number) => {
@@ -279,15 +321,14 @@ export function GameScreen({ gameId }: { gameId: string }) {
     await persist(next);
   };
 
-  const returnToTournament = async (
+  const returnToTournament = (
     prev: LocalGameRecord,
     options?: { celebrateFinal?: boolean }
   ) => {
-    if (needsSync(prev)) {
-      await syncLocalGame(prev.id);
-    }
     const ctx = prev.tournamentContext;
     if (!ctx) return;
+
+    // Navigate immediately — never block the CTA on sync/confirm dialogs.
     if (options?.celebrateFinal) {
       markCelebrateFinal(ctx.tournamentId);
     }
@@ -299,18 +340,29 @@ export function GameScreen({ gameId }: { gameId: string }) {
       q.set("celebrate", "final");
     }
     router.replace(`/tournament/${ctx.tournamentId}?${q.toString()}`);
+
+    if (needsSync(prev)) {
+      void syncPendingMembers()
+        .then(() => syncLocalGame(prev.id))
+        .catch(() => {});
+    }
   };
 
   const goHome = () => {
     const prev = recordRef.current;
-    const celebrateFinal =
-      prev?.tournamentContext?.stage === "Финал" &&
-      prev.snapshot.game.status === "finished";
-    if (prev?.tournamentContext && celebrateFinal) {
-      void returnToTournament(prev, { celebrateFinal: true });
+    if (!prev || victoryBusy) return;
+    if (prev.tournamentContext) {
+      const celebrateFinal =
+        prev.tournamentContext.stage === "Финал" &&
+        prev.snapshot.game.status === "finished";
+      setVictoryStats(null);
+      setVictoryBusy(false);
+      returnToTournament(prev, { celebrateFinal });
       return;
     }
-    const channelId = prev?.meta.channelId;
+    setVictoryStats(null);
+    setVictoryBusy(false);
+    const channelId = prev.meta.channelId;
     router.push(
       channelId ? `/?channelId=${encodeURIComponent(channelId)}` : "/"
     );
@@ -334,25 +386,36 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
   const onVictoryPlayAgain = async () => {
     const prev = recordRef.current;
-    if (!prev) return;
+    if (!prev || victoryBusy) return;
+    setVictoryBusy(true);
 
     if (prev.tournamentContext) {
       const celebrateFinal =
         prev.tournamentContext.stage === "Финал" &&
         prev.snapshot.game.status === "finished";
-      await returnToTournament(prev, { celebrateFinal });
+      setVictoryStats(null);
+      setVictoryBusy(false);
+      returnToTournament(prev, { celebrateFinal });
       return;
     }
 
-    const newId = await createAndSaveLocalGame({
-      channelId: prev.meta.channelId,
-      mode: prev.meta.mode,
-      playerIds: prev.meta.playerIds,
-      players: prev.meta.players,
-      createdBy: prev.meta.createdBy,
-      settings: prev.meta.settings,
-    });
-    router.replace(`/game/${newId}`);
+    try {
+      const newId = await createAndSaveLocalGame({
+        channelId: prev.meta.channelId,
+        mode: prev.meta.mode,
+        playerIds: prev.meta.playerIds,
+        players: prev.meta.players,
+        createdBy: prev.meta.createdBy,
+        settings: prev.meta.settings,
+      });
+      setVictoryStats(null);
+      setVictoryConfirmDismissed(false);
+      setVictoryBusy(false);
+      router.replace(`/game/${newId}`);
+    } catch (e) {
+      setVictoryBusy(false);
+      setError(e instanceof Error ? e.message : "Не удалось начать игру");
+    }
   };
 
   if (loading) {
@@ -556,6 +619,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
           record={victoryStats}
           endScopeMatch={endScopeMatch}
           matchFinished={victoryStats.snapshot.game.status === "finished"}
+          busy={victoryBusy}
           onDone={goHome}
           onPlayAgain={() => void onVictoryPlayAgain()}
           onContinue={() => setVictoryStats(null)}
