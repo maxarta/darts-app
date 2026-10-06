@@ -162,13 +162,15 @@
   left: 0;
   right: auto;
   z-index: 50;
-  min-width: 180px;
-  max-width: min(260px, calc(100vw - 24px));
+  min-width: 200px;
+  max-width: min(280px, calc(100vw - 24px));
+  max-height: min(70vh, 420px);
+  overflow-x: hidden;
+  overflow-y: auto;
   background: var(--g-white);
   border: 1px solid var(--g-border);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(3, 7, 18, 0.12);
-  overflow: hidden;
 }
 
 .menuTv {

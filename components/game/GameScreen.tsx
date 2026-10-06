@@ -27,7 +27,8 @@ import { localRecordFromServer } from "@/lib/game/local/from-server";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { apiFetch } from "@/lib/api/client";
-import { isExtendedMode } from "@/lib/app-mode";
+import { GUEST_CLUB_CHAT_ID } from "@/lib/api/auth";
+import { useTelegram } from "@/components/TelegramProvider";
 import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
@@ -52,6 +53,11 @@ import styles from "./game.module.css";
 
 export function GameScreen({ gameId }: { gameId: string }) {
   const router = useRouter();
+  const { appMode, channel } = useTelegram();
+  const clubTvEnabled =
+    appMode === "extended" &&
+    channel != null &&
+    channel.telegram_chat_id !== GUEST_CLUB_CHAT_ID;
   const [record, setRecord] = useState<LocalGameRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -134,12 +140,12 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
   // Free-game TV code (club / extended only — never temporary guest games)
   useEffect(() => {
-    if (!record || record.tournamentContext || !isExtendedMode()) {
+    if (!record || record.tournamentContext || !clubTvEnabled) {
       setTvCode(null);
       return;
     }
     const boardKey = gameBoardKey(record.id);
-    const channelId = record.meta.channelId ?? "";
+    const channelId = record.meta.channelId ?? channel?.id ?? "";
     let cancelled = false;
     void apiFetch<{ code: string }>(
       `/api/tv/boards/${encodeURIComponent(boardKey)}?want=code&channelId=${encodeURIComponent(channelId)}&title=${encodeURIComponent(record.snapshot.game.mode)}`
@@ -153,7 +159,14 @@ export function GameScreen({ gameId }: { gameId: string }) {
     return () => {
       cancelled = true;
     };
-  }, [record?.id, record?.tournamentContext, record?.meta.channelId, record?.snapshot.game.mode]);
+  }, [
+    record?.id,
+    record?.tournamentContext,
+    record?.meta.channelId,
+    record?.snapshot.game.mode,
+    clubTvEnabled,
+    channel?.id,
+  ]);
 
   useEffect(() => {
     if (!visitAchievementsEnabled) {
@@ -618,7 +631,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
           disabled={finished}
           finishHint={finishHint}
           tv={
-            isExtendedMode() && !record.tournamentContext
+            clubTvEnabled && !record.tournamentContext
               ? {
                   code: tvCode,
                   display: tvPublicDisplay(),
