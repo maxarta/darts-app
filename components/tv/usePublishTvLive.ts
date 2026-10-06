@@ -5,6 +5,7 @@ import { apiFetch } from "@/lib/api/client";
 import type { AchievementId } from "@/lib/game/achievements";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import {
+  isCustomClubPhoto,
   resolveStoredPhotoUrl,
   telegramAvatarPath,
 } from "@/lib/telegram/user-photo";
@@ -13,14 +14,16 @@ import {
   type TvLivePayload,
 } from "@/lib/tournament/tv-live";
 
-const PUBLISH_INTERVAL_MS = 800;
-const HEARTBEAT_MS = 4_000;
+const PUBLISH_INTERVAL_MS = 1_000;
 
+/** Keep TV payloads small — never ship base64 club photos over the wire. */
 function playerPhotoUrl(
   userId: number,
   fromMeta: string | null | undefined
-): string | null {
-  return resolveStoredPhotoUrl(userId, fromMeta) ?? telegramAvatarPath(userId);
+): string {
+  const resolved = resolveStoredPhotoUrl(userId, fromMeta);
+  if (resolved && !isCustomClubPhoto(resolved)) return resolved;
+  return telegramAvatarPath(userId);
 }
 
 function buildPayload(
@@ -64,6 +67,22 @@ function buildPayload(
   };
 }
 
+function idlePayload(tournamentIdMatch: string | null): TvLivePayload {
+  return {
+    updatedAt: Date.now(),
+    phase: "idle",
+    matchId: tournamentIdMatch,
+    stage: null,
+    mode: "501",
+    currentRound: 1,
+    currentLeg: 1,
+    legsToWin: 1,
+    visitThrows: [],
+    achievements: [],
+    players: [],
+  };
+}
+
 /** Publishes live game state to the API so `/tv` on another device can poll it. */
 export function usePublishTvLive(
   record: LocalGameRecord | null,
@@ -72,7 +91,6 @@ export function usePublishTvLive(
   const tournamentId = record?.tournamentContext?.tournamentId ?? null;
   const channelId = record?.meta.channelId ?? "";
   const lastSentRef = useRef("");
-  const lastHeartbeatRef = useRef(0);
   const achievementsRef = useRef(achievements);
   achievementsRef.current = achievements;
   const recordRef = useRef(record);
@@ -83,39 +101,8 @@ export function usePublishTvLive(
 
     let cancelled = false;
 
-    const publish = (forceHeartbeat: boolean) => {
-      const current = recordRef.current;
-      if (!current || cancelled) return;
-      if (current.snapshot.game.status === "finished") {
-        // Clear sticky playing board after match ends.
-        const idle = buildPayload(current, achievementsRef.current);
-        idle.phase = "idle";
-        idle.players = [];
-        writeTvLive(channelId, tournamentId, idle);
-        void apiFetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/live`, {
-          method: "POST",
-          body: JSON.stringify({ live: null }),
-        }).catch(() => {});
-        lastSentRef.current = "";
-        return;
-      }
-
-      const payload = buildPayload(current, achievementsRef.current);
-      const key = JSON.stringify({ ...payload, updatedAt: 0 });
-      const now = Date.now();
-      const unchanged = key === lastSentRef.current;
-      if (
-        unchanged &&
-        !forceHeartbeat &&
-        now - lastHeartbeatRef.current < HEARTBEAT_MS
-      ) {
-        return;
-      }
-      lastSentRef.current = key;
-      lastHeartbeatRef.current = now;
-
+    const post = (payload: TvLivePayload) => {
       writeTvLive(channelId, tournamentId, payload);
-
       void apiFetch<{ live: TvLivePayload | null }>(
         `/api/tournaments/${encodeURIComponent(tournamentId)}/live`,
         {
@@ -127,8 +114,26 @@ export function usePublishTvLive(
       });
     };
 
-    publish(true);
-    const id = window.setInterval(() => publish(true), PUBLISH_INTERVAL_MS);
+    const publish = () => {
+      const current = recordRef.current;
+      if (!current || cancelled) return;
+
+      if (current.snapshot.game.status === "finished") {
+        const idle = idlePayload(current.meta.tournamentMatchId);
+        post(idle);
+        lastSentRef.current = "";
+        return;
+      }
+
+      const payload = buildPayload(current, achievementsRef.current);
+      // Always bump updatedAt so TV never treats an idle pause as "gone".
+      const key = JSON.stringify({ ...payload, updatedAt: 0 });
+      lastSentRef.current = key;
+      post(payload);
+    };
+
+    publish();
+    const id = window.setInterval(publish, PUBLISH_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(id);

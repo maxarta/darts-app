@@ -144,7 +144,14 @@ export function TvScreen() {
     const applyLive = (next: TvLivePayload | null) => {
       if (cancelled) return;
       setLive((prev) => {
-        if (next == null) return null;
+        // Explicit end of match from phone.
+        if (next?.phase === "idle") return null;
+        // API gap / wiped row — keep showing the in-progress board.
+        if (next == null) {
+          if (prev?.phase === "playing" && prev.players.length > 0) return prev;
+          return null;
+        }
+        if (next.phase === "playing" && next.players.length > 0) return next;
         return pickTvLive(next, prev);
       });
       const ids = next?.achievements ?? [];
@@ -169,10 +176,6 @@ export function TvScreen() {
       )
         .then((res) => {
           if (cancelled) return;
-          if (res.live == null) {
-            applyLive(isTvLiveFresh(local) ? local : null);
-            return;
-          }
           applyLive(pickTvLive(local, res.live));
         })
         .catch(() => {
@@ -215,9 +218,7 @@ export function TvScreen() {
   const isKenny =
     normalizeTournamentVariant(data?.tournament.variant) === "kenny";
   const boardLive =
-    live?.phase === "playing" && live.players.length > 0 && isTvLiveFresh(live)
-      ? live
-      : null;
+    live?.phase === "playing" && live.players.length > 0 ? live : null;
   const playing = Boolean(boardLive);
 
   const upcoming = useMemo(() => nextUpcoming(data), [data]);
