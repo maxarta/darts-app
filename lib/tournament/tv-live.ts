@@ -41,10 +41,11 @@ export function isTvLiveFresh(live: TvLivePayload | null | undefined): boolean {
   return Date.now() - live.updatedAt < TV_LIVE_STALE_MS;
 }
 
-/** Production web app host — what to type on a TV browser. */
-export const TV_PUBLIC_ORIGIN = "https://project-lxy5p.vercel.app";
+/** Production host for TV board (artdart). */
+export const TV_PUBLIC_ORIGIN = "https://artdart.vercel.app";
+export const TV_PUBLIC_HOST = "artdart.vercel.app";
 
-/** Same as the app URL, just `/tv` (+ tournament). */
+/** Same as the app URL, just `/tv` (+ tournament for same-device). */
 export function tvPath(channelId: string, tournamentId?: string): string {
   if (tournamentId) return `/tv/${encodeURIComponent(tournamentId)}`;
   const q = new URLSearchParams();
@@ -53,13 +54,14 @@ export function tvPath(channelId: string, tournamentId?: string): string {
   return s ? `/tv?${s}` : "/tv";
 }
 
-/**
- * Absolute TV address for entering on another device (TV browser).
- * Always uses the public host — not localhost.
- */
-export function tvPublicUrl(tournamentId: string): string {
-  if (!tournamentId) return `${TV_PUBLIC_ORIGIN}/tv`;
-  return `${TV_PUBLIC_ORIGIN}/tv/${encodeURIComponent(tournamentId)}`;
+/** Absolute TV entry URL — type this on the TV, then enter the 4-digit code. */
+export function tvPublicUrl(): string {
+  return `${TV_PUBLIC_ORIGIN}/tv`;
+}
+
+/** What to type on a TV (no https://). */
+export function tvPublicDisplay(): string {
+  return `${TV_PUBLIC_HOST}/tv`;
 }
 
 

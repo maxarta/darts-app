@@ -288,6 +288,89 @@
   overflow: auto;
 }
 
+.tvGate {
+  min-height: 100dvh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 32px 20px;
+  text-align: center;
+  background: var(--tv-bg, #0b1220);
+  color: var(--tv-ink, #f8fafc);
+}
+
+.tvGateTitle {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 64px);
+  font-weight: 800;
+}
+
+.tvGateHint {
+  margin: 0;
+  color: var(--tv-muted, rgba(248, 250, 252, 0.62));
+  font-size: clamp(16px, 1.8vw, 22px);
+}
+
+.tvGateError {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.tvGateForm {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  width: min(420px, 100%);
+}
+
+.tvGateSlots {
+  display: flex;
+  gap: 14px;
+}
+
+.tvGateSlot {
+  width: clamp(52px, 8vw, 72px);
+  height: clamp(64px, 10vw, 88px);
+  border-radius: 14px;
+  border: 2px solid rgba(248, 250, 252, 0.25);
+  display: grid;
+  place-items: center;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tvGatePad {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+.tvGateKey {
+  border: none;
+  border-radius: 16px;
+  min-height: 64px;
+  font-size: 28px;
+  font-weight: 700;
+  font-family: inherit;
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+}
+
+.tvGateKey:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 @media (max-width: 900px) {
   .tvRoot {
     grid-template-columns: 1fr;

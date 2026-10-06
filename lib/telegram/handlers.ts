@@ -1,7 +1,7 @@
 import { Bot, type Context } from "grammy";
 
 function webAppBaseUrl(): string {
-  return (process.env.WEBAPP_URL ?? "https://project-lxy5p.vercel.app")
+  return (process.env.WEBAPP_URL ?? "https://artdart.vercel.app")
     .trim()
     .replace(/\/$/, "");
 }

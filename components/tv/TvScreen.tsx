@@ -25,6 +25,7 @@ import {
   TvTournamentSheet,
   type TvTournamentData,
 } from "./TvTournamentSheet";
+import { TvCodeGate } from "./TvCodeGate";
 import styles from "./tv.module.css";
 
 type ActiveTournamentRow = {
@@ -86,6 +87,11 @@ export function TvScreen() {
   const [achievements, setAchievements] = useState<ActiveAchievement[]>([]);
   const seenAchievementsRef = useRef<Set<string>>(new Set());
   const achievementSeq = useRef(0);
+
+  // Keep in sync when opening /tv/:id
+  useEffect(() => {
+    if (forcedTournamentId) setTournamentId(forcedTournamentId);
+  }, [forcedTournamentId]);
 
   // Resolve which tournament this TV board shows
   useEffect(() => {
@@ -234,13 +240,15 @@ export function TvScreen() {
     setAchievements((prev) => prev.filter((a) => a.instanceId !== instanceId));
   };
 
-  if (!channelId && !forcedTournamentId) {
+  if (!channelId && !forcedTournamentId && !tournamentId) {
     return (
-      <div className={styles.tvEmpty}>
-        <h1 className={styles.tvEmptyTitle}>TV-борд</h1>
-        <p className={styles.tvEmptyHint}>
-          Ссылка: /tv/…id турнира
-        </p>
+      <div className={styles.tvRoot} data-tv-board>
+        <TvCodeGate
+          onResolved={(id) => {
+            setTournamentId(id);
+            setError(null);
+          }}
+        />
       </div>
     );
   }
@@ -250,8 +258,7 @@ export function TvScreen() {
       <div className={[styles.tvEmpty, isKenny ? styles.tvRootKenny : ""].join(" ")}>
         <h1 className={styles.tvEmptyTitle}>Нет активного турнира</h1>
         <p className={styles.tvEmptyHint}>
-          Запустите TV из экрана турнира (кнопка «Запустить TV») или создайте
-          турнир в клубе.
+          Откройте artdart.vercel.app/tv и введите код с телефона.
         </p>
         {error ? <p className={styles.tvEmptyHint}>{error}</p> : null}
         {channelId ? (

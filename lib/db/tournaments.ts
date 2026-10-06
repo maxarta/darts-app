@@ -7,6 +7,7 @@ import {
   type Standing,
 } from "@/lib/tournament/bracket";
 import { drawRandomPairs, isPairKnockoutFormat } from "@/lib/tournament/pair-draw";
+import { allocateUniqueTvCode } from "@/lib/db/tournament-tv-code";
 import { getPlayoffRoundCount } from "@/lib/tournament/playoff-display";
 import { generateTournamentName } from "@/lib/tournament/name";
 import {
@@ -72,7 +73,8 @@ export async function createTournament(params: {
 
   const legsToWin = DEFAULT_TOURNAMENT_LEGS_TO_WIN;
   const variant = normalizeTournamentVariant(params.variant);
-  const settings = { legsToWin, variant, format: "pair_ko" as const };
+  const tvCode = await allocateUniqueTvCode();
+  const settings = { legsToWin, variant, format: "pair_ko" as const, tvCode };
 
   // DB still requires 4|8 — unused for pair_ko advancement.
   const playoffSize =

@@ -51,7 +51,7 @@ import {
 } from "@/lib/tournament/local-match-occupancy";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { syncPendingMembers } from "@/lib/offline/members-service";
-import { setActiveTvTournament, tvPath, tvPublicUrl } from "@/lib/tournament/tv-live";
+import { setActiveTvTournament, tvPath } from "@/lib/tournament/tv-live";
 import {
   KENNY_THEME_COLOR,
   normalizeTournamentVariant,
@@ -197,6 +197,9 @@ export function TournamentScreen({ tournamentId }: Props) {
   const [sectionsReady, setSectionsReady] = useState(false);
   const [rrDrawBusy, setRrDrawBusy] = useState(false);
   const [tvCopied, setTvCopied] = useState(false);
+  const [tvCode, setTvCode] = useState<string | null>(null);
+  const [tvDisplay, setTvDisplay] = useState<string | null>(null);
+  const [tvUrl, setTvUrl] = useState<string | null>(null);
   const [celebrateFinal, setCelebrateFinal] = useState(() =>
     readCelebrateFinal(tournamentId)
   );
@@ -242,6 +245,29 @@ export function TournamentScreen({ tournamentId }: Props) {
     programmaticScrollRef.current = false;
     setSectionsReady(true);
   }, [tournamentId, applyTournamentData]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void apiFetch<{ code: string; display: string; url: string }>(
+      `/api/tournaments/${encodeURIComponent(tournamentId)}/tv-code`
+    )
+      .then((res) => {
+        if (cancelled) return;
+        setTvCode(res.code);
+        setTvDisplay(res.display);
+        setTvUrl(res.url);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setTvCode(null);
+          setTvDisplay(null);
+          setTvUrl(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tournamentId]);
 
   useEffect(() => {
     if (!sectionsReady) return;
@@ -950,15 +976,20 @@ export function TournamentScreen({ tournamentId }: Props) {
         <footer className={styles.tournamentFooter}>
           {channelId ? (
             <div className={styles.tvAddressBlock}>
-              <p className={styles.tvAddressLabel}>Адрес для телевизора</p>
-              <p className={styles.tvAddressUrl}>{tvPublicUrl(tournamentId)}</p>
+              <p className={styles.tvAddressLabel}>На телевизоре откройте</p>
+              <p className={styles.tvAddressUrl}>
+                {tvDisplay ?? "artdart.vercel.app/tv"}
+              </p>
+              <p className={styles.tvAddressLabel}>Код турнира</p>
+              <p className={styles.tvCodeHuge}>{tvCode ?? "····"}</p>
               <div className={styles.tvAddressActions}>
                 <button
                   type="button"
                   className={styles.tvLinkBtn}
+                  disabled={!tvUrl}
                   onClick={() => {
-                    const url = tvPublicUrl(tournamentId);
-                    void navigator.clipboard?.writeText(url).then(
+                    if (!tvUrl) return;
+                    void navigator.clipboard?.writeText(tvUrl).then(
                       () => {
                         setTvCopied(true);
                         window.setTimeout(() => setTvCopied(false), 2000);
