@@ -1,6 +1,8 @@
 import { authenticateRequest, jsonError } from "@/lib/api/auth";
+import { isManualPlayerId } from "@/lib/channel/manual-players";
 import { deleteTournament, getTournament } from "@/lib/db/tournaments";
 import {
+  isCustomClubPhoto,
   resolveStoredPhotoUrl,
   syncUserProfilePhotos,
 } from "@/lib/telegram/user-photo";
@@ -19,7 +21,15 @@ export async function GET(
     const toSync = data.participants.flatMap((p) => {
       const u = Array.isArray(p.users) ? p.users[0] : p.users;
       if (!u) return [];
-      return [{ id: p.user_id as number, photo_url: u.photo_url ?? undefined }];
+      const userId = p.user_id as number;
+      if (isManualPlayerId(userId) || isCustomClubPhoto(u.photo_url)) return [];
+      return [
+        {
+          id: userId,
+          photo_url: u.photo_url ?? undefined,
+          existingPhotoUrl: u.photo_url ?? null,
+        },
+      ];
     });
     void syncUserProfilePhotos(toSync).catch((e) =>
       console.warn("[tournaments/get] sync photos", e)

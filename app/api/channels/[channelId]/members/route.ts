@@ -1,7 +1,9 @@
 import { authenticateRequest, isWebSession, jsonError } from "@/lib/api/auth";
+import { isManualPlayerId } from "@/lib/channel/manual-players";
 import { getChannelMembers } from "@/lib/db/channels";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
+  isCustomClubPhoto,
   resolveStoredPhotoUrl,
   syncUserProfilePhotos,
 } from "@/lib/telegram/user-photo";
@@ -27,14 +29,16 @@ export async function GET(
 
   const members = await getChannelMembers(channelId);
 
-  // Skip Telegram photo sync for local web club — manual photos are stored as data URLs
+  // Skip Telegram photo sync for web club + manual/club-edited avatars (data URLs).
   if (!isWebSession(auth.ctx.initData)) {
     const toSync = members.flatMap((m) => {
       const u = Array.isArray(m.users) ? m.users[0] : m.users;
       if (!u) return [];
+      const userId = m.user_id as number;
+      if (isManualPlayerId(userId) || isCustomClubPhoto(u.photo_url)) return [];
       return [
         {
-          id: m.user_id as number,
+          id: userId,
           photo_url: u.photo_url ?? undefined,
           existingPhotoUrl: u.photo_url ?? null,
         },

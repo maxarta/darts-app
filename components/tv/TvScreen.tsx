@@ -4,22 +4,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
 import type { AchievementId } from "@/lib/game/achievements";
-import {
-  GameAchievements,
-} from "@/components/game/achievements";
+import { GameAchievements } from "@/components/game/achievements";
 import type { ActiveAchievement } from "@/components/game/achievements/useVisitAchievementQueue";
 import {
   isTvLiveFresh,
   pickTvLive,
-  readActiveTvTournamentId,
+  readActiveTvBoardKey,
   readTvLive,
+  setActiveTvBoard,
   setActiveTvTournament,
   TV_LIVE_EVENT,
   type TvLivePayload,
 } from "@/lib/tournament/tv-live";
-import {
-  normalizeTournamentVariant,
-} from "@/lib/tournament/variant";
+import { tournamentBoardKey } from "@/lib/tournament/tv-board-key";
+import { normalizeTournamentVariant } from "@/lib/tournament/variant";
 import {
   resolveStoredPhotoUrl,
   telegramAvatarPath,
@@ -28,7 +26,7 @@ import {
   TvTournamentSheet,
   type TvTournamentData,
 } from "./TvTournamentSheet";
-import { TvCodeGate } from "./TvCodeGate";
+import { TvCodeGate, type TvResolvedBoard } from "./TvCodeGate";
 import { TvAvatar } from "./TvAvatar";
 import { TvPlayingBoard } from "./TvPlayingBoard";
 import styles from "./tv.module.css";
@@ -38,6 +36,14 @@ type ActiveTournamentRow = {
   name: string;
   status: string;
   variant?: string;
+};
+
+type BoardState = {
+  boardKey: string;
+  kind: "tournament" | "game";
+  tournamentId: string | null;
+  gameId: string | null;
+  title: string;
 };
 
 function nextUpcoming(
@@ -77,7 +83,17 @@ export function TvScreen() {
   const forcedTournamentId =
     routeParams.tournamentId ?? params.get("tournamentId") ?? "";
 
-  const [tournamentId, setTournamentId] = useState(forcedTournamentId);
+  const [board, setBoard] = useState<BoardState | null>(() =>
+    forcedTournamentId
+      ? {
+          boardKey: tournamentBoardKey(forcedTournamentId),
+          kind: "tournament",
+          tournamentId: forcedTournamentId,
+          gameId: null,
+          title: "",
+        }
+      : null
+  );
   const [data, setData] = useState<TvTournamentData | null>(null);
   const [live, setLive] = useState<TvLivePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,23 +101,54 @@ export function TvScreen() {
   const seenAchievementsRef = useRef<Set<string>>(new Set());
   const achievementSeq = useRef(0);
 
-  // Keep in sync when opening /tv/:id
   useEffect(() => {
-    if (forcedTournamentId) setTournamentId(forcedTournamentId);
-  }, [forcedTournamentId]);
+    if (!forcedTournamentId) return;
+    setBoard({
+      boardKey: tournamentBoardKey(forcedTournamentId),
+      kind: "tournament",
+      tournamentId: forcedTournamentId,
+      gameId: null,
+      title: "",
+    });
+    if (channelId) setActiveTvTournament(channelId, forcedTournamentId);
+  }, [forcedTournamentId, channelId]);
 
-  // Resolve which tournament this TV board shows
+  // Resolve board from channel active key / active tournament list
   useEffect(() => {
-    if (forcedTournamentId) {
-      setTournamentId(forcedTournamentId);
-      if (channelId) setActiveTvTournament(channelId, forcedTournamentId);
-      return;
-    }
+    if (forcedTournamentId || board) return;
     if (!channelId) return;
 
-    const fromLocal = readActiveTvTournamentId(channelId);
-    if (fromLocal) {
-      setTournamentId(fromLocal);
+    const fromLocal = readActiveTvBoardKey(channelId);
+    if (fromLocal?.startsWith("t:")) {
+      const id = fromLocal.slice(2);
+      setBoard({
+        boardKey: fromLocal,
+        kind: "tournament",
+        tournamentId: id,
+        gameId: null,
+        title: "",
+      });
+      return;
+    }
+    if (fromLocal?.startsWith("g:")) {
+      setBoard({
+        boardKey: fromLocal,
+        kind: "game",
+        tournamentId: null,
+        gameId: fromLocal.slice(2),
+        title: "",
+      });
+      return;
+    }
+    // Legacy bare tournament id in localStorage
+    if (fromLocal && !fromLocal.includes(":")) {
+      setBoard({
+        boardKey: tournamentBoardKey(fromLocal),
+        kind: "tournament",
+        tournamentId: fromLocal,
+        gameId: null,
+        title: "",
+      });
       return;
     }
 
@@ -118,35 +165,35 @@ export function TvScreen() {
           ) ?? list.find((t) => t.status !== "finished") ?? null;
         if (active) {
           setActiveTvTournament(channelId, active.id);
-          setTournamentId(active.id);
-        } else {
-          setTournamentId("");
-          setData(null);
+          setBoard({
+            boardKey: tournamentBoardKey(active.id),
+            kind: "tournament",
+            tournamentId: active.id,
+            gameId: null,
+            title: active.name,
+          });
         }
         setError(null);
       })
       .catch((e) => {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : "Ошибка");
-          setTournamentId("");
         }
       });
     return () => {
       cancelled = true;
     };
-  }, [channelId, forcedTournamentId]);
+  }, [channelId, forcedTournamentId, board]);
 
-  // Sheet + live score from API (phone publishes; TV polls)
+  // Live + optional tournament sheet
   useEffect(() => {
-    if (!tournamentId) return;
+    if (!board) return;
     let cancelled = false;
 
     const applyLive = (next: TvLivePayload | null) => {
       if (cancelled) return;
       setLive((prev) => {
-        // Explicit end of match from phone.
         if (next?.phase === "idle") return null;
-        // API gap / wiped row — keep showing the in-progress board.
         if (next == null) {
           if (prev?.phase === "playing" && prev.players.length > 0) return prev;
           return null;
@@ -169,23 +216,41 @@ export function TvScreen() {
     };
 
     const refreshLive = () => {
-      const local = readTvLive(tournamentId);
+      const local = readTvLive(board.boardKey);
 
-      void apiFetch<{ live: TvLivePayload | null }>(
-        `/api/tournaments/${encodeURIComponent(tournamentId)}/live`
-      )
-        .then((res) => {
+      const viaBoard = () =>
+        apiFetch<{ live: TvLivePayload | null }>(
+          `/api/tv/boards/${encodeURIComponent(board.boardKey)}`
+        ).then((res) => {
           if (cancelled) return;
           applyLive(pickTvLive(local, res.live));
-        })
-        .catch(() => {
-          if (!cancelled) applyLive(isTvLiveFresh(local) ? local : null);
         });
+
+      if (board.kind === "tournament" && board.tournamentId) {
+        void apiFetch<{ live: TvLivePayload | null }>(
+          `/api/tournaments/${encodeURIComponent(board.tournamentId)}/live`
+        )
+          .then((res) => {
+            if (cancelled) return;
+            applyLive(pickTvLive(local, res.live));
+          })
+          .catch(() => {
+            void viaBoard().catch(() => {
+              if (!cancelled) applyLive(isTvLiveFresh(local) ? local : null);
+            });
+          });
+        return;
+      }
+
+      void viaBoard().catch(() => {
+        if (!cancelled) applyLive(isTvLiveFresh(local) ? local : null);
+      });
     };
 
     const refreshSheet = () => {
+      if (board.kind !== "tournament" || !board.tournamentId) return;
       void apiFetch<TvTournamentData>(
-        `/api/tournaments/${encodeURIComponent(tournamentId)}`
+        `/api/tournaments/${encodeURIComponent(board.tournamentId)}`
       )
         .then((sheet) => {
           if (cancelled) return;
@@ -202,26 +267,37 @@ export function TvScreen() {
     refreshSheet();
     refreshLive();
 
-    const sheetTimer = window.setInterval(refreshSheet, 8000);
+    const sheetTimer =
+      board.kind === "tournament"
+        ? window.setInterval(refreshSheet, 8000)
+        : 0;
     const liveTimer = window.setInterval(refreshLive, 1500);
     const onLive = () => refreshLive();
     window.addEventListener(TV_LIVE_EVENT, onLive);
 
     return () => {
       cancelled = true;
-      window.clearInterval(sheetTimer);
+      if (sheetTimer) window.clearInterval(sheetTimer);
       window.clearInterval(liveTimer);
       window.removeEventListener(TV_LIVE_EVENT, onLive);
     };
-  }, [tournamentId]);
+  }, [board]);
 
   const isKenny =
     normalizeTournamentVariant(data?.tournament.variant) === "kenny";
   const boardLive =
     live?.phase === "playing" && live.players.length > 0 ? live : null;
   const playing = Boolean(boardLive);
+  const isGameBoard = board?.kind === "game";
+  const displayTitle =
+    board?.title ||
+    data?.tournament.name ||
+    (isGameBoard ? "Игра" : "Турнир");
 
-  const upcoming = useMemo(() => nextUpcoming(data), [data]);
+  const upcoming = useMemo(
+    () => (isGameBoard ? null : nextUpcoming(data)),
+    [data, isGameBoard]
+  );
   const upcomingPlayers = useMemo(() => {
     if (!upcoming || !data) return null;
     const find = (uid: number) => {
@@ -236,57 +312,74 @@ export function TvScreen() {
           telegramAvatarPath(uid),
       };
     };
-    return { p1: find(upcoming.p1), p2: find(upcoming.p2), stage: upcoming.stage };
+    return {
+      p1: find(upcoming.p1),
+      p2: find(upcoming.p2),
+      stage: upcoming.stage,
+    };
   }, [upcoming, data]);
 
   const removeAchievement = (instanceId: string) => {
     setAchievements((prev) => prev.filter((a) => a.instanceId !== instanceId));
   };
 
-  if (!channelId && !forcedTournamentId && !tournamentId) {
+  const onCodeResolved = (resolved: TvResolvedBoard) => {
+    setActiveTvBoard(channelId || "tv", resolved.boardKey);
+    setBoard({
+      boardKey: resolved.boardKey,
+      kind: resolved.kind,
+      tournamentId: resolved.tournamentId,
+      gameId: resolved.gameId,
+      title: resolved.title,
+    });
+    setData(null);
+    setLive(null);
+    setError(null);
+  };
+
+  if (!board && !channelId && !forcedTournamentId) {
     return (
       <div className={styles.tvRoot} data-tv-board>
-        <TvCodeGate
-          onResolved={(id) => {
-            setTournamentId(id);
-            setError(null);
-          }}
-        />
+        <TvCodeGate onResolved={onCodeResolved} />
       </div>
     );
   }
 
-  if (!tournamentId) {
+  if (!board) {
     return (
-      <div className={[styles.tvEmpty, isKenny ? styles.tvRootKenny : ""].join(" ")}>
-        <h1 className={styles.tvEmptyTitle}>Нет активного турнира</h1>
+      <div className={styles.tvEmpty}>
+        <h1 className={styles.tvEmptyTitle}>Нет активной игры</h1>
         <p className={styles.tvEmptyHint}>
           Откройте artdart.vercel.app/tv и введите код с телефона.
         </p>
         {error ? <p className={styles.tvEmptyHint}>{error}</p> : null}
-        {channelId ? (
-          <p className={styles.tvEmptyHint}>channelId: {channelId}</p>
-        ) : null}
       </div>
     );
   }
 
   return (
     <div
-      className={[styles.tvRoot, isKenny ? styles.tvRootKenny : ""].join(" ")}
+      className={[
+        styles.tvRoot,
+        isKenny ? styles.tvRootKenny : "",
+        isGameBoard ? styles.tvRootSolo : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       data-tv-board
     >
       <section className={styles.tvLeft} aria-label="Сейчас на доске">
         {playing && boardLive ? (
-          <TvPlayingBoard
-            live={boardLive}
-            tournamentName={data?.tournament.name ?? "Турнир"}
-          />
+          <TvPlayingBoard live={boardLive} tournamentName={displayTitle} />
+        ) : isGameBoard ? (
+          <div className={styles.tvIdle}>
+            <p className={styles.tvBrand}>TV · {displayTitle}</p>
+            <p className={styles.tvIdleTitle}>Ожидание</p>
+            <p className={styles.tvIdleHint}>Старт на телефоне</p>
+          </div>
         ) : upcomingPlayers ? (
           <div className={styles.tvIdle}>
-            <p className={styles.tvBrand}>
-              TV · {data?.tournament.name ?? "Турнир"}
-            </p>
+            <p className={styles.tvBrand}>TV · {displayTitle}</p>
             <p className={styles.tvStage}>{upcomingPlayers.stage}</p>
             <div className={styles.tvMatchup}>
               <div className={styles.tvPlayer}>
@@ -315,22 +408,22 @@ export function TvScreen() {
           </div>
         ) : (
           <div className={styles.tvIdle}>
-            <p className={styles.tvBrand}>
-              TV · {data?.tournament.name ?? "Турнир"}
-            </p>
+            <p className={styles.tvBrand}>TV · {displayTitle}</p>
             <p className={styles.tvIdleTitle}>Ожидание</p>
             <p className={styles.tvIdleHint}>{needsDrawLabel(data)}</p>
           </div>
         )}
       </section>
 
-      <aside className={styles.tvRight} aria-label="Сетка турнира">
-        <div className={styles.tvSheetCard}>
-          <div className={styles.tvSheetScroll}>
-            {data ? <TvTournamentSheet data={data} /> : null}
+      {!isGameBoard ? (
+        <aside className={styles.tvRight} aria-label="Сетка турнира">
+          <div className={styles.tvSheetCard}>
+            <div className={styles.tvSheetScroll}>
+              {data ? <TvTournamentSheet data={data} /> : null}
+            </div>
           </div>
-        </div>
-      </aside>
+        </aside>
+      ) : null}
 
       <GameAchievements
         active={achievements}

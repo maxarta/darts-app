@@ -6,8 +6,17 @@ import { normalizeTvCode, TV_CODE_LENGTH } from "@/lib/tournament/tv-code";
 import { TV_PUBLIC_HOST } from "@/lib/tournament/tv-live";
 import styles from "./tv.module.css";
 
+export type TvResolvedBoard = {
+  boardKey: string;
+  kind: "tournament" | "game";
+  refId: string;
+  tournamentId: string | null;
+  gameId: string | null;
+  title: string;
+};
+
 type Props = {
-  onResolved: (tournamentId: string) => void;
+  onResolved: (board: TvResolvedBoard) => void;
 };
 
 /** PIN entry on bare `/tv` — type the 4-digit code from the phone. */
@@ -25,10 +34,22 @@ export function TvCodeGate({ onResolved }: Props) {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch<{ tournamentId: string }>(
-        `/api/tv/${encodeURIComponent(normalized)}`
-      );
-      onResolved(res.tournamentId);
+      const res = await apiFetch<{
+        boardKey: string;
+        kind: "tournament" | "game";
+        refId: string;
+        title?: string;
+        tournamentId: string | null;
+        gameId: string | null;
+      }>(`/api/tv/${encodeURIComponent(normalized)}`);
+      onResolved({
+        boardKey: res.boardKey,
+        kind: res.kind,
+        refId: res.refId,
+        tournamentId: res.tournamentId,
+        gameId: res.gameId,
+        title: res.title ?? "",
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Код не найден");
       setDigits("");
@@ -60,7 +81,7 @@ export function TvCodeGate({ onResolved }: Props) {
   return (
     <div className={styles.tvGate}>
       <p className={styles.tvBrand}>TV · {TV_PUBLIC_HOST}/tv</p>
-      <h1 className={styles.tvGateTitle}>Код турнира</h1>
+      <h1 className={styles.tvGateTitle}>Код</h1>
       <p className={styles.tvGateHint}>
         Введите 4 цифры с экрана телефона
       </p>

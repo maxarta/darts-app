@@ -26,4 +26,12 @@ describe("manual players", () => {
     expect(assertPhotoUrl(null)).toBe(null);
     expect(() => assertPhotoUrl("javascript:alert(1)")).toThrow();
   });
+
+  it("rejects oversized data urls", async () => {
+    const { MAX_PHOTO_DATA_URL_CHARS } = await import(
+      "@/lib/channel/player-photo"
+    );
+    const huge = `data:image/jpeg;base64,${"a".repeat(MAX_PHOTO_DATA_URL_CHARS)}`;
+    expect(() => assertPhotoUrl(huge)).toThrow(/слишком большое/);
+  });
 });

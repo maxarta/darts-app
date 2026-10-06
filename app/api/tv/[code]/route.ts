@@ -1,5 +1,5 @@
 import { authenticateRequest, jsonError } from "@/lib/api/auth";
-import { findTournamentIdByTvCode } from "@/lib/db/tournament-tv-code";
+import { findTvBoardByCode } from "@/lib/db/tv-boards";
 
 export async function GET(
   req: Request,
@@ -10,9 +10,16 @@ export async function GET(
 
   const { code } = await params;
   try {
-    const tournamentId = await findTournamentIdByTvCode(code);
-    if (!tournamentId) return jsonError("Турнир не найден", 404);
-    return Response.json({ tournamentId });
+    const board = await findTvBoardByCode(code);
+    if (!board) return jsonError("Код не найден", 404);
+    return Response.json({
+      boardKey: board.board_key,
+      kind: board.kind,
+      refId: board.ref_id,
+      title: board.title,
+      tournamentId: board.kind === "tournament" ? board.ref_id : null,
+      gameId: board.kind === "game" ? board.ref_id : null,
+    });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Lookup failed";
     return jsonError(message, 400);

@@ -134,13 +134,23 @@ export async function syncUserProfilePhoto(
   if (isCustomClubPhoto(existingPhotoUrl)) {
     return existingPhotoUrl as string;
   }
+  // Manual (negative) player ids have no Telegram profile photo.
+  if (user.id < 0) {
+    return existingPhotoUrl ?? telegramAvatarPath(user.id);
+  }
 
   const db = getSupabaseAdmin();
-  const stored = pickPhotoUrlToStore(
-    user.id,
-    user.photo_url,
-    existingPhotoUrl
-  );
+  const { data: row } = await db
+    .from("users")
+    .select("photo_url")
+    .eq("telegram_id", user.id)
+    .maybeSingle();
+  const fresh = (row?.photo_url as string | null | undefined) ?? existingPhotoUrl;
+  if (isCustomClubPhoto(fresh)) {
+    return fresh as string;
+  }
+
+  const stored = pickPhotoUrlToStore(user.id, user.photo_url, fresh);
 
   const { error } = await db
     .from("users")
@@ -158,7 +168,7 @@ export async function syncUserProfilePhotos(
 ): Promise<void> {
   await Promise.all(
     users
-      .filter((u) => !isCustomClubPhoto(u.existingPhotoUrl))
+      .filter((u) => u.id > 0 && !isCustomClubPhoto(u.existingPhotoUrl))
       .map((u) => syncUserProfilePhoto(u, u.existingPhotoUrl))
   );
 }

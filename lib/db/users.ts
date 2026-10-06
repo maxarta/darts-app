@@ -54,26 +54,44 @@ export async function upsertUser(user: TelegramUser) {
     user.first_name
   );
 
+  const nameFields = {
+    username: preserveName ? existing?.username ?? null : (user.username ?? null),
+    first_name: preserveName
+      ? (existing?.first_name ?? user.first_name)
+      : user.first_name,
+    last_name: user.last_name ?? null,
+  };
+
   if (!existing) {
     const { error } = await db.from("users").insert({
       telegram_id: user.id,
-      username: user.username ?? null,
-      first_name: user.first_name,
-      last_name: user.last_name ?? null,
+      ...nameFields,
       photo_url,
     });
     if (error) throw error;
-  } else {
+  } else if (isCustomClubPhoto(existingPhotoUrl)) {
+    // Club-edited avatar must never be wiped by session / Telegram upsert.
     const { error } = await db
       .from("users")
-      .update({
-        username: preserveName ? existing.username : (user.username ?? null),
-        first_name: preserveName ? existing.first_name : user.first_name,
-        last_name: user.last_name ?? null,
-        photo_url,
-      })
+      .update(nameFields)
       .eq("telegram_id", user.id);
     if (error) throw error;
+  } else {
+    // Re-read: a concurrent club photo PATCH may have landed after our first read.
+    const freshPhoto = await getUserPhotoUrl(user.id);
+    if (isCustomClubPhoto(freshPhoto)) {
+      const { error } = await db
+        .from("users")
+        .update(nameFields)
+        .eq("telegram_id", user.id);
+      if (error) throw error;
+    } else {
+      const { error } = await db
+        .from("users")
+        .update({ ...nameFields, photo_url })
+        .eq("telegram_id", user.id);
+      if (error) throw error;
+    }
   }
 
   if (!isCustomClubPhoto(photo_url) && !isCustomClubPhoto(existingPhotoUrl)) {

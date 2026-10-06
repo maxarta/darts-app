@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { cors } from "hono/cors";
 
 import * as authSession from "@/app/api/auth/session/route";
@@ -21,6 +22,7 @@ import * as tournamentFinish from "@/app/api/tournaments/[tournamentId]/finish/r
 import * as tournamentLive from "@/app/api/tournaments/[tournamentId]/live/route";
 import * as tournamentTvCode from "@/app/api/tournaments/[tournamentId]/tv-code/route";
 import * as tvByCode from "@/app/api/tv/[code]/route";
+import * as tvBoards from "@/app/api/tv/boards/[boardKey]/route";
 import * as telegramWebhook from "@/app/api/telegram/webhook/route";
 import * as telegramAvatar from "@/app/api/telegram/avatar/[telegramId]/route";
 import * as channelCurrent from "@/app/api/channels/[channelId]/current/route";
@@ -66,6 +68,24 @@ export function createApp() {
         "x-dev-auth",
       ],
       allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    })
+  );
+
+  // Club avatars are JPEG data URLs (~512px for TV); allow up to 2MB JSON bodies.
+  app.use(
+    "/api/channels/*/players",
+    bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      onError: (c) =>
+        c.json({ error: "Фото слишком большое — выберите другое" }, 413),
+    })
+  );
+  app.use(
+    "/api/channels/*/players/*",
+    bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      onError: (c) =>
+        c.json({ error: "Фото слишком большое — выберите другое" }, 413),
     })
   );
 
@@ -144,6 +164,16 @@ export function createApp() {
   app.get("/api/tournaments/:tournamentId/tv-code", (c) =>
     call(tournamentTvCode.GET, c.req.raw, {
       tournamentId: c.req.param("tournamentId"),
+    })
+  );
+  app.get("/api/tv/boards/:boardKey", (c) =>
+    call(tvBoards.GET, c.req.raw, {
+      boardKey: c.req.param("boardKey"),
+    })
+  );
+  app.post("/api/tv/boards/:boardKey", (c) =>
+    call(tvBoards.POST, c.req.raw, {
+      boardKey: c.req.param("boardKey"),
     })
   );
   app.get("/api/tv/:code", (c) =>

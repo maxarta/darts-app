@@ -28,6 +28,12 @@ type Props = {
   onLeave?: () => void;
   disabled?: boolean;
   visitSlot?: ReactNode;
+  /** Club TV (extended free games only) — code for artdart.vercel.app/tv */
+  tv?: {
+    code: string | null;
+    display: string;
+    url: string;
+  } | null;
 };
 
 function HeaderCounter({
@@ -65,9 +71,11 @@ export function GameHeader({
   onLeave,
   disabled,
   visitSlot,
+  tv = null,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [tvCopied, setTvCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -128,6 +136,32 @@ export function GameHeader({
           </button>
           {open && (
             <div className={styles.menuDropdown} role="menu">
+              {tv ? (
+                <div className={styles.menuTv}>
+                  <p className={styles.tvAddressLabel}>На телевизоре откройте</p>
+                  <p className={styles.tvAddressUrl}>{tv.display}</p>
+                  <p className={styles.tvAddressLabel}>Код</p>
+                  <p className={styles.tvCodeHuge}>{tv.code ?? "····"}</p>
+                  <button
+                    type="button"
+                    className={styles.menuItem}
+                    role="menuitem"
+                    disabled={!tv.url}
+                    onClick={() => {
+                      if (!tv.url) return;
+                      void navigator.clipboard?.writeText(tv.url).then(
+                        () => {
+                          setTvCopied(true);
+                          window.setTimeout(() => setTvCopied(false), 2000);
+                        },
+                        () => {}
+                      );
+                    }}
+                  >
+                    {tvCopied ? "Скопировано" : "Копировать адрес"}
+                  </button>
+                </div>
+              ) : null}
               <button
                 type="button"
                 className={styles.menuItem}

@@ -1,10 +1,16 @@
 "use client";
 
-/** Compress image file to a small JPEG data URL for avatar storage. */
+import {
+  CLUB_AVATAR_MAX_SIDE,
+  CLUB_AVATAR_QUALITY,
+  MAX_PHOTO_DATA_URL_CHARS,
+} from "@/lib/channel/player-photo";
+
+/** Compress image file to a JPEG data URL sized for TV + phone avatars. */
 export async function compressImageToDataUrl(
   file: File,
-  maxSide = 256,
-  quality = 0.72
+  maxSide = CLUB_AVATAR_MAX_SIDE,
+  quality = CLUB_AVATAR_QUALITY
 ): Promise<string> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
@@ -22,9 +28,11 @@ export async function compressImageToDataUrl(
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
-  const dataUrl = canvas.toDataURL("image/jpeg", quality);
-  if (dataUrl.length > 180_000) {
-    throw new Error("Фото слишком большое — выберите другое");
+  const qualities = [quality, 0.75, 0.65, 0.55];
+  for (const q of qualities) {
+    const dataUrl = canvas.toDataURL("image/jpeg", q);
+    if (dataUrl.length <= MAX_PHOTO_DATA_URL_CHARS) return dataUrl;
   }
-  return dataUrl;
+
+  throw new Error("Фото слишком большое — выберите другое");
 }

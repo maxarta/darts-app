@@ -91,18 +91,19 @@ const LIVE_KEY_PREFIX = "darts.tv.live.v1:";
 const ACTIVE_KEY_PREFIX = "darts.tv.active.v1:";
 export const TV_LIVE_EVENT = "darts-tv-live";
 
-function liveKey(tournamentId: string) {
-  return `${LIVE_KEY_PREFIX}${tournamentId}`;
+function liveKey(boardKey: string) {
+  return `${LIVE_KEY_PREFIX}${boardKey}`;
 }
 
 function activeKey(channelId: string) {
   return `${ACTIVE_KEY_PREFIX}${channelId}`;
 }
 
-export function readTvLive(tournamentId: string): TvLivePayload | null {
-  if (typeof localStorage === "undefined" || !tournamentId) return null;
+/** @param boardKey `t:{tournamentId}` or `g:{gameId}` (legacy: bare tournament id). */
+export function readTvLive(boardKey: string): TvLivePayload | null {
+  if (typeof localStorage === "undefined" || !boardKey) return null;
   try {
-    const raw = localStorage.getItem(liveKey(tournamentId));
+    const raw = localStorage.getItem(liveKey(boardKey));
     if (!raw) return null;
     return JSON.parse(raw) as TvLivePayload;
   } catch {
@@ -112,24 +113,24 @@ export function readTvLive(tournamentId: string): TvLivePayload | null {
 
 export function writeTvLive(
   channelId: string,
-  tournamentId: string,
+  boardKey: string,
   live: TvLivePayload
 ): void {
-  if (typeof localStorage === "undefined" || !tournamentId) return;
+  if (typeof localStorage === "undefined" || !boardKey) return;
   try {
-    localStorage.setItem(liveKey(tournamentId), JSON.stringify(live));
+    localStorage.setItem(liveKey(boardKey), JSON.stringify(live));
     if (channelId) {
-      localStorage.setItem(activeKey(channelId), tournamentId);
+      localStorage.setItem(activeKey(channelId), boardKey);
     }
     window.dispatchEvent(
-      new CustomEvent(TV_LIVE_EVENT, { detail: { tournamentId, channelId } })
+      new CustomEvent(TV_LIVE_EVENT, { detail: { boardKey, channelId } })
     );
   } catch {
     /* private mode / quota */
   }
 }
 
-export function readActiveTvTournamentId(channelId: string): string | null {
+export function readActiveTvBoardKey(channelId: string): string | null {
   if (typeof localStorage === "undefined" || !channelId) return null;
   try {
     return localStorage.getItem(activeKey(channelId));
@@ -138,17 +139,31 @@ export function readActiveTvTournamentId(channelId: string): string | null {
   }
 }
 
+/** @deprecated use readActiveTvBoardKey */
+export function readActiveTvTournamentId(channelId: string): string | null {
+  const key = readActiveTvBoardKey(channelId);
+  if (!key) return null;
+  if (key.startsWith("t:")) return key.slice(2);
+  if (!key.startsWith("g:")) return key;
+  return null;
+}
+
+/** Remember which board the club TV should show (`t:` / `g:`). */
+export function setActiveTvBoard(channelId: string, boardKey: string): void {
+  if (typeof localStorage === "undefined" || !channelId || !boardKey) {
+    return;
+  }
+  try {
+    localStorage.setItem(activeKey(channelId), boardKey);
+  } catch {
+    /* private mode */
+  }
+}
+
 /** Remember which tournament the club TV should show. */
 export function setActiveTvTournament(
   channelId: string,
   tournamentId: string
 ): void {
-  if (typeof localStorage === "undefined" || !channelId || !tournamentId) {
-    return;
-  }
-  try {
-    localStorage.setItem(activeKey(channelId), tournamentId);
-  } catch {
-    /* private mode */
-  }
+  setActiveTvBoard(channelId, `t:${tournamentId}`);
 }

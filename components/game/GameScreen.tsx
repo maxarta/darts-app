@@ -26,9 +26,15 @@ import { localRecordFromServer } from "@/lib/game/local/from-server";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { apiFetch } from "@/lib/api/client";
+import { isExtendedMode } from "@/lib/app-mode";
 import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
+import { gameBoardKey } from "@/lib/tournament/tv-board-key";
+import {
+  tvPublicDisplay,
+  tvPublicUrl,
+} from "@/lib/tournament/tv-live";
 import { GameHeader } from "./GameHeader";
 import {
   GameAchievements,
@@ -62,6 +68,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
     userId: number;
     name: string;
   } | null>(null);
+  const [tvCode, setTvCode] = useState<string | null>(null);
 
   const persistGenRef = useRef(0);
   const persist = useCallback(async (next: LocalGameRecord) => {
@@ -126,6 +133,29 @@ export function GameScreen({ gameId }: { gameId: string }) {
     record,
     activeAchievements.map((a) => a.id)
   );
+
+  // Free-game TV code (club / extended only — never temporary guest games)
+  useEffect(() => {
+    if (!record || record.tournamentContext || !isExtendedMode()) {
+      setTvCode(null);
+      return;
+    }
+    const boardKey = gameBoardKey(record.id);
+    const channelId = record.meta.channelId ?? "";
+    let cancelled = false;
+    void apiFetch<{ code: string }>(
+      `/api/tv/boards/${encodeURIComponent(boardKey)}?want=code&channelId=${encodeURIComponent(channelId)}&title=${encodeURIComponent(record.snapshot.game.mode)}`
+    )
+      .then((res) => {
+        if (!cancelled) setTvCode(res.code);
+      })
+      .catch(() => {
+        if (!cancelled) setTvCode(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [record?.id, record?.tournamentContext, record?.meta.channelId, record?.snapshot.game.mode]);
 
   useEffect(() => {
     if (!visitAchievementsEnabled) {
@@ -573,6 +603,15 @@ export function GameScreen({ gameId }: { gameId: string }) {
           onRestart={onRestart}
           onLeave={onLeave}
           disabled={finished}
+          tv={
+            isExtendedMode() && !record.tournamentContext
+              ? {
+                  code: tvCode,
+                  display: tvPublicDisplay(),
+                  url: tvPublicUrl(),
+                }
+              : null
+          }
           visitSlot={
             !finished ? (
               <HeaderVisitChips

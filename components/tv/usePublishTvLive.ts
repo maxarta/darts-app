@@ -2,8 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api/client";
+import { isGuestMode } from "@/lib/app-mode";
 import type { AchievementId } from "@/lib/game/achievements";
 import type { LocalGameRecord } from "@/lib/game/local/types";
+import {
+  gameBoardKey,
+  tournamentBoardKey,
+} from "@/lib/tournament/tv-board-key";
 import {
   isCustomClubPhoto,
   resolveStoredPhotoUrl,
@@ -67,11 +72,11 @@ function buildPayload(
   };
 }
 
-function idlePayload(tournamentIdMatch: string | null): TvLivePayload {
+function idlePayload(matchId: string | null): TvLivePayload {
   return {
     updatedAt: Date.now(),
     phase: "idle",
-    matchId: tournamentIdMatch,
+    matchId,
     stage: null,
     mode: "501",
     currentRound: 1,
@@ -83,13 +88,20 @@ function idlePayload(tournamentIdMatch: string | null): TvLivePayload {
   };
 }
 
-/** Publishes live game state to the API so `/tv` on another device can poll it. */
+/**
+ * Publishes live game state for TV.
+ * Extended club only — temporary (guest) games never publish.
+ */
 export function usePublishTvLive(
   record: LocalGameRecord | null,
   achievements: AchievementId[]
 ) {
   const tournamentId = record?.tournamentContext?.tournamentId ?? null;
+  const gameId = record?.id ?? null;
   const channelId = record?.meta.channelId ?? "";
+  const title =
+    record?.tournamentContext?.name ??
+    (record?.snapshot.game.mode === "301" ? "301" : "501");
   const lastSentRef = useRef("");
   const achievementsRef = useRef(achievements);
   achievementsRef.current = achievements;
@@ -97,17 +109,42 @@ export function usePublishTvLive(
   recordRef.current = record;
 
   useEffect(() => {
-    if (!tournamentId) return;
+    // Temporary games stay local — no TV board.
+    if (isGuestMode()) return;
+
+    const boardKey = tournamentId
+      ? tournamentBoardKey(tournamentId)
+      : gameId
+        ? gameBoardKey(gameId)
+        : null;
+    if (!boardKey) return;
 
     let cancelled = false;
 
     const post = (payload: TvLivePayload) => {
-      writeTvLive(channelId, tournamentId, payload);
+      writeTvLive(channelId, boardKey, payload);
+
+      if (tournamentId) {
+        void apiFetch<{ live: TvLivePayload | null }>(
+          `/api/tournaments/${encodeURIComponent(tournamentId)}/live`,
+          {
+            method: "POST",
+            body: JSON.stringify({ live: payload }),
+          }
+        ).catch(() => {
+          lastSentRef.current = "";
+        });
+      }
+
       void apiFetch<{ live: TvLivePayload | null }>(
-        `/api/tournaments/${encodeURIComponent(tournamentId)}/live`,
+        `/api/tv/boards/${encodeURIComponent(boardKey)}`,
         {
           method: "POST",
-          body: JSON.stringify({ live: payload }),
+          body: JSON.stringify({
+            live: payload,
+            channelId: channelId || undefined,
+            title,
+          }),
         }
       ).catch(() => {
         lastSentRef.current = "";
@@ -126,7 +163,6 @@ export function usePublishTvLive(
       }
 
       const payload = buildPayload(current, achievementsRef.current);
-      // Always bump updatedAt so TV never treats an idle pause as "gone".
       const key = JSON.stringify({ ...payload, updatedAt: 0 });
       lastSentRef.current = key;
       post(payload);
@@ -138,5 +174,5 @@ export function usePublishTvLive(
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [tournamentId, channelId, record, achievements]);
+  }, [tournamentId, gameId, channelId, title, record, achievements]);
 }

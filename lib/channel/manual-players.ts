@@ -1,3 +1,4 @@
+import { MAX_PHOTO_DATA_URL_CHARS } from "@/lib/channel/player-photo";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
 /** Manual (non-Telegram) player IDs are negative — Telegram IDs are always positive. */
@@ -8,8 +9,6 @@ export function isManualPlayerId(userId: number): boolean {
 export function allocateManualPlayerId(): number {
   return -(Date.now() * 1000 + Math.floor(Math.random() * 1000));
 }
-
-const MAX_PHOTO_DATA_URL_CHARS = 180_000;
 
 export function assertPhotoUrl(photoUrl: string | null): string | null {
   if (photoUrl == null || photoUrl === "") return null;

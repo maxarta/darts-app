@@ -21,6 +21,10 @@
   --tv-accent: #fde047;
 }
 
+.tvRootSolo {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .tvLeft {
   position: relative;
   display: flex;

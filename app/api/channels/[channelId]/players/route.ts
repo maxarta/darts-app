@@ -50,9 +50,13 @@ export async function POST(
 
   const body = await req.json().catch(() => ({}));
   const name = typeof body.name === "string" ? body.name : "";
+  const photoUrl =
+    body.photo_url === null || typeof body.photo_url === "string"
+      ? body.photo_url
+      : undefined;
 
   try {
-    const player = await createManualChannelPlayer(channelId, name);
+    const player = await createManualChannelPlayer(channelId, name, photoUrl);
     return Response.json({ member: player }, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Ошибка";
