@@ -208,6 +208,27 @@
   font-size: 0.72em;
 }
 
+.tvFinishHintSlot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-width: 0;
+  min-height: 1.2em;
+}
+
+.tvFinishHint {
+  margin: 0;
+  max-width: 100%;
+  font-size: clamp(22px, 2.6vw, 40px);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.15;
+  color: var(--tv-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .tvVisitStrip {
   display: flex;
   flex-wrap: wrap;
@@ -436,6 +457,28 @@
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+.tvCardDarts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 clamp(8px, 2cqw, 14px);
+  min-width: 0;
+}
+
+.tvScoreCardStacked .tvCardDarts {
+  justify-content: center;
+}
+
+.tvCardDarts .tvVisitChipDark,
+.tvCardDarts .tvVisitChipSlot {
+  min-width: clamp(40px, 14cqw, 56px);
+  min-height: clamp(36px, 12cqw, 48px);
+  padding: 6px 10px;
+  font-size: clamp(14px, 5.5cqw, 22px);
+  border-radius: 12px;
 }
 
 .tvStartStrike {

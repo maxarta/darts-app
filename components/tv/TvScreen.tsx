@@ -4,8 +4,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
 import type { AchievementId } from "@/lib/game/achievements";
+import { sortAchievementsForStacking } from "@/lib/game/achievements";
+import { preloadAchievementImages } from "@/lib/game/achievements/images";
 import { GameAchievements } from "@/components/game/achievements";
-import type { ActiveAchievement } from "@/components/game/achievements/useVisitAchievementQueue";
+import {
+  ACHIEVEMENT_STAGGER_MS,
+  type ActiveAchievement,
+} from "@/components/game/achievements/useVisitAchievementQueue";
 import {
   isTvLiveFresh,
   pickTvLive,
@@ -29,6 +34,10 @@ import {
 import { TvCodeGate, type TvResolvedBoard } from "./TvCodeGate";
 import { TvAvatar } from "./TvAvatar";
 import { TvPlayingBoard } from "./TvPlayingBoard";
+import {
+  TvScoreBursts,
+  type TvScoreBurstItem,
+} from "./TvScoreBursts";
 import styles from "./tv.module.css";
 
 type ActiveTournamentRow = {
@@ -98,8 +107,31 @@ export function TvScreen() {
   const [live, setLive] = useState<TvLivePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<ActiveAchievement[]>([]);
+  const [scoreBursts, setScoreBursts] = useState<TvScoreBurstItem[]>([]);
   const lastLiveAchievementsRef = useRef<AchievementId[]>([]);
+  const lastVisitScoreRef = useRef<{ userId: number; score: number } | null>(
+    null
+  );
   const achievementSeq = useRef(0);
+  const scoreBurstSeq = useRef(0);
+  const achievementStaggerTimersRef = useRef<number[]>([]);
+  const nextAchievementSpawnAtRef = useRef(0);
+
+  const removeAchievement = (instanceId: string) => {
+    setAchievements((prev) => prev.filter((a) => a.instanceId !== instanceId));
+  };
+
+  const removeScoreBurst = (instanceId: string) => {
+    setScoreBursts((prev) => prev.filter((b) => b.instanceId !== instanceId));
+  };
+
+  const clearAchievementStagger = () => {
+    for (const t of achievementStaggerTimersRef.current) {
+      window.clearTimeout(t);
+    }
+    achievementStaggerTimersRef.current = [];
+    nextAchievementSpawnAtRef.current = 0;
+  };
 
   useEffect(() => {
     if (!forcedTournamentId) return;
@@ -190,7 +222,39 @@ export function TvScreen() {
     if (!board) return;
     let cancelled = false;
     lastLiveAchievementsRef.current = [];
+    lastVisitScoreRef.current = null;
+    clearAchievementStagger();
     setAchievements([]);
+    setScoreBursts([]);
+
+    const spawnAchievementsInOrder = (ids: AchievementId[]) => {
+      if (ids.length === 0) return;
+      const stacked = sortAchievementsForStacking(ids);
+      void preloadAchievementImages()
+        .catch(() => {})
+        .finally(() => {
+          if (cancelled) return;
+          const now = Date.now();
+          let at = Math.max(now, nextAchievementSpawnAtRef.current);
+          for (const id of stacked) {
+            const delay = Math.max(0, at - Date.now());
+            const timer = window.setTimeout(() => {
+              if (cancelled) return;
+              achievementSeq.current += 1;
+              setAchievements((prev) => [
+                ...prev,
+                {
+                  id,
+                  instanceId: `${id}-${achievementSeq.current}`,
+                },
+              ]);
+            }, delay);
+            achievementStaggerTimersRef.current.push(timer);
+            at += ACHIEVEMENT_STAGGER_MS;
+          }
+          nextAchievementSpawnAtRef.current = at;
+        });
+    };
 
     const applyLive = (next: TvLivePayload | null) => {
       if (cancelled) return;
@@ -206,6 +270,8 @@ export function TvScreen() {
 
       if (!next || next.phase === "idle") {
         lastLiveAchievementsRef.current = [];
+        lastVisitScoreRef.current = null;
+        clearAchievementStagger();
         return;
       }
       const ids = (next?.achievements ?? []) as AchievementId[];
@@ -228,17 +294,43 @@ export function TvScreen() {
       lastLiveAchievementsRef.current = ids;
 
       if (newlyAppeared.length > 0) {
-        setAchievements((prev) => {
-          const nextItems = [...prev];
-          for (const id of newlyAppeared) {
-            achievementSeq.current += 1;
-            nextItems.push({
-              id,
-              instanceId: `${id}-${achievementSeq.current}`,
-            });
-          }
-          return nextItems;
-        });
+        spawnAchievementsInOrder(newlyAppeared);
+      }
+
+      // Huge flying points on every scoring dart (alongside stickers).
+      const active =
+        next.players.find((p) => p.active) ?? next.players[0] ?? null;
+      if (!active) return;
+
+      const prevVisit = lastVisitScoreRef.current;
+      if (
+        !prevVisit ||
+        prevVisit.userId !== active.userId ||
+        active.visitScore < prevVisit.score
+      ) {
+        lastVisitScoreRef.current = {
+          userId: active.userId,
+          score: active.visitScore,
+        };
+        return;
+      }
+
+      if (active.visitScore > prevVisit.score) {
+        const delta = active.visitScore - prevVisit.score;
+        lastVisitScoreRef.current = {
+          userId: active.userId,
+          score: active.visitScore,
+        };
+        if (delta > 0) {
+          scoreBurstSeq.current += 1;
+          setScoreBursts((prev) => [
+            ...prev,
+            {
+              instanceId: `score-${scoreBurstSeq.current}`,
+              points: delta,
+            },
+          ]);
+        }
       }
     };
 
@@ -304,6 +396,7 @@ export function TvScreen() {
 
     return () => {
       cancelled = true;
+      clearAchievementStagger();
       if (sheetTimer) window.clearInterval(sheetTimer);
       window.clearInterval(liveTimer);
       window.removeEventListener(TV_LIVE_EVENT, onLive);
@@ -345,10 +438,6 @@ export function TvScreen() {
       stage: upcoming.stage,
     };
   }, [upcoming, data]);
-
-  const removeAchievement = (instanceId: string) => {
-    setAchievements((prev) => prev.filter((a) => a.instanceId !== instanceId));
-  };
 
   const onCodeResolved = (resolved: TvResolvedBoard) => {
     setActiveTvBoard(channelId || "tv", resolved.boardKey);
@@ -456,6 +545,7 @@ export function TvScreen() {
         active={achievements}
         onRemove={removeAchievement}
       />
+      <TvScoreBursts active={scoreBursts} onRemove={removeScoreBurst} />
     </div>
   );
 }

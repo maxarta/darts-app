@@ -9,6 +9,7 @@ import {
 } from "react";
 import Image from "next/image";
 import { AnimatedNumber } from "@/components/game/AnimatedNumber";
+import { formatCheckoutHint } from "@/lib/darts/checkout";
 import { visitThrowSummary } from "@/lib/darts/format";
 import type { TvLivePayload } from "@/lib/tournament/tv-live";
 import { TvAvatar } from "./TvAvatar";
@@ -28,6 +29,11 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
   const playerCount = live.players.length;
   const dense = playerCount >= 4;
   const activeId = active?.userId;
+  const doubleOut = live.doubleOut !== false;
+  const finishHint =
+    doubleOut && active && dartsLeft > 0
+      ? formatCheckoutHint(active.remaining, dartsLeft)
+      : null;
 
   const gridRef = useRef<HTMLDivElement>(null);
   const prevRectsRef = useRef<Map<number, DOMRect>>(new Map());
@@ -122,27 +128,10 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
             </span>
           ) : null}
         </div>
-        <div className={styles.tvVisitStrip} aria-live="polite">
-          {dartsInVisit > 0 ? (
-            <span className={styles.tvVisitChipWhite}>
-              <AnimatedNumber value={active?.visitScore ?? 0} />
-            </span>
+        <div className={styles.tvFinishHintSlot} aria-live="polite">
+          {finishHint ? (
+            <p className={styles.tvFinishHint}>{finishHint}</p>
           ) : null}
-          {visitChips.map((chip, i) => (
-            <span key={`${chip.label}-${i}`} className={styles.tvVisitChipDark}>
-              {chip.label}
-            </span>
-          ))}
-          {Array.from({ length: dartsLeft }).map((_, i) => (
-            <span key={`slot-${i}`} className={styles.tvVisitChipSlot}>
-              <Image
-                src="/game/dart-flight-single.svg"
-                alt=""
-                width={28}
-                height={22}
-              />
-            </span>
-          ))}
         </div>
       </header>
 
@@ -167,6 +156,29 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
             aria-current={p.active ? "true" : undefined}
           >
             <div className={styles.tvScoreCardInner} data-tv-inner>
+              {p.active ? (
+                <div className={styles.tvCardDarts} aria-live="polite">
+                  {visitChips.map((chip, i) => (
+                    <span
+                      key={`${chip.label}-${i}`}
+                      className={styles.tvVisitChipDark}
+                    >
+                      {chip.label}
+                    </span>
+                  ))}
+                  {Array.from({ length: dartsLeft }).map((_, i) => (
+                    <span key={`slot-${i}`} className={styles.tvVisitChipSlot}>
+                      <Image
+                        src="/game/dart-flight-single.svg"
+                        alt=""
+                        width={dense ? 24 : 30}
+                        height={dense ? 19 : 24}
+                      />
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+
               <div className={styles.tvScoreCardTop}>
                 <TvAvatar
                   name={p.name}

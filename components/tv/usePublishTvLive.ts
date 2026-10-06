@@ -51,6 +51,7 @@ function buildPayload(
     currentRound: snap.game.current_round,
     currentLeg: snap.game.current_leg,
     legsToWin: settings.legsToWin ?? 1,
+    doubleOut: settings.doubleOut !== false,
     visitThrows: snap.activeVisitThrows,
     achievements,
     players: [...snap.players]
@@ -82,6 +83,7 @@ function idlePayload(matchId: string | null): TvLivePayload {
     currentRound: 1,
     currentLeg: 1,
     legsToWin: 1,
+    doubleOut: true,
     visitThrows: [],
     achievements: [],
     players: [],

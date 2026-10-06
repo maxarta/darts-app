@@ -26,6 +26,8 @@ export type TvLivePayload = {
   currentRound: number;
   currentLeg: number;
   legsToWin: number;
+  /** Double-out finish rule — drives checkout hint on TV. */
+  doubleOut?: boolean;
   players: TvLivePlayer[];
   visitThrows: ThrowInput[];
   /** Recently unlocked achievement stickers for the TV board. */

@@ -23,7 +23,7 @@ type Options = {
 };
 
 /** Пауза между ачивками в одной «пачке» (низкий слой → высокий). */
-const ACHIEVEMENT_STAGGER_MS = 480;
+export const ACHIEVEMENT_STAGGER_MS = 480;
 
 let instanceCounter = 0;
 
