@@ -78,7 +78,6 @@ export function GameAchievementBadge({
         sizes="(max-width: 480px) 76vw, 300px"
         priority
         onLoad={() => setReady(true)}
-        onLoadingComplete={() => setReady(true)}
       />
     </div>
   );
