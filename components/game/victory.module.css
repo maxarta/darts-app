@@ -33,6 +33,8 @@
 .panelConfirm {
   gap: 0;
   height: auto;
+  /* Content-sized: do not let the flex scroll region collapse to 0. */
+  max-height: none;
 }
 
 /* Force a viewport-bounded shell so actions stay on screen. */
@@ -61,8 +63,11 @@
 }
 
 .panelConfirm .panelScroll {
+  flex: 0 0 auto;
+  min-height: auto;
+  overflow: visible;
   gap: 20px;
-  padding-bottom: 8px;
+  padding: 24px 20px 12px;
 }
 
 .hero {
