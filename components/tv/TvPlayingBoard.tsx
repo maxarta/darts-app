@@ -1,6 +1,12 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import Image from "next/image";
 import { AnimatedNumber } from "@/components/game/AnimatedNumber";
 import { visitThrowSummary } from "@/lib/darts/format";
@@ -21,6 +27,76 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
   const multiLeg = (live.legsToWin ?? 1) > 1;
   const playerCount = live.players.length;
   const dense = playerCount >= 4;
+  const activeId = active?.userId;
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const prevRectsRef = useRef<Map<number, DOMRect>>(new Map());
+  const prevActiveRef = useRef<number | undefined>(undefined);
+  const [pulseId, setPulseId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (activeId == null) return;
+    if (prevActiveRef.current === activeId) return;
+    prevActiveRef.current = activeId;
+    setPulseId(activeId);
+    const t = window.setTimeout(() => setPulseId(null), 650);
+    return () => window.clearTimeout(t);
+  }, [activeId]);
+
+  // FLIP: smooth slide/expand when the active seat changes.
+  useLayoutEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const cards = [
+      ...grid.querySelectorAll<HTMLElement>("[data-tv-player]"),
+    ];
+    const nextRects = new Map<number, DOMRect>();
+
+    for (const el of cards) {
+      const id = Number(el.dataset.tvPlayer);
+      if (!Number.isFinite(id)) continue;
+      nextRects.set(id, el.getBoundingClientRect());
+    }
+
+    const prev = prevRectsRef.current;
+    if (prev.size > 0) {
+      for (const el of cards) {
+        const id = Number(el.dataset.tvPlayer);
+        const before = prev.get(id);
+        const after = nextRects.get(id);
+        if (!before || !after) continue;
+        const dx = before.left - after.left;
+        const dy = before.top - after.top;
+        const sx = before.width / Math.max(after.width, 1);
+        if (
+          Math.abs(dx) < 0.5 &&
+          Math.abs(dy) < 0.5 &&
+          Math.abs(sx - 1) < 0.01
+        ) {
+          continue;
+        }
+        const inner = el.querySelector<HTMLElement>("[data-tv-inner]");
+        el.style.transition = "none";
+        el.style.transformOrigin = "left center";
+        el.style.transform = `translate(${dx}px, ${dy}px) scaleX(${sx})`;
+        if (inner && Math.abs(sx - 1) > 0.01) {
+          inner.style.transition = "none";
+          inner.style.transformOrigin = "left center";
+          inner.style.transform = `scaleX(${1 / sx})`;
+        }
+        void el.offsetWidth;
+        const ease = "transform 0.55s cubic-bezier(0.22, 1, 0.36, 1)";
+        el.style.transition = ease;
+        el.style.transform = "";
+        if (inner) {
+          inner.style.transition = ease;
+          inner.style.transform = "";
+        }
+      }
+    }
+
+    prevRectsRef.current = nextRects;
+  }, [activeId, playerCount]);
 
   return (
     <div
@@ -71,6 +147,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
       </header>
 
       <div
+        ref={gridRef}
         className={
           playerCount > 2 ? styles.tvScoreGridMulti : styles.tvScoreGrid
         }
@@ -78,56 +155,60 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
         {live.players.map((p) => (
           <article
             key={p.userId}
+            data-tv-player={p.userId}
             className={[
               styles.tvScoreCard,
               dense ? styles.tvScoreCardStacked : "",
               p.active ? styles.tvScoreCardActive : "",
+              pulseId === p.userId ? styles.tvScoreCardPulse : "",
             ]
               .filter(Boolean)
               .join(" ")}
             aria-current={p.active ? "true" : undefined}
           >
-            <div className={styles.tvScoreCardTop}>
-              <TvAvatar
-                name={p.name}
-                photoUrl={p.photoUrl}
-                size={
-                  p.active ? "board" : dense ? "boardCompact" : "board"
-                }
-              />
-              <div className={styles.tvScoreCardMeta}>
-                <p className={styles.tvPlayerName}>{p.name}</p>
-                {p.active ? (
-                  <p className={styles.tvTurnHint}>Ход</p>
-                ) : (
-                  <p className={styles.tvTurnHintIdle}> </p>
-                )}
-                <div className={styles.tvVisitMeta}>
-                  <span className={styles.tvStartStrike}>
-                    {p.active
-                      ? (p.visitStartScore ?? p.remaining)
-                      : p.remaining}
-                  </span>
-                  {p.active && dartsInVisit > 0 ? (
-                    <span className={styles.tvVisitChipWhiteSm}>
-                      <AnimatedNumber value={p.visitScore} />
+            <div className={styles.tvScoreCardInner} data-tv-inner>
+              <div className={styles.tvScoreCardTop}>
+                <TvAvatar
+                  name={p.name}
+                  photoUrl={p.photoUrl}
+                  size={
+                    p.active ? "board" : dense ? "boardCompact" : "board"
+                  }
+                />
+                <div className={styles.tvScoreCardMeta}>
+                  <p className={styles.tvPlayerName}>{p.name}</p>
+                  {p.active ? (
+                    <p className={styles.tvTurnHint}>Ход</p>
+                  ) : (
+                    <p className={styles.tvTurnHintIdle}> </p>
+                  )}
+                  <div className={styles.tvVisitMeta}>
+                    <span className={styles.tvStartStrike}>
+                      {p.active
+                        ? (p.visitStartScore ?? p.remaining)
+                        : p.remaining}
                     </span>
-                  ) : null}
+                    {p.active && dartsInVisit > 0 ? (
+                      <span className={styles.tvVisitChipWhiteSm}>
+                        <AnimatedNumber value={p.visitScore} />
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <p className={styles.tvScoreValue}>
-              <AnimatedNumber value={p.remaining} />
-            </p>
+              <p className={styles.tvScoreValue}>
+                <AnimatedNumber value={p.remaining} />
+              </p>
 
-            <div className={styles.tvScoreFooter}>
-              {multiLeg ? (
-                <span className={styles.tvLegs}>Леги {p.legsWon}</span>
-              ) : null}
-              <span className={styles.tvPpr}>
-                СРЕДН. {p.ppr.toFixed(1)}
-              </span>
+              <div className={styles.tvScoreFooter}>
+                {multiLeg ? (
+                  <span className={styles.tvLegs}>Леги {p.legsWon}</span>
+                ) : null}
+                <span className={styles.tvPpr}>
+                  СРЕДН. {p.ppr.toFixed(1)}
+                </span>
+              </div>
             </div>
           </article>
         ))}

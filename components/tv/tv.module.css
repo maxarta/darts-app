@@ -281,26 +281,90 @@
   padding: clamp(12px, 4cqw, 32px);
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 2.5cqw, 12px);
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  opacity: 0.88;
   transition:
-    flex-grow 0.25s ease,
-    background 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    flex-grow 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 0.4s ease,
+    background 0.4s ease,
+    border-color 0.4s ease,
+    box-shadow 0.45s ease,
+    padding 0.45s ease;
+  will-change: flex-grow, transform;
+}
+
+.tvScoreCardInner {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(8px, 2.5cqw, 12px);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .tvScoreCardActive {
   flex: 2 1 0;
+  opacity: 1;
   border-color: var(--tv-accent);
   background: rgba(250, 204, 21, 0.14);
-  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
+  box-shadow:
+    0 0 0 1px rgba(250, 204, 21, 0.35),
+    0 12px 40px rgba(250, 204, 21, 0.12);
 }
 
-.tvScoreCard:not(.tvScoreCardActive) {
-  opacity: 0.88;
+.tvScoreCardPulse {
+  animation: tvActivePulse 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tvActivePulse {
+  0% {
+    box-shadow:
+      0 0 0 0 rgba(250, 204, 21, 0),
+      0 0 0 0 rgba(250, 204, 21, 0);
+  }
+  35% {
+    box-shadow:
+      0 0 0 4px rgba(250, 204, 21, 0.45),
+      0 16px 48px rgba(250, 204, 21, 0.22);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(250, 204, 21, 0.35),
+      0 12px 40px rgba(250, 204, 21, 0.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tvScoreCard {
+    transition: background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+  }
+
+  .tvScoreCardPulse {
+    animation: none;
+  }
+}
+
+.tvTurnHint {
+  margin: 0;
+  color: var(--tv-accent);
+  font-size: clamp(11px, 6cqw, 18px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  animation: tvTurnHintIn 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes tvTurnHintIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .tvScoreCardTop {
@@ -360,15 +424,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 100%;
-}
-
-.tvTurnHint {
-  margin: 0;
-  color: var(--tv-accent);
-  font-size: clamp(11px, 6cqw, 18px);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .tvTurnHintIdle {
