@@ -1,5 +1,6 @@
 import { authenticateRequest, jsonError } from "@/lib/api/auth";
 import {
+  ensureChannelTvBoard,
   ensureTvBoard,
   getTvBoardLive,
   setTvBoardLive,
@@ -14,6 +15,25 @@ function parseBoardKey(raw: string): {
   refId: string;
 } | null {
   return parseTvBoardKey(raw);
+}
+
+async function ensureParsedBoard(
+  parsed: { boardKey: string; kind: TvBoardKind; refId: string },
+  opts?: { channelId?: string | null; title?: string }
+) {
+  if (parsed.kind === "channel") {
+    return ensureChannelTvBoard({
+      channelId: parsed.refId,
+      title: opts?.title,
+    });
+  }
+  return ensureTvBoard({
+    boardKey: parsed.boardKey,
+    kind: parsed.kind,
+    refId: parsed.refId,
+    channelId: opts?.channelId,
+    title: opts?.title,
+  });
 }
 
 export async function GET(
@@ -33,13 +53,7 @@ export async function GET(
     if (want === "code") {
       const channelId = url.searchParams.get("channelId");
       const title = url.searchParams.get("title") ?? "";
-      const ensured = await ensureTvBoard({
-        boardKey: parsed.boardKey,
-        kind: parsed.kind,
-        refId: parsed.refId,
-        channelId,
-        title,
-      });
+      const ensured = await ensureParsedBoard(parsed, { channelId, title });
       return Response.json({
         code: ensured.code,
         boardKey: ensured.boardKey,
@@ -49,11 +63,7 @@ export async function GET(
       });
     }
 
-    await ensureTvBoard({
-      boardKey: parsed.boardKey,
-      kind: parsed.kind,
-      refId: parsed.refId,
-    });
+    await ensureParsedBoard(parsed);
     const live = await getTvBoardLive(parsed.boardKey);
     return Response.json({ live });
   } catch (e) {
@@ -79,10 +89,7 @@ export async function POST(
       title?: string;
     };
 
-    await ensureTvBoard({
-      boardKey: parsed.boardKey,
-      kind: parsed.kind,
-      refId: parsed.refId,
+    await ensureParsedBoard(parsed, {
       channelId: body.channelId,
       title: body.title,
     });

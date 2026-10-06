@@ -32,7 +32,7 @@ import { useTelegram } from "@/components/TelegramProvider";
 import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
-import { gameBoardKey } from "@/lib/tournament/tv-board-key";
+import { channelBoardKey } from "@/lib/tournament/tv-board-key";
 import { tvPublicDisplay } from "@/lib/tournament/tv-live";
 import { GameHeader } from "./GameHeader";
 import {
@@ -138,14 +138,18 @@ export function GameScreen({ gameId }: { gameId: string }) {
     activeAchievements.map((a) => a.id)
   );
 
-  // Free-game TV code (club / extended only — never temporary guest games)
+  // Free-game TV code — stable per club session (channel), not per game id.
   useEffect(() => {
     if (!record || record.tournamentContext || !clubTvEnabled) {
       setTvCode(null);
       return;
     }
-    const boardKey = gameBoardKey(record.id);
     const channelId = record.meta.channelId ?? channel?.id ?? "";
+    if (!channelId) {
+      setTvCode(null);
+      return;
+    }
+    const boardKey = channelBoardKey(channelId);
     let cancelled = false;
     void apiFetch<{ code: string }>(
       `/api/tv/boards/${encodeURIComponent(boardKey)}?want=code&channelId=${encodeURIComponent(channelId)}&title=${encodeURIComponent(record.snapshot.game.mode)}`
@@ -160,7 +164,6 @@ export function GameScreen({ gameId }: { gameId: string }) {
       cancelled = true;
     };
   }, [
-    record?.id,
     record?.tournamentContext,
     record?.meta.channelId,
     record?.snapshot.game.mode,

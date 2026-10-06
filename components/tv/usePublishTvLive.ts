@@ -6,7 +6,7 @@ import { isGuestMode } from "@/lib/app-mode";
 import type { AchievementId } from "@/lib/game/achievements";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import {
-  gameBoardKey,
+  channelBoardKey,
   tournamentBoardKey,
 } from "@/lib/tournament/tv-board-key";
 import {
@@ -114,10 +114,12 @@ export function usePublishTvLive(
     // Temporary games stay local — no TV board.
     if (isGuestMode()) return;
 
+    // Free games publish to the channel session board so rematch / roster
+    // changes keep the same TV code without re-pairing.
     const boardKey = tournamentId
       ? tournamentBoardKey(tournamentId)
-      : gameId
-        ? gameBoardKey(gameId)
+      : channelId
+        ? channelBoardKey(channelId)
         : null;
     if (!boardKey) return;
 

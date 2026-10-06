@@ -19,6 +19,7 @@ export async function GET(
       title: board.title,
       tournamentId: board.kind === "tournament" ? board.ref_id : null,
       gameId: board.kind === "game" ? board.ref_id : null,
+      channelId: board.kind === "channel" ? board.ref_id : board.channel_id,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Lookup failed";

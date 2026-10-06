@@ -8,7 +8,7 @@ import styles from "./tv.module.css";
 
 export type TvResolvedBoard = {
   boardKey: string;
-  kind: "tournament" | "game";
+  kind: "tournament" | "game" | "channel";
   refId: string;
   tournamentId: string | null;
   gameId: string | null;
@@ -36,7 +36,7 @@ export function TvCodeGate({ onResolved }: Props) {
     try {
       const res = await apiFetch<{
         boardKey: string;
-        kind: "tournament" | "game";
+        kind: "tournament" | "game" | "channel";
         refId: string;
         title?: string;
         tournamentId: string | null;

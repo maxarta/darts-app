@@ -7,11 +7,13 @@ import {
 import type { TvLivePayload } from "@/lib/tournament/tv-live";
 import { findTournamentIdByTvCode } from "@/lib/db/tournament-tv-code";
 import {
+  channelBoardKey,
   gameBoardKey,
   tournamentBoardKey,
+  type TvBoardKeyKind,
 } from "@/lib/tournament/tv-board-key";
 
-export type TvBoardKind = "tournament" | "game";
+export type TvBoardKind = TvBoardKeyKind;
 
 export type TvBoardRow = {
   board_key: string;
@@ -24,7 +26,7 @@ export type TvBoardRow = {
   updated_at: string;
 };
 
-export { gameBoardKey, tournamentBoardKey };
+export { channelBoardKey, gameBoardKey, tournamentBoardKey };
 
 async function codeTakenOnBoards(code: string): Promise<boolean> {
   const db = getSupabaseAdmin();
@@ -46,6 +48,56 @@ async function allocateCode(): Promise<string> {
     return code;
   }
   throw new Error("Не удалось выделить TV-код");
+}
+
+/**
+ * Stable free-game board for a club channel. Reuses the prior PIN when
+ * migrating from legacy per-game boards so rematches keep the same code.
+ */
+export async function ensureChannelTvBoard(params: {
+  channelId: string;
+  title?: string;
+}): Promise<{ code: string; boardKey: string }> {
+  const channelId = params.channelId.trim();
+  if (!channelId) throw new Error("channelId required");
+
+  const boardKey = channelBoardKey(channelId);
+  const db = getSupabaseAdmin();
+
+  const { data: existing, error } = await db
+    .from("tv_boards")
+    .select("code, title")
+    .eq("board_key", boardKey)
+    .maybeSingle();
+  if (error) throw error;
+  if (existing?.code) {
+    if (params.title && params.title !== existing.title) {
+      await db
+        .from("tv_boards")
+        .update({ title: params.title, updated_at: new Date().toISOString() })
+        .eq("board_key", boardKey);
+    }
+    return { code: existing.code, boardKey };
+  }
+
+  // Prefer the latest free-game PIN for this channel when it is still free.
+  const { data: prior } = await db
+    .from("tv_boards")
+    .select("code")
+    .eq("channel_id", channelId)
+    .eq("kind", "game")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return ensureTvBoard({
+    boardKey,
+    kind: "channel",
+    refId: channelId,
+    channelId,
+    title: params.title,
+    preferredCode: prior?.code ?? null,
+  });
 }
 
 export async function ensureTvBoard(params: {
@@ -127,13 +179,40 @@ export async function getTvBoardLive(
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("tv_boards")
-    .select("live")
+    .select("live, kind, channel_id, ref_id")
     .eq("board_key", boardKey)
     .maybeSingle();
   if (error) throw error;
-  const live = data?.live;
-  if (!live || typeof live !== "object") return null;
-  return live as TvLivePayload;
+
+  const own =
+    data?.live && typeof data.live === "object"
+      ? (data.live as TvLivePayload)
+      : null;
+
+  // Legacy per-game boards: follow the session board so an already-paired TV
+  // keeps working after the phone switches to c:{channelId}.
+  if (data?.kind === "game" && data.channel_id) {
+    const sessionKey = channelBoardKey(data.channel_id);
+    if (sessionKey !== boardKey) {
+      const { data: session } = await db
+        .from("tv_boards")
+        .select("live")
+        .eq("board_key", sessionKey)
+        .maybeSingle();
+      const sessionLive =
+        session?.live && typeof session.live === "object"
+          ? (session.live as TvLivePayload)
+          : null;
+      if (
+        sessionLive &&
+        (sessionLive.updatedAt ?? 0) >= (own?.updatedAt ?? 0)
+      ) {
+        return sessionLive;
+      }
+    }
+  }
+
+  return own;
 }
 
 export async function findTvBoardByCode(

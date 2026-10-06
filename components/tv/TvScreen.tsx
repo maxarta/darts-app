@@ -49,7 +49,7 @@ type ActiveTournamentRow = {
 
 type BoardState = {
   boardKey: string;
-  kind: "tournament" | "game";
+  kind: "tournament" | "game" | "channel";
   tournamentId: string | null;
   gameId: string | null;
   title: string;
@@ -168,6 +168,16 @@ export function TvScreen() {
         kind: "game",
         tournamentId: null,
         gameId: fromLocal.slice(2),
+        title: "",
+      });
+      return;
+    }
+    if (fromLocal?.startsWith("c:")) {
+      setBoard({
+        boardKey: fromLocal,
+        kind: "channel",
+        tournamentId: null,
+        gameId: null,
         title: "",
       });
       return;
@@ -408,7 +418,7 @@ export function TvScreen() {
   const boardLive =
     live?.phase === "playing" && live.players.length > 0 ? live : null;
   const playing = Boolean(boardLive);
-  const isGameBoard = board?.kind === "game";
+  const isGameBoard = board?.kind === "game" || board?.kind === "channel";
   const displayTitle =
     board?.title ||
     data?.tournament.name ||
