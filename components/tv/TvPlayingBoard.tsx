@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import Image from "next/image";
 import { AnimatedNumber } from "@/components/game/AnimatedNumber";
 import { visitThrowSummary } from "@/lib/darts/format";
@@ -18,9 +19,15 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
   const dartsInVisit = live.visitThrows.length;
   const dartsLeft = Math.max(0, 3 - dartsInVisit);
   const multiLeg = (live.legsToWin ?? 1) > 1;
+  const playerCount = live.players.length;
+  const dense = playerCount >= 4;
 
   return (
-    <div className={styles.tvPlaying}>
+    <div
+      className={styles.tvPlaying}
+      data-players={playerCount}
+      style={{ "--tv-cols": String(playerCount) } as CSSProperties}
+    >
       <header className={styles.tvGameHeader}>
         <div className={styles.tvGameHeaderMain}>
           <p className={styles.tvGameTitle}>{tournamentName}</p>
@@ -65,7 +72,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
 
       <div
         className={
-          live.players.length > 2 ? styles.tvScoreGridMulti : styles.tvScoreGrid
+          playerCount > 2 ? styles.tvScoreGridMulti : styles.tvScoreGrid
         }
       >
         {live.players.map((p) => (
@@ -73,6 +80,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
             key={p.userId}
             className={[
               styles.tvScoreCard,
+              dense ? styles.tvScoreCardStacked : "",
               p.active ? styles.tvScoreCardActive : "",
             ]
               .filter(Boolean)
@@ -80,7 +88,11 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
             aria-current={p.active ? "true" : undefined}
           >
             <div className={styles.tvScoreCardTop}>
-              <TvAvatar name={p.name} photoUrl={p.photoUrl} size="board" />
+              <TvAvatar
+                name={p.name}
+                photoUrl={p.photoUrl}
+                size={dense ? "boardCompact" : "board"}
+              />
               <div className={styles.tvScoreCardMeta}>
                 <p className={styles.tvPlayerName}>{p.name}</p>
                 {p.active ? (

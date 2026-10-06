@@ -266,19 +266,25 @@
 .tvScoreGridMulti {
   flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: clamp(12px, 1.5vw, 20px);
+  grid-template-columns: repeat(var(--tv-cols, 3), minmax(0, 1fr));
+  gap: clamp(8px, 1vw, 16px);
+  align-items: stretch;
+  min-height: 0;
 }
 
 .tvScoreCard {
-  border-radius: 28px;
+  container-type: inline-size;
+  container-name: tvcard;
+  border-radius: clamp(16px, 4cqw, 28px);
   background: rgba(255, 255, 255, 0.06);
   border: 3px solid transparent;
-  padding: clamp(18px, 2.2vw, 32px);
+  padding: clamp(12px, 4cqw, 32px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(8px, 2.5cqw, 12px);
+  min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .tvScoreCardActive {
@@ -290,13 +296,42 @@
 .tvScoreCardTop {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: clamp(8px, 3cqw, 14px);
+  min-width: 0;
+}
+
+.tvScoreCardStacked .tvScoreCardTop {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: clamp(6px, 2cqw, 10px);
+}
+
+.tvScoreCardStacked .tvScoreCardMeta {
+  align-items: center;
+  width: 100%;
+}
+
+.tvScoreCardStacked .tvVisitMeta {
+  justify-content: center;
+}
+
+.tvScoreCardStacked .tvScoreFooter {
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .tvAvatarBoard {
-  width: clamp(72px, 8vw, 110px);
-  height: clamp(72px, 8vw, 110px);
-  font-size: clamp(22px, 2.4vw, 36px);
+  width: clamp(56px, 22cqw, 110px);
+  height: clamp(56px, 22cqw, 110px);
+  font-size: clamp(18px, 7cqw, 36px);
+  flex-shrink: 0;
+}
+
+.tvAvatarBoardCompact {
+  width: clamp(40px, 28cqw, 72px);
+  height: clamp(40px, 28cqw, 72px);
+  font-size: clamp(14px, 9cqw, 24px);
   flex-shrink: 0;
 }
 
@@ -307,10 +342,20 @@
   gap: 4px;
 }
 
+.tvScoreCard .tvPlayerName {
+  font-size: clamp(12px, 9cqw, 28px);
+  font-weight: 700;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
 .tvTurnHint {
   margin: 0;
   color: var(--tv-accent);
-  font-size: clamp(14px, 1.4vw, 18px);
+  font-size: clamp(11px, 6cqw, 18px);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -318,50 +363,76 @@
 
 .tvTurnHintIdle {
   margin: 0;
-  min-height: 1.2em;
+  min-height: 1.1em;
 }
 
 .tvVisitMeta {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .tvStartStrike {
   color: var(--tv-muted);
   text-decoration: line-through;
-  font-size: clamp(16px, 1.6vw, 22px);
+  font-size: clamp(12px, 7cqw, 22px);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .tvScoreValue {
-  font-size: clamp(72px, 11vw, 148px);
+  font-size: clamp(28px, 46cqw, 148px);
   font-weight: 800;
   line-height: 0.92;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   margin: auto 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-align: center;
+}
+
+.tvScoreCard:not(.tvScoreCardStacked) .tvScoreValue {
+  text-align: left;
 }
 
 .tvScoreFooter {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   align-items: baseline;
+  min-width: 0;
 }
 
 .tvLegs {
-  font-size: clamp(16px, 1.6vw, 22px);
+  font-size: clamp(11px, 6cqw, 22px);
   color: var(--tv-muted);
   font-weight: 600;
 }
 
 .tvPpr {
-  font-size: clamp(18px, 1.8vw, 26px);
+  font-size: clamp(11px, 6.5cqw, 26px);
   color: var(--tv-ink);
   font-weight: 700;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+/* Scale further when many columns share the row */
+.tvPlaying[data-players="5"] .tvScoreValue,
+.tvPlaying[data-players="6"] .tvScoreValue,
+.tvPlaying[data-players="7"] .tvScoreValue,
+.tvPlaying[data-players="8"] .tvScoreValue {
+  font-size: clamp(24px, 38cqw, 96px);
+}
+
+.tvPlaying[data-players="5"] .tvScoreCard,
+.tvPlaying[data-players="6"] .tvScoreCard,
+.tvPlaying[data-players="7"] .tvScoreCard,
+.tvPlaying[data-players="8"] .tvScoreCard {
+  padding: clamp(8px, 3cqw, 16px);
+  border-width: 2px;
 }
 
 .tvMetaRow {
@@ -556,6 +627,6 @@
   }
 
   .tvScoreValue {
-    font-size: 64px;
+    font-size: clamp(36px, 40cqw, 72px);
   }
 }

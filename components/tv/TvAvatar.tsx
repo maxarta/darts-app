@@ -6,7 +6,7 @@ import styles from "./tv.module.css";
 type Props = {
   name: string;
   photoUrl: string | null;
-  size?: "default" | "hero" | "board";
+  size?: "default" | "hero" | "board" | "boardCompact";
 };
 
 function initials(name: string): string {
@@ -23,9 +23,11 @@ export function TvAvatar({ name, photoUrl, size = "default" }: Props) {
   const sizeClass =
     size === "hero"
       ? styles.tvAvatarHero
-      : size === "board"
-        ? styles.tvAvatarBoard
-        : "";
+      : size === "boardCompact"
+        ? styles.tvAvatarBoardCompact
+        : size === "board"
+          ? styles.tvAvatarBoard
+          : "";
 
   return (
     <div className={[styles.tvAvatar, sizeClass].filter(Boolean).join(" ")}>
