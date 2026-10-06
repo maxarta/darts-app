@@ -43,14 +43,13 @@ export function TvCodeGate({ onResolved }: Props) {
   };
 
   const pushDigit = (d: string) => {
+    if (loading) return;
     setError(null);
-    setDigits((prev) => {
-      const next = normalizeTvCode(prev + d);
-      if (next.length === TV_CODE_LENGTH) {
-        queue.submit(next);
-      }
-      return next;
-    });
+    const next = normalizeTvCode(digits + d);
+    setDigits(next);
+    if (next.length === TV_CODE_LENGTH) {
+      void submit(next);
+    }
   };
 
   const backspace = () => {
@@ -76,9 +75,7 @@ export function TvCodeGate({ onResolved }: Props) {
         </div>
 
         {error ? <p className={styles.tvGateError}>{error}</p> : null}
-        {loading ? (
-          <p className={styles.tvGateHint}>Проверяем…</p>
-        ) : null}
+        {loading ? <p className={styles.tvGateHint}>Проверяем…</p> : null}
 
         <div className={styles.tvGatePad}>
           {["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"].map(
