@@ -6,6 +6,8 @@ export type TvLivePlayer = {
   name: string;
   photoUrl: string | null;
   remaining: number;
+  /** Score at the start of the current visit (strikethrough in UI). */
+  visitStartScore: number;
   legsWon: number;
   visitScore: number;
   dartsThrown: number;
@@ -30,15 +32,36 @@ export type TvLivePayload = {
   achievements: AchievementId[];
 };
 
-export const TV_LIVE_STALE_MS = 45_000;
+/** How long a non-playing live payload stays relevant. */
+export const TV_LIVE_STALE_MS = 120_000;
 
-const LIVE_KEY_PREFIX = "darts.tv.live.v1:";
-const ACTIVE_KEY_PREFIX = "darts.tv.active.v1:";
-export const TV_LIVE_EVENT = "darts-tv-live";
-
+/**
+ * Playing boards must not drop to "upcoming" just because nobody threw.
+ * Only idle/finished payloads expire quickly.
+ */
 export function isTvLiveFresh(live: TvLivePayload | null | undefined): boolean {
   if (!live?.updatedAt) return false;
+  if (live.phase === "playing" && live.players.length > 0) {
+    return Date.now() - live.updatedAt < 30 * 60_000;
+  }
   return Date.now() - live.updatedAt < TV_LIVE_STALE_MS;
+}
+
+/** Prefer an in-progress board even if a fresher idle snapshot races in. */
+export function pickTvLive(
+  a: TvLivePayload | null | undefined,
+  b: TvLivePayload | null | undefined
+): TvLivePayload | null {
+  const candidates = [a, b].filter((x): x is TvLivePayload => Boolean(x));
+  if (candidates.length === 0) return null;
+  const playing = candidates
+    .filter((x) => x.phase === "playing" && x.players.length > 0)
+    .sort((x, y) => (y.updatedAt ?? 0) - (x.updatedAt ?? 0));
+  if (playing[0] && isTvLiveFresh(playing[0])) return playing[0];
+  const fresh = candidates
+    .filter((x) => isTvLiveFresh(x))
+    .sort((x, y) => (y.updatedAt ?? 0) - (x.updatedAt ?? 0));
+  return fresh[0] ?? null;
 }
 
 /** Production host for TV board (artdart). */
@@ -64,6 +87,9 @@ export function tvPublicDisplay(): string {
   return `${TV_PUBLIC_HOST}/tv`;
 }
 
+const LIVE_KEY_PREFIX = "darts.tv.live.v1:";
+const ACTIVE_KEY_PREFIX = "darts.tv.active.v1:";
+export const TV_LIVE_EVENT = "darts-tv-live";
 
 function liveKey(tournamentId: string) {
   return `${LIVE_KEY_PREFIX}${tournamentId}`;

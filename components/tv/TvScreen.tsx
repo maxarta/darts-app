@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
-import { visitThrowSummary } from "@/lib/darts/format";
 import type { AchievementId } from "@/lib/game/achievements";
 import {
   GameAchievements,
@@ -11,6 +10,7 @@ import {
 import type { ActiveAchievement } from "@/components/game/achievements/useVisitAchievementQueue";
 import {
   isTvLiveFresh,
+  pickTvLive,
   readActiveTvTournamentId,
   readTvLive,
   setActiveTvTournament,
@@ -20,12 +20,17 @@ import {
 import {
   normalizeTournamentVariant,
 } from "@/lib/tournament/variant";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import {
+  resolveStoredPhotoUrl,
+  telegramAvatarPath,
+} from "@/lib/telegram/user-photo";
 import {
   TvTournamentSheet,
   type TvTournamentData,
 } from "./TvTournamentSheet";
 import { TvCodeGate } from "./TvCodeGate";
+import { TvAvatar } from "./TvAvatar";
+import { TvPlayingBoard } from "./TvPlayingBoard";
 import styles from "./tv.module.css";
 
 type ActiveTournamentRow = {
@@ -34,14 +39,6 @@ type ActiveTournamentRow = {
   status: string;
   variant?: string;
 };
-
-function initials(name: string): string {
-  const t = name.trim();
-  if (!t) return "?";
-  const parts = t.split(/\s+/);
-  if (parts.length >= 2) return (parts[0]![0]! + parts[1]![0]!).toUpperCase();
-  return t.slice(0, 2).toUpperCase();
-}
 
 function nextUpcoming(
   data: TvTournamentData | null
@@ -146,7 +143,10 @@ export function TvScreen() {
 
     const applyLive = (next: TvLivePayload | null) => {
       if (cancelled) return;
-      setLive(next);
+      setLive((prev) => {
+        const chosen = pickTvLive(next, prev);
+        return chosen;
+      });
       const ids = next?.achievements ?? [];
       for (const id of ids) {
         const key = `${next?.updatedAt}-${id}`;
@@ -169,17 +169,10 @@ export function TvScreen() {
       )
         .then((res) => {
           if (cancelled) return;
-          const remote = res.live;
-          const best =
-            local &&
-            isTvLiveFresh(local) &&
-            (!remote || (local.updatedAt ?? 0) >= (remote.updatedAt ?? 0))
-              ? local
-              : remote;
-          applyLive(best);
+          applyLive(pickTvLive(local, res.live));
         })
         .catch(() => {
-          if (!cancelled && isTvLiveFresh(local)) applyLive(local);
+          if (!cancelled) applyLive(pickTvLive(local, null));
         });
     };
 
@@ -217,8 +210,11 @@ export function TvScreen() {
 
   const isKenny =
     normalizeTournamentVariant(data?.tournament.variant) === "kenny";
-  const freshLive = isTvLiveFresh(live) ? live : null;
-  const playing = freshLive?.phase === "playing" && freshLive.players.length > 0;
+  const boardLive =
+    live?.phase === "playing" && live.players.length > 0 && isTvLiveFresh(live)
+      ? live
+      : null;
+  const playing = Boolean(boardLive);
 
   const upcoming = useMemo(() => nextUpcoming(data), [data]);
   const upcomingPlayers = useMemo(() => {
@@ -230,7 +226,9 @@ export function TvScreen() {
       return {
         userId: uid,
         name: (user?.first_name ?? String(uid)).toUpperCase().slice(0, 18),
-        photoUrl: resolveStoredPhotoUrl(uid, user?.photo_url),
+        photoUrl:
+          resolveStoredPhotoUrl(uid, user?.photo_url) ??
+          telegramAvatarPath(uid),
       };
     };
     return { p1: find(upcoming.p1), p2: find(upcoming.p2), stage: upcoming.stage };
@@ -268,120 +266,41 @@ export function TvScreen() {
     );
   }
 
-  const visitChips = playing
-    ? visitThrowSummary(freshLive!.visitThrows)
-    : [];
-
   return (
     <div
       className={[styles.tvRoot, isKenny ? styles.tvRootKenny : ""].join(" ")}
       data-tv-board
     >
       <section className={styles.tvLeft} aria-label="Сейчас на доске">
-        <p className={styles.tvBrand}>TV · {data?.tournament.name ?? "Турнир"}</p>
-
-        {playing ? (
-          <div className={styles.tvPlaying}>
-            <p className={styles.tvStage}>
-              {freshLive!.stage ?? "Игра"} · {freshLive!.mode}
-            </p>
-            <div className={styles.tvMetaRow}>
-              <span className={styles.tvMetaPill}>
-                Раунд {freshLive!.currentRound}
-              </span>
-              {(freshLive!.legsToWin ?? 1) > 1 ? (
-                <span className={styles.tvMetaPill}>
-                  Лег {freshLive!.currentLeg} · до {freshLive!.legsToWin}
-                </span>
-              ) : null}
-              <span className={styles.tvMetaPill}>
-                Дротики{" "}
-                {freshLive!.players.reduce((s, p) => s + p.dartsThrown, 0)}
-              </span>
-            </div>
-
-            <div className={styles.tvScoreGrid}>
-              {freshLive!.players.map((p) => (
-                <article
-                  key={p.userId}
-                  className={[
-                    styles.tvScoreCard,
-                    p.active ? styles.tvScoreCardActive : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                >
-                  <div className={styles.tvAvatar}>
-                    {p.photoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={p.photoUrl}
-                        alt=""
-                        className={styles.tvAvatarImg}
-                      />
-                    ) : (
-                      initials(p.name)
-                    )}
-                  </div>
-                  <p className={styles.tvPlayerName}>{p.name}</p>
-                  <p className={styles.tvScoreValue}>{p.remaining}</p>
-                  {(freshLive!.legsToWin ?? 1) > 1 ? (
-                    <p className={styles.tvLegs}>Леги {p.legsWon}</p>
-                  ) : null}
-                  <p className={styles.tvLegs}>PPR {p.ppr.toFixed(1)}</p>
-                </article>
-              ))}
-            </div>
-
-            <div className={styles.tvVisit}>
-              <span className={styles.tvVisitLabel}>Визит</span>
-              <span className={styles.tvVisitScore}>
-                {freshLive!.players.find((p) => p.active)?.visitScore ?? 0}
-              </span>
-              <div className={styles.tvVisitThrows}>
-                {visitChips.map((chip, i) => (
-                  <span key={`${chip.label}-${i}`} className={styles.tvThrowChip}>
-                    {chip.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-          </div>
+        {playing && boardLive ? (
+          <TvPlayingBoard
+            live={boardLive}
+            tournamentName={data?.tournament.name ?? "Турнир"}
+          />
         ) : upcomingPlayers ? (
           <div className={styles.tvIdle}>
+            <p className={styles.tvBrand}>
+              TV · {data?.tournament.name ?? "Турнир"}
+            </p>
             <p className={styles.tvStage}>{upcomingPlayers.stage}</p>
             <div className={styles.tvMatchup}>
               <div className={styles.tvPlayer}>
-                <div className={`${styles.tvAvatar} ${styles.tvAvatarHero}`}>
-                  {upcomingPlayers.p1.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={upcomingPlayers.p1.photoUrl}
-                      alt=""
-                      className={styles.tvAvatarImg}
-                    />
-                  ) : (
-                    initials(upcomingPlayers.p1.name)
-                  )}
-                </div>
+                <TvAvatar
+                  name={upcomingPlayers.p1.name}
+                  photoUrl={upcomingPlayers.p1.photoUrl}
+                  size="hero"
+                />
                 <p className={styles.tvPlayerNameHero}>
                   {upcomingPlayers.p1.name}
                 </p>
               </div>
               <span className={styles.tvVsHero}>×</span>
               <div className={styles.tvPlayer}>
-                <div className={`${styles.tvAvatar} ${styles.tvAvatarHero}`}>
-                  {upcomingPlayers.p2.photoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={upcomingPlayers.p2.photoUrl}
-                      alt=""
-                      className={styles.tvAvatarImg}
-                    />
-                  ) : (
-                    initials(upcomingPlayers.p2.name)
-                  )}
-                </div>
+                <TvAvatar
+                  name={upcomingPlayers.p2.name}
+                  photoUrl={upcomingPlayers.p2.photoUrl}
+                  size="hero"
+                />
                 <p className={styles.tvPlayerNameHero}>
                   {upcomingPlayers.p2.name}
                 </p>
@@ -391,10 +310,11 @@ export function TvScreen() {
           </div>
         ) : (
           <div className={styles.tvIdle}>
-            <p className={styles.tvIdleTitle}>Ожидание</p>
-            <p className={styles.tvIdleHint}>
-              {needsDrawLabel(data)}
+            <p className={styles.tvBrand}>
+              TV · {data?.tournament.name ?? "Турнир"}
             </p>
+            <p className={styles.tvIdleTitle}>Ожидание</p>
+            <p className={styles.tvIdleHint}>{needsDrawLabel(data)}</p>
           </div>
         )}
       </section>

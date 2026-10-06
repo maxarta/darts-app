@@ -4,13 +4,24 @@ import { useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api/client";
 import type { AchievementId } from "@/lib/game/achievements";
 import type { LocalGameRecord } from "@/lib/game/local/types";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import {
+  resolveStoredPhotoUrl,
+  telegramAvatarPath,
+} from "@/lib/telegram/user-photo";
 import {
   writeTvLive,
   type TvLivePayload,
 } from "@/lib/tournament/tv-live";
 
 const PUBLISH_INTERVAL_MS = 800;
+const HEARTBEAT_MS = 4_000;
+
+function playerPhotoUrl(
+  userId: number,
+  fromMeta: string | null | undefined
+): string | null {
+  return resolveStoredPhotoUrl(userId, fromMeta) ?? telegramAvatarPath(userId);
+}
 
 function buildPayload(
   record: LocalGameRecord,
@@ -41,11 +52,9 @@ function buildPayload(
         name: (p.users?.first_name ?? p.users?.username ?? String(p.user_id))
           .toUpperCase()
           .slice(0, 16),
-        photoUrl: resolveStoredPhotoUrl(
-          p.user_id,
-          photoByUser.get(p.user_id)
-        ),
+        photoUrl: playerPhotoUrl(p.user_id, photoByUser.get(p.user_id)),
         remaining: p.remaining_score,
+        visitStartScore: p.score_at_visit_start,
         legsWon: p.legs_won,
         visitScore: p.visit_score,
         dartsThrown: p.darts_thrown,
@@ -63,6 +72,7 @@ export function usePublishTvLive(
   const tournamentId = record?.tournamentContext?.tournamentId ?? null;
   const channelId = record?.meta.channelId ?? "";
   const lastSentRef = useRef("");
+  const lastHeartbeatRef = useRef(0);
   const achievementsRef = useRef(achievements);
   achievementsRef.current = achievements;
   const recordRef = useRef(record);
@@ -73,18 +83,37 @@ export function usePublishTvLive(
 
     let cancelled = false;
 
-    const publish = () => {
+    const publish = (forceHeartbeat: boolean) => {
       const current = recordRef.current;
       if (!current || cancelled) return;
-      const payload = buildPayload(current, achievementsRef.current);
-      const key = JSON.stringify({
-        ...payload,
-        updatedAt: 0,
-      });
-      if (key === lastSentRef.current) return;
-      lastSentRef.current = key;
+      if (current.snapshot.game.status === "finished") {
+        // Clear sticky playing board after match ends.
+        const idle = buildPayload(current, achievementsRef.current);
+        idle.phase = "idle";
+        idle.players = [];
+        writeTvLive(channelId, tournamentId, idle);
+        void apiFetch(`/api/tournaments/${encodeURIComponent(tournamentId)}/live`, {
+          method: "POST",
+          body: JSON.stringify({ live: null }),
+        }).catch(() => {});
+        lastSentRef.current = "";
+        return;
+      }
 
-      // Same-browser shortcut; TV on another device reads via API.
+      const payload = buildPayload(current, achievementsRef.current);
+      const key = JSON.stringify({ ...payload, updatedAt: 0 });
+      const now = Date.now();
+      const unchanged = key === lastSentRef.current;
+      if (
+        unchanged &&
+        !forceHeartbeat &&
+        now - lastHeartbeatRef.current < HEARTBEAT_MS
+      ) {
+        return;
+      }
+      lastSentRef.current = key;
+      lastHeartbeatRef.current = now;
+
       writeTvLive(channelId, tournamentId, payload);
 
       void apiFetch<{ live: TvLivePayload | null }>(
@@ -94,13 +123,12 @@ export function usePublishTvLive(
           body: JSON.stringify({ live: payload }),
         }
       ).catch(() => {
-        /* keep trying on next tick */
         lastSentRef.current = "";
       });
     };
 
-    publish();
-    const id = window.setInterval(publish, PUBLISH_INTERVAL_MS);
+    publish(true);
+    const id = window.setInterval(() => publish(true), PUBLISH_INTERVAL_MS);
     return () => {
       cancelled = true;
       window.clearInterval(id);
