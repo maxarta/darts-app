@@ -91,7 +91,9 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
               <TvAvatar
                 name={p.name}
                 photoUrl={p.photoUrl}
-                size={dense ? "boardCompact" : "board"}
+                size={
+                  p.active ? "board" : dense ? "boardCompact" : "board"
+                }
               />
               <div className={styles.tvScoreCardMeta}>
                 <p className={styles.tvPlayerName}>{p.name}</p>

@@ -257,16 +257,15 @@
 
 .tvScoreGrid {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
   gap: clamp(16px, 2vw, 28px);
   align-items: stretch;
+  min-height: 0;
 }
 
 .tvScoreGridMulti {
   flex: 1;
-  display: grid;
-  grid-template-columns: repeat(var(--tv-cols, 3), minmax(0, 1fr));
+  display: flex;
   gap: clamp(8px, 1vw, 16px);
   align-items: stretch;
   min-height: 0;
@@ -275,6 +274,7 @@
 .tvScoreCard {
   container-type: inline-size;
   container-name: tvcard;
+  flex: 1 1 0;
   border-radius: clamp(16px, 4cqw, 28px);
   background: rgba(255, 255, 255, 0.06);
   border: 3px solid transparent;
@@ -285,12 +285,22 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  transition:
+    flex-grow 0.25s ease,
+    background 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .tvScoreCardActive {
+  flex: 2 1 0;
   border-color: var(--tv-accent);
   background: rgba(250, 204, 21, 0.14);
   box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
+
+.tvScoreCard:not(.tvScoreCardActive) {
+  opacity: 0.88;
 }
 
 .tvScoreCardTop {
@@ -419,12 +429,12 @@
   white-space: nowrap;
 }
 
-/* Scale further when many columns share the row */
-.tvPlaying[data-players="5"] .tvScoreValue,
-.tvPlaying[data-players="6"] .tvScoreValue,
-.tvPlaying[data-players="7"] .tvScoreValue,
-.tvPlaying[data-players="8"] .tvScoreValue {
-  font-size: clamp(24px, 38cqw, 96px);
+/* Idle cards stay compact; active card grows via flex:2 + cqw */
+.tvPlaying[data-players="5"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
+.tvPlaying[data-players="6"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
+.tvPlaying[data-players="7"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
+.tvPlaying[data-players="8"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue {
+  font-size: clamp(22px, 34cqw, 72px);
 }
 
 .tvPlaying[data-players="5"] .tvScoreCard,
@@ -433,6 +443,14 @@
 .tvPlaying[data-players="8"] .tvScoreCard {
   padding: clamp(8px, 3cqw, 16px);
   border-width: 2px;
+}
+
+.tvPlaying[data-players="5"] .tvScoreCardActive,
+.tvPlaying[data-players="6"] .tvScoreCardActive,
+.tvPlaying[data-players="7"] .tvScoreCardActive,
+.tvPlaying[data-players="8"] .tvScoreCardActive {
+  padding: clamp(12px, 4cqw, 22px);
+  border-width: 3px;
 }
 
 .tvMetaRow {
