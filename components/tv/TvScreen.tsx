@@ -98,7 +98,7 @@ export function TvScreen() {
   const [live, setLive] = useState<TvLivePayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<ActiveAchievement[]>([]);
-  const seenAchievementsRef = useRef<Set<string>>(new Set());
+  const lastLiveAchievementsRef = useRef<AchievementId[]>([]);
   const achievementSeq = useRef(0);
 
   useEffect(() => {
@@ -189,6 +189,8 @@ export function TvScreen() {
   useEffect(() => {
     if (!board) return;
     let cancelled = false;
+    lastLiveAchievementsRef.current = [];
+    setAchievements([]);
 
     const applyLive = (next: TvLivePayload | null) => {
       if (cancelled) return;
@@ -201,17 +203,42 @@ export function TvScreen() {
         if (next.phase === "playing" && next.players.length > 0) return next;
         return pickTvLive(next, prev);
       });
-      const ids = next?.achievements ?? [];
+
+      if (!next || next.phase === "idle") {
+        lastLiveAchievementsRef.current = [];
+        return;
+      }
+      const ids = (next?.achievements ?? []) as AchievementId[];
+      // Phone re-publishes the same active stickers every ~1s with a new
+      // updatedAt — only spawn when an id newly appears in the list.
+      const prevIds = lastLiveAchievementsRef.current;
+      const remaining = new Map<AchievementId, number>();
+      for (const id of prevIds) {
+        remaining.set(id, (remaining.get(id) ?? 0) + 1);
+      }
+      const newlyAppeared: AchievementId[] = [];
       for (const id of ids) {
-        const key = `${next?.updatedAt}-${id}`;
-        if (seenAchievementsRef.current.has(key)) continue;
-        seenAchievementsRef.current.add(key);
-        achievementSeq.current += 1;
-        const instanceId = `${id}-${achievementSeq.current}`;
-        setAchievements((prev) => [
-          ...prev,
-          { id: id as AchievementId, instanceId },
-        ]);
+        const left = remaining.get(id) ?? 0;
+        if (left > 0) {
+          remaining.set(id, left - 1);
+        } else {
+          newlyAppeared.push(id);
+        }
+      }
+      lastLiveAchievementsRef.current = ids;
+
+      if (newlyAppeared.length > 0) {
+        setAchievements((prev) => {
+          const nextItems = [...prev];
+          for (const id of newlyAppeared) {
+            achievementSeq.current += 1;
+            nextItems.push({
+              id,
+              instanceId: `${id}-${achievementSeq.current}`,
+            });
+          }
+          return nextItems;
+        });
       }
     };
 
