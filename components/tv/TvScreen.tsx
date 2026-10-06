@@ -144,8 +144,8 @@ export function TvScreen() {
     const applyLive = (next: TvLivePayload | null) => {
       if (cancelled) return;
       setLive((prev) => {
-        const chosen = pickTvLive(next, prev);
-        return chosen;
+        if (next == null) return null;
+        return pickTvLive(next, prev);
       });
       const ids = next?.achievements ?? [];
       for (const id of ids) {
@@ -169,10 +169,14 @@ export function TvScreen() {
       )
         .then((res) => {
           if (cancelled) return;
+          if (res.live == null) {
+            applyLive(isTvLiveFresh(local) ? local : null);
+            return;
+          }
           applyLive(pickTvLive(local, res.live));
         })
         .catch(() => {
-          if (!cancelled) applyLive(pickTvLive(local, null));
+          if (!cancelled) applyLive(isTvLiveFresh(local) ? local : null);
         });
     };
 
