@@ -2,7 +2,6 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { RulesOverlay } from "@/components/home/RulesOverlay";
 import styles from "./game.module.css";
 
 type TournamentHeader = {
@@ -32,8 +31,9 @@ type Props = {
   tv?: {
     code: string | null;
     display: string;
-    url: string;
   } | null;
+  /** Gray finish hint in place of Rules (e.g. double-out checkout). */
+  finishHint?: string | null;
 };
 
 function HeaderCounter({
@@ -72,10 +72,9 @@ export function GameHeader({
   disabled,
   visitSlot,
   tv = null,
+  finishHint = null,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const [rulesOpen, setRulesOpen] = useState(false);
-  const [tvCopied, setTvCopied] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -121,108 +120,82 @@ export function GameHeader({
   const canRemove = removablePlayers.length > 0 && onRemovePlayer != null;
 
   return (
-    <>
-      <header className={styles.header}>
-        <div ref={menuRef} className={styles.menuWrap}>
-          <button
-            type="button"
-            className={styles.menuBtnFallback}
-            aria-label="Меню"
-            aria-expanded={open}
-            disabled={disabled}
-            onClick={() => setOpen((v) => !v)}
-          >
-            ⋯
-          </button>
-          {open && (
-            <div className={styles.menuDropdown} role="menu">
-              {tv ? (
-                <div className={styles.menuTv}>
-                  <p className={styles.tvAddressLabel}>На телевизоре откройте</p>
-                  <p className={styles.tvAddressUrl}>{tv.display}</p>
-                  <p className={styles.tvAddressLabel}>Код</p>
-                  <p className={styles.tvCodeHuge}>{tv.code ?? "····"}</p>
+    <header className={styles.header}>
+      <div ref={menuRef} className={styles.menuWrap}>
+        <button
+          type="button"
+          className={styles.menuBtnFallback}
+          aria-label="Меню"
+          aria-expanded={open}
+          disabled={disabled}
+          onClick={() => setOpen((v) => !v)}
+        >
+          ⋯
+        </button>
+        {open && (
+          <div className={styles.menuDropdown} role="menu">
+            {tv ? (
+              <div className={styles.menuTv}>
+                <p className={styles.tvAddressLabel}>На телевизоре откройте</p>
+                <p className={styles.tvAddressUrl}>{tv.display}</p>
+                <p className={styles.tvAddressLabel}>Код</p>
+                <p className={styles.tvCodeHuge}>{tv.code ?? "····"}</p>
+              </div>
+            ) : null}
+            <button
+              type="button"
+              className={styles.menuItem}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onRestart?.();
+              }}
+            >
+              Заново
+            </button>
+            {canRemove ? (
+              <>
+                <div className={styles.menuSectionLabel} role="presentation">
+                  Убрать из игры
+                </div>
+                {removablePlayers.map((p) => (
                   <button
+                    key={p.userId}
                     type="button"
                     className={styles.menuItem}
                     role="menuitem"
-                    disabled={!tv.url}
                     onClick={() => {
-                      if (!tv.url) return;
-                      void navigator.clipboard?.writeText(tv.url).then(
-                        () => {
-                          setTvCopied(true);
-                          window.setTimeout(() => setTvCopied(false), 2000);
-                        },
-                        () => {}
-                      );
+                      setOpen(false);
+                      onRemovePlayer(p.userId);
                     }}
                   >
-                    {tvCopied ? "Скопировано" : "Копировать адрес"}
+                    {p.name}
                   </button>
-                </div>
-              ) : null}
-              <button
-                type="button"
-                className={styles.menuItem}
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onRestart?.();
-                }}
-              >
-                Заново
-              </button>
-              {canRemove ? (
-                <>
-                  <div className={styles.menuSectionLabel} role="presentation">
-                    Убрать из игры
-                  </div>
-                  {removablePlayers.map((p) => (
-                    <button
-                      key={p.userId}
-                      type="button"
-                      className={styles.menuItem}
-                      role="menuitem"
-                      onClick={() => {
-                        setOpen(false);
-                        onRemovePlayer(p.userId);
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                  ))}
-                </>
-              ) : null}
-              <button
-                type="button"
-                className={`${styles.menuItem} ${styles.menuItemDanger}`}
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onLeave?.();
-                }}
-              >
-                Покинуть игру
-              </button>
-            </div>
-          )}
-        </div>
+                ))}
+              </>
+            ) : null}
+            <button
+              type="button"
+              className={`${styles.menuItem} ${styles.menuItemDanger}`}
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onLeave?.();
+              }}
+            >
+              Покинуть игру
+            </button>
+          </div>
+        )}
+      </div>
 
-        <div className={styles.headerContent}>{meta}</div>
+      <div className={styles.headerContent}>{meta}</div>
 
-        <button
-          type="button"
-          className={styles.headerRulesBtn}
-          onClick={() => setRulesOpen(true)}
-        >
-          Правила
-        </button>
+      {finishHint ? (
+        <p className={styles.headerFinishHint}>{finishHint}</p>
+      ) : null}
 
-        {visitSlot}
-      </header>
-
-      <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
-    </>
+      {visitSlot}
+    </header>
   );
 }

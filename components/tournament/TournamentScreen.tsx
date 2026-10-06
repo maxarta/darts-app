@@ -195,10 +195,8 @@ export function TournamentScreen({ tournamentId }: Props) {
   const [playoffOpen, setPlayoffOpen] = useState(false);
   const [sectionsReady, setSectionsReady] = useState(false);
   const [rrDrawBusy, setRrDrawBusy] = useState(false);
-  const [tvCopied, setTvCopied] = useState(false);
   const [tvCode, setTvCode] = useState<string | null>(null);
   const [tvDisplay, setTvDisplay] = useState<string | null>(null);
-  const [tvUrl, setTvUrl] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const [celebrateFinal, setCelebrateFinal] = useState(() =>
@@ -267,13 +265,11 @@ export function TournamentScreen({ tournamentId }: Props) {
         if (cancelled) return;
         setTvCode(res.code);
         setTvDisplay(res.display);
-        setTvUrl(res.url);
       })
       .catch(() => {
         if (!cancelled) {
           setTvCode(null);
           setTvDisplay(null);
-          setTvUrl(null);
         }
       });
     return () => {
@@ -836,24 +832,6 @@ export function TournamentScreen({ tournamentId }: Props) {
                     </p>
                     <p className={styles.tvAddressLabel}>Код турнира</p>
                     <p className={styles.tvCodeHuge}>{tvCode ?? "····"}</p>
-                    <button
-                      type="button"
-                      className={styles.tvLinkBtn}
-                      role="menuitem"
-                      disabled={!tvUrl}
-                      onClick={() => {
-                        if (!tvUrl) return;
-                        void navigator.clipboard?.writeText(tvUrl).then(
-                          () => {
-                            setTvCopied(true);
-                            window.setTimeout(() => setTvCopied(false), 2000);
-                          },
-                          () => {}
-                        );
-                      }}
-                    >
-                      {tvCopied ? "Скопировано" : "Копировать адрес"}
-                    </button>
                   </div>
                 ) : null}
                 {!isFinished ? (

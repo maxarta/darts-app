@@ -226,14 +226,16 @@ export function HomeScreen({
             </button>
           </div>
 
-          <Button
-            size="small"
-            variant="secondary"
-            fullWidth
-            onClick={() => setRulesOpen(true)}
-          >
-            Правила
-          </Button>
+          {guest ? (
+            <Button
+              size="small"
+              variant="secondary"
+              fullWidth
+              onClick={() => setRulesOpen(true)}
+            >
+              Правила
+            </Button>
+          ) : null}
         </div>
 
         {!guest && (
@@ -333,7 +335,7 @@ export function HomeScreen({
         </div>
       </main>
 
-      <RulesOverlay open={rulesOpen} onClose={() => setRulesOpen(false)} />
+      <RulesOverlay open={guest && rulesOpen} onClose={() => setRulesOpen(false)} />
 
       {aboutOpen && (
         <div

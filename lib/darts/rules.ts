@@ -36,6 +36,20 @@ export function finishRuleToDoubleOut(rule: ScoringRule): boolean {
   return rule !== "straight";
 }
 
+/** Highest 3-dart double-out checkout is 170 (T20–T20–DB). */
+export const MAX_THREE_DART_CHECKOUT = 170;
+
+/** Remaining score that can still be finished in one visit (double-out). */
+export function isThreeDartCheckoutRange(
+  remaining: number,
+  doubleOut: boolean
+): boolean {
+  if (!Number.isFinite(remaining)) return false;
+  if (remaining < 2 || remaining > MAX_THREE_DART_CHECKOUT) return false;
+  if (doubleOut && remaining === 1) return false;
+  return true;
+}
+
 export function throwPoints(input: ThrowInput): number {
   if (input.segment === "miss") return 0;
   if (input.segment === "bull25") return input.multiplier === 2 ? 50 : 25;

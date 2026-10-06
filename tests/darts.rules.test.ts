@@ -5,6 +5,7 @@ import {
   calculatePpr,
   defaultSettings,
   isBust,
+  isThreeDartCheckoutRange,
   throwPoints,
 } from "@/lib/darts/rules";
 
@@ -73,5 +74,15 @@ describe("calculatePpr", () => {
 
   it("calculates average", () => {
     expect(calculatePpr(501, 401, 3)).toBe(100);
+  });
+});
+
+describe("isThreeDartCheckoutRange", () => {
+  it("covers double-out finish zone", () => {
+    expect(isThreeDartCheckoutRange(170, true)).toBe(true);
+    expect(isThreeDartCheckoutRange(40, true)).toBe(true);
+    expect(isThreeDartCheckoutRange(2, true)).toBe(true);
+    expect(isThreeDartCheckoutRange(171, true)).toBe(false);
+    expect(isThreeDartCheckoutRange(1, true)).toBe(false);
   });
 });

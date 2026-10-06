@@ -107,6 +107,27 @@
   opacity: 0.7;
 }
 
+.headerFinishHint {
+  position: absolute;
+  top: 50%;
+  right: max(8px, var(--app-inset-right));
+  z-index: 2;
+  transform: translateY(-50%);
+  margin: 0;
+  max-width: 9rem;
+  padding: 0 2px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.25;
+  color: var(--g-muted, #94a3b8);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .menuWrap {
   position: absolute;
   top: 50%;
@@ -833,6 +854,16 @@
     transform: none;
     flex-shrink: 0;
     margin-right: 8px;
+  }
+
+  .headerFinishHint {
+    position: static;
+    top: auto;
+    right: auto;
+    transform: none;
+    flex-shrink: 1;
+    margin-right: 8px;
+    max-width: 8.5rem;
   }
 
   .visitBar,

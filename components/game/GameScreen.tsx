@@ -8,6 +8,7 @@ import {
   defaultSettings,
   type ThrowInput,
 } from "@/lib/darts/rules";
+import { formatCheckoutHint } from "@/lib/darts/checkout";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { formatTournamentHeaderSubtitle } from "@/lib/tournament/game-context";
 import { markCelebrateFinal } from "@/lib/tournament/session-cache";
@@ -31,10 +32,7 @@ import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
 import { gameBoardKey } from "@/lib/tournament/tv-board-key";
-import {
-  tvPublicDisplay,
-  tvPublicUrl,
-} from "@/lib/tournament/tv-live";
+import { tvPublicDisplay } from "@/lib/tournament/tv-live";
 import { GameHeader } from "./GameHeader";
 import {
   GameAchievements,
@@ -537,6 +535,21 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const scoringLocked =
     showVictoryConfirm || victoryStats != null || visitComplete;
 
+  const checkoutRemaining =
+    visitApply && !visitApply.bust
+      ? visitApply.remaining
+      : (active?.remaining_score ?? 0);
+  const dartsLeftInVisit = Math.max(0, 3 - dartsInVisit);
+  const finishHint =
+    game.status === "active" &&
+    !finished &&
+    !visitBust &&
+    !checkoutWon &&
+    scoringSettings.doubleOut &&
+    dartsLeftInVisit > 0
+      ? formatCheckoutHint(checkoutRemaining, dartsLeftInVisit)
+      : null;
+
   const displayPlayers: PlayerDisplay[] = sorted.map((p) => {
     const isActive = p.order_index === activeIdx;
     return {
@@ -603,12 +616,12 @@ export function GameScreen({ gameId }: { gameId: string }) {
           onRestart={onRestart}
           onLeave={onLeave}
           disabled={finished}
+          finishHint={finishHint}
           tv={
             isExtendedMode() && !record.tournamentContext
               ? {
                   code: tvCode,
                   display: tvPublicDisplay(),
-                  url: tvPublicUrl(),
                 }
               : null
           }
