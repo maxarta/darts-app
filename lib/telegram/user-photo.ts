@@ -43,8 +43,7 @@ export function resolveStoredPhotoUrl(
   photoUrl: string | null | undefined
 ): string | null {
   if (!photoUrl || photoUrl.length === 0) return null;
-  // Legacy Telegram proxy paths 404 without bot photos — treat as no photo.
-  if (photoUrl.startsWith("/api/telegram/avatar/")) return null;
+  // Keep Telegram proxy paths — avatar UI falls back to initials on 404.
   return photoUrl;
 }
 

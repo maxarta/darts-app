@@ -375,6 +375,77 @@
   cursor: not-allowed;
 }
 
+.tvLinkBtn {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid rgba(15, 23, 42, 0.18);
+  border-radius: var(--ng-pill-radius);
+  background: #fff;
+  color: var(--ng-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tvAddressBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 14px 14px 12px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+}
+
+.tvAddressLabel {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(15, 23, 42, 0.55);
+}
+
+.tvAddressUrl {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  word-break: break-all;
+  color: var(--ng-ink);
+  user-select: all;
+}
+
+.tvAddressActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.tvLinkBtnSecondary {
+  display: block;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px dashed rgba(15, 23, 42, 0.28);
+  border-radius: var(--ng-pill-radius);
+  background: transparent;
+  color: var(--ng-ink);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
 .playoffTabBar {
   display: flex;
   width: 100%;

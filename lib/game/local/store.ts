@@ -25,10 +25,13 @@ export async function getLocalGame(
   const db = await openOfflineDb();
   try {
     const tx = db.transaction(STORE_GAMES, "readonly");
-    const record = await idbRequest<LocalGameRecord | undefined>(
-      tx.objectStore(STORE_GAMES).get(id)
-    );
-    return record ?? null;
+    const store = tx.objectStore(STORE_GAMES);
+    const byId = await idbRequest<LocalGameRecord | undefined>(store.get(id));
+    if (byId) return byId;
+
+    // Archive / tournament links use server UUID; local key stays the client id.
+    const all = await idbRequest<LocalGameRecord[]>(store.getAll());
+    return (all ?? []).find((r) => r.serverId === id) ?? null;
   } finally {
     db.close();
   }

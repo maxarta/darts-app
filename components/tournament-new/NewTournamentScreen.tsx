@@ -16,20 +16,10 @@ import {
   TOURNAMENT_VARIANT_LABEL,
   type TournamentVariant,
 } from "@/lib/tournament/variant";
-import {
-  TOURNAMENT_LEGS_OPTIONS,
-  type TournamentLegsToWin,
-} from "@/lib/tournament/settings";
 import { useTelegram } from "@/components/TelegramProvider";
 import { AppBackButton } from "@/components/AppBackButton";
-import { OptionSegmented } from "@/components/game-new/OptionSegmented";
 import { PlayerRosterSection } from "@/components/game-new/PlayerRosterSection";
 import styles from "@/components/game-new/newGame.module.css";
-
-const PLAYOFF_OPTIONS = [
-  { value: 4 as const, label: "Топ-4" },
-  { value: 8 as const, label: "Топ-8" },
-];
 
 export function NewTournamentScreen() {
   const router = useRouter();
@@ -52,8 +42,6 @@ export function NewTournamentScreen() {
   const [members, setMembers] = useState<ChannelMember[]>([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const [selected, setSelected] = useState<number[]>([]);
-  const [playoffSize, setPlayoffSize] = useState<4 | 8>(4);
-  const [legsToWin, setLegsToWin] = useState<TournamentLegsToWin>(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,12 +77,6 @@ export function NewTournamentScreen() {
       setError("Минимум 3 участника для турнира");
       return;
     }
-    if (participantIds.length < playoffSize) {
-      setError(
-        `Для плей-офф топ-${playoffSize} нужно минимум ${playoffSize} игроков`
-      );
-      return;
-    }
     if (!isOnline()) {
       setError("Нужен интернет, чтобы создать турнир");
       return;
@@ -102,7 +84,6 @@ export function NewTournamentScreen() {
     setLoading(true);
     setError(null);
     try {
-      // Flush offline-created players so participant IDs exist on the server.
       await syncPendingMembers();
       const data = await apiFetch<{ tournament: { id: string } }>(
         "/api/tournaments",
@@ -112,8 +93,6 @@ export function NewTournamentScreen() {
             channelId,
             name: tournamentName,
             participantIds,
-            playoffSize,
-            legsToWin,
             variant,
           }),
         }
@@ -159,26 +138,9 @@ export function NewTournamentScreen() {
           {variant === "kenny" && (
             <p className={styles.tournamentModeSubtitle}>{tournamentName}</p>
           )}
-        </section>
-
-        <section className={styles.ruleBlock}>
-          <p className={styles.ruleLabel}>Победа</p>
-          <OptionSegmented
-            name="legs-to-win"
-            value={legsToWin}
-            options={TOURNAMENT_LEGS_OPTIONS}
-            onChange={setLegsToWin}
-          />
-        </section>
-
-        <section className={styles.ruleBlock}>
-          <p className={styles.ruleLabel}>Плей-офф</p>
-          <OptionSegmented
-            name="playoff-size"
-            value={playoffSize}
-            options={PLAYOFF_OPTIONS}
-            onChange={setPlayoffSize}
-          />
+          <p className={styles.tournamentModeSubtitle}>
+            Жеребьёвка на пары · до 2 побед · при нечёте — пропуск раунда
+          </p>
         </section>
 
         {error && (

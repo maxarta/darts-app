@@ -12,6 +12,7 @@ import { StatsPlayersPage } from "@/src/pages/StatsPlayersPage";
 import { StatsPlayerPage } from "@/src/pages/StatsPlayerPage";
 import { StatsCurrentPage } from "@/src/pages/StatsCurrentPage";
 import { StatsGamesPage } from "@/src/pages/StatsGamesPage";
+import { TvPage } from "@/src/pages/TvPage";
 
 export function App() {
   return (
@@ -20,6 +21,8 @@ export function App() {
       <div className="appShell">
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/tv" element={<TvPage />} />
+          <Route path="/tv/:tournamentId" element={<TvPage />} />
           <Route path="/game/new" element={<NewGamePage />} />
           <Route path="/game/:id" element={<GamePage />} />
           <Route

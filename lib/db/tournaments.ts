@@ -6,6 +6,7 @@ import {
   sortStandings,
   type Standing,
 } from "@/lib/tournament/bracket";
+import { drawRandomPairs, isPairKnockoutFormat } from "@/lib/tournament/pair-draw";
 import { getPlayoffRoundCount } from "@/lib/tournament/playoff-display";
 import { generateTournamentName } from "@/lib/tournament/name";
 import {
@@ -16,8 +17,8 @@ import {
 } from "@/lib/tournament/variant";
 import { createGame } from "@/lib/db/games";
 import {
+  DEFAULT_TOURNAMENT_LEGS_TO_WIN,
   gameSettingsForTournament,
-  normalizeLegsToWin,
   parseTournamentSettings,
   type TournamentLegsToWin,
 } from "@/lib/tournament/settings";
@@ -54,7 +55,8 @@ export async function createTournament(params: {
   mode?: "301" | "501";
   variant?: TournamentVariant;
   participantIds: number[];
-  playoffSize: 4 | 8;
+  /** Ignored for pair_ko; kept for API compat. */
+  playoffSize?: 4 | 8;
   legsToWin?: TournamentLegsToWin;
   createdBy: number;
 }) {
@@ -64,24 +66,23 @@ export async function createTournament(params: {
   if (participantIds.length < 3) {
     throw new Error("At least 3 participants required");
   }
-  if (participantIds.length < params.playoffSize) {
-    throw new Error(
-      `At least ${params.playoffSize} participants required for top-${params.playoffSize} playoff`
-    );
-  }
 
   const name = params.name?.trim() || generateTournamentName();
   const mode = params.mode === "301" ? "301" : "501";
 
-  const legsToWin = normalizeLegsToWin(params.legsToWin);
+  const legsToWin = DEFAULT_TOURNAMENT_LEGS_TO_WIN;
   const variant = normalizeTournamentVariant(params.variant);
-  const settings = { legsToWin, variant };
+  const settings = { legsToWin, variant, format: "pair_ko" as const };
+
+  // DB still requires 4|8 — unused for pair_ko advancement.
+  const playoffSize =
+    participantIds.length >= 8 ? 8 : 4;
 
   const baseRow = {
     channel_id: params.channelId,
     name,
     mode,
-    playoff_size: params.playoffSize,
+    playoff_size: playoffSize,
     settings,
     status: "round_robin" as const,
     created_by: params.createdBy,
@@ -121,21 +122,74 @@ export async function createTournament(params: {
   return getTournament(tournament.id);
 }
 
+/** Insert a knockout round: random pairs + bye rows (already won). */
+async function insertPairKnockoutRound(
+  tournamentId: string,
+  round: number,
+  playerIds: number[]
+) {
+  const db = getSupabaseAdmin();
+  const { pairs, byes } = drawRandomPairs(playerIds);
+
+  const rows = [
+    ...pairs.map(([p1, p2], slot) => ({
+      tournament_id: tournamentId,
+      round,
+      slot,
+      player1_id: p1,
+      player2_id: p2,
+      winner_id: null as number | null,
+    })),
+    ...byes.map((byeId, i) => ({
+      tournament_id: tournamentId,
+      round,
+      slot: pairs.length + i,
+      player1_id: byeId,
+      player2_id: null as number | null,
+      winner_id: byeId,
+    })),
+  ];
+
+  if (rows.length === 0) {
+    throw new Error("Недостаточно игроков для раунда");
+  }
+
+  const { error } = await db.from("playoff_matches").insert(rows);
+  if (error) throw error;
+}
+
+/**
+ * First draw for pair_ko: random pairs, skip round-robin, enter playoff.
+ * Legacy tournaments still get classic RR pairings.
+ */
 export async function drawRoundRobin(tournamentId: string) {
   const db = getSupabaseAdmin();
-  const { tournament, participants, roundRobinMatches } =
+  const { tournament, participants, roundRobinMatches, playoffMatches } =
     await getTournament(tournamentId);
 
   if (tournament.status !== "round_robin") {
     throw new Error("Tournament is not in round robin stage");
   }
-  if (roundRobinMatches.length > 0) {
-    throw new Error("Round robin draw already completed");
-  }
 
   const participantIds = participants.map((p) => p.user_id);
   if (participantIds.length < 3) {
     throw new Error("At least 3 participants required");
+  }
+
+  if (isPairKnockoutFormat(tournament.settings)) {
+    if (playoffMatches.length > 0) {
+      throw new Error("Жеребьёвка уже проведена");
+    }
+    await insertPairKnockoutRound(tournamentId, 1, participantIds);
+    await db
+      .from("tournaments")
+      .update({ status: "playoff" })
+      .eq("id", tournamentId);
+    return getTournament(tournamentId);
+  }
+
+  if (roundRobinMatches.length > 0) {
+    throw new Error("Round robin draw already completed");
   }
 
   const pairings = shuffleInPlace(
@@ -159,6 +213,34 @@ export async function drawRoundRobin(tournamentId: string) {
     roundRobinMatches: inserted ?? [],
   };
 }
+
+/** After all pairs in a round have winners, re-draw survivors into the next round. */
+export async function maybeAdvancePairKnockout(tournamentId: string) {
+  const db = getSupabaseAdmin();
+  const { tournament, playoffMatches } = await getTournament(tournamentId);
+  if (!isPairKnockoutFormat(tournament.settings)) return;
+  if (tournament.status !== "playoff") return;
+  if (playoffMatches.length === 0) return;
+
+  const maxRound = Math.max(...playoffMatches.map((m) => m.round));
+  const current = playoffMatches.filter((m) => m.round === maxRound);
+  if (!current.every((m) => m.winner_id != null)) return;
+
+  const winners = current
+    .map((m) => m.winner_id as number)
+    .filter((id) => Number.isFinite(id));
+
+  if (winners.length <= 1) {
+    // Champion decided — leave status playoff until finishTournament.
+    return;
+  }
+
+  const nextExists = playoffMatches.some((m) => m.round === maxRound + 1);
+  if (nextExists) return;
+
+  await insertPairKnockoutRound(tournamentId, maxRound + 1, winners);
+}
+
 
 export async function getTournament(tournamentId: string) {
   const db = getSupabaseAdmin();
@@ -299,10 +381,18 @@ export async function createMatchGame(
   if (playerIds.length < 2) throw new Error("PLAYERS_NOT_READY");
 
   const tournamentSettings = parseTournamentSettings(tournament.settings);
+  const isPairKo = isPairKnockoutFormat(tournament.settings);
   const playoffSize = tournament.playoff_size === 8 ? 8 : 4;
+  const { playoffMatches } = await getTournament(tournamentId);
+  const maxRound =
+    playoffMatches.length > 0
+      ? Math.max(...playoffMatches.map((m) => m.round))
+      : getPlayoffRoundCount(playoffSize);
   const isFinalMatch =
     matchType === "playoff" &&
-    match.round === getPlayoffRoundCount(playoffSize);
+    (isPairKo
+      ? match.round === maxRound
+      : match.round === getPlayoffRoundCount(playoffSize));
 
   const { game } = await createGame({
     channelId,
@@ -310,7 +400,7 @@ export async function createMatchGame(
     playerIds: playerIds as number[],
     createdBy,
     settings: gameSettingsForTournament(tournament.mode, tournamentSettings, {
-      final: isFinalMatch,
+      final: isFinalMatch || isPairKo,
     }),
     tournamentMatchId: matchId,
   });

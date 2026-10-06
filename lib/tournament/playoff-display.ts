@@ -19,8 +19,10 @@ export function getPlayoffRoundTitle(
   totalRounds: number
 ): string {
   if (round === totalRounds) return "Финал";
-  if (round === totalRounds - 1) return "Полуфинал";
-  if (round === 1 && totalRounds === 3) return "1/4 финала";
+  // Fixed 4/8 seeded bracket labels
+  if (totalRounds === 2 && round === 1) return "Полуфинал";
+  if (totalRounds === 3 && round === 2) return "Полуфинал";
+  if (totalRounds === 3 && round === 1) return "1/4 финала";
   return `Раунд ${round}`;
 }
 

@@ -18,6 +18,7 @@ import * as tournamentDraw from "@/app/api/tournaments/[tournamentId]/draw/route
 import * as tournamentMatch from "@/app/api/tournaments/[tournamentId]/match/route";
 import * as tournamentPlayoff from "@/app/api/tournaments/[tournamentId]/playoff/route";
 import * as tournamentFinish from "@/app/api/tournaments/[tournamentId]/finish/route";
+import * as tournamentLive from "@/app/api/tournaments/[tournamentId]/live/route";
 import * as telegramWebhook from "@/app/api/telegram/webhook/route";
 import * as telegramAvatar from "@/app/api/telegram/avatar/[telegramId]/route";
 import * as channelCurrent from "@/app/api/channels/[channelId]/current/route";
@@ -125,6 +126,16 @@ export function createApp() {
   );
   app.post("/api/tournaments/:tournamentId/finish", (c) =>
     call(tournamentFinish.POST, c.req.raw, {
+      tournamentId: c.req.param("tournamentId"),
+    })
+  );
+  app.get("/api/tournaments/:tournamentId/live", (c) =>
+    call(tournamentLive.GET, c.req.raw, {
+      tournamentId: c.req.param("tournamentId"),
+    })
+  );
+  app.post("/api/tournaments/:tournamentId/live", (c) =>
+    call(tournamentLive.POST, c.req.raw, {
       tournamentId: c.req.param("tournamentId"),
     })
   );

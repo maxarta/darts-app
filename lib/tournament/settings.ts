@@ -4,10 +4,15 @@ export type TournamentLegsToWin = 1 | 2;
 
 export type TournamentSettings = {
   legsToWin: TournamentLegsToWin;
+  /** Random-pair knockout with re-draws (Kenny + standard). */
+  format?: "pair_ko" | "legacy";
 };
 
-/** Финал всегда до двух побед, независимо от настроек турнира. */
+/** Финал / серии пар — всегда до двух побед. */
 export const FINAL_MATCH_LEGS_TO_WIN: TournamentLegsToWin = 2;
+
+/** Default for new tournaments: first to 2 (best of 3). */
+export const DEFAULT_TOURNAMENT_LEGS_TO_WIN: TournamentLegsToWin = 2;
 
 export const TOURNAMENT_LEGS_OPTIONS: Array<{
   value: TournamentLegsToWin;
@@ -22,10 +27,20 @@ export function parseTournamentSettings(raw: unknown): TournamentSettings {
     raw &&
     typeof raw === "object" &&
     "legsToWin" in raw &&
-    (raw as { legsToWin: unknown }).legsToWin === 2
-      ? 2
-      : 1;
-  return { legsToWin };
+    (raw as { legsToWin: unknown }).legsToWin === 1
+      ? 1
+      : 2;
+  const format =
+    raw &&
+    typeof raw === "object" &&
+    (raw as { format?: unknown }).format === "pair_ko"
+      ? "pair_ko"
+      : raw &&
+          typeof raw === "object" &&
+          (raw as { format?: unknown }).format === "legacy"
+        ? "legacy"
+        : undefined;
+  return { legsToWin, format };
 }
 
 export function gameSettingsForTournament(
@@ -45,5 +60,5 @@ export function gameSettingsForTournament(
 }
 
 export function normalizeLegsToWin(value: unknown): TournamentLegsToWin {
-  return value === 2 ? 2 : 1;
+  return value === 1 ? 1 : 2;
 }

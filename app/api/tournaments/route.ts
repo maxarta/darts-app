@@ -8,7 +8,6 @@ import {
   normalizeTournamentParticipantIds,
 } from "@/lib/db/tournaments";
 import { upsertUser } from "@/lib/db/users";
-import { normalizeLegsToWin } from "@/lib/tournament/settings";
 import {
   normalizeTournamentVariant,
   variantFromTournamentRow,
@@ -48,8 +47,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { channelId, name, participantIds, playoffSize, legsToWin, variant } =
-      body;
+    const { channelId, name, participantIds, variant } = body;
     const tournamentVariant = normalizeTournamentVariant(variant);
 
     if (!channelId || !Array.isArray(participantIds) || participantIds.length < 1) {
@@ -62,14 +60,6 @@ export async function POST(req: Request) {
 
     if (ids.length < 3) {
       return jsonError("At least 3 participants required", 400);
-    }
-
-    const playoff = playoffSize === 8 ? 8 : 4;
-    if (ids.length < playoff) {
-      return jsonError(
-        `At least ${playoff} participants required for top-${playoff} playoff`,
-        400
-      );
     }
 
     await upsertUser(auth.ctx.user);
@@ -87,8 +77,6 @@ export async function POST(req: Request) {
       name,
       variant: tournamentVariant,
       participantIds: ids,
-      playoffSize: playoff,
-      legsToWin: normalizeLegsToWin(legsToWin),
       createdBy: auth.ctx.user.id,
     });
 

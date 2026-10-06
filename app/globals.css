@@ -183,6 +183,18 @@ body:has([data-game-screen]) {
   background: #f9fafb;
 }
 
+.appShell:has([data-tv-board]) {
+  padding: 0;
+  max-width: none;
+  width: 100%;
+  background: #0b1220;
+}
+
+html:has([data-tv-board]),
+body:has([data-tv-board]) {
+  background: #0b1220;
+}
+
 @media (orientation: landscape) {
   html:has([data-game-screen]),
   body:has([data-game-screen]) {

@@ -22,8 +22,10 @@ import {
   needsSync,
 } from "@/lib/game/local/actions";
 import { getLocalGame, saveLocalGame } from "@/lib/game/local/store";
+import { localRecordFromServer } from "@/lib/game/local/from-server";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import { syncLocalGame } from "@/lib/game/sync/client";
+import { apiFetch } from "@/lib/api/client";
 import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
@@ -41,6 +43,7 @@ import { PlayerScoreboard, type PlayerDisplay } from "./PlayerScoreboard";
 import { ScoringKeypad } from "./ScoringKeypad";
 import { HeaderVisitChips } from "./HeaderVisitChips";
 import { VisitBar } from "./VisitBar";
+import { usePublishTvLive } from "@/components/tv/usePublishTvLive";
 import styles from "./game.module.css";
 
 export function GameScreen({ gameId }: { gameId: string }) {
@@ -119,6 +122,11 @@ export function GameScreen({ gameId }: { gameId: string }) {
       onUnlock: onAchievementUnlock,
     });
 
+  usePublishTvLive(
+    record,
+    activeAchievements.map((a) => a.id)
+  );
+
   useEffect(() => {
     if (!visitAchievementsEnabled) {
       pendingEndVisitRef.current = false;
@@ -174,14 +182,34 @@ export function GameScreen({ gameId }: { gameId: string }) {
     setError(null);
     setVictoryStats(null);
     setVictoryConfirmDismissed(false);
-    getLocalGame(gameId)
-      .then((loaded) => {
-        if (cancelled) return;
+
+    async function load() {
+      try {
+        let loaded = await getLocalGame(gameId);
         if (!loaded) {
-          setError("Игра не найдена");
-          setLoading(false);
-          return;
+          const remote = await apiFetch<{
+            game: LocalGameRecord["snapshot"]["game"] & {
+              channel_id: string;
+              mode: "301" | "501";
+            };
+            players: LocalGameRecord["snapshot"]["players"];
+            activeVisitThrows?: LocalGameRecord["snapshot"]["activeVisitThrows"];
+            tournamentContext?: LocalGameRecord["tournamentContext"];
+          }>(`/api/games/${encodeURIComponent(gameId)}`);
+          loaded = localRecordFromServer({
+            ...remote,
+            game: {
+              ...remote.game,
+              settings: {
+                ...remote.game.settings,
+                startingScore: (remote.game.settings.startingScore === 301
+                  ? 301
+                  : 501) as 301 | 501,
+              },
+            },
+          });
         }
+        if (cancelled) return;
         recordRef.current = loaded;
         setRecord(loaded);
         setVictoryStats(
@@ -196,13 +224,14 @@ export function GameScreen({ gameId }: { gameId: string }) {
             }
           });
         }
-      })
-      .catch((e) => {
-        if (!cancelled) {
-          setError(e instanceof Error ? e.message : "Ошибка загрузки");
-          setLoading(false);
-        }
-      });
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof Error ? e.message : "Игра не найдена");
+        setLoading(false);
+      }
+    }
+
+    void load();
     return () => {
       cancelled = true;
     };

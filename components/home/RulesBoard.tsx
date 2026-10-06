@@ -81,6 +81,7 @@ export function RulesBoard() {
       <div className={[styles.rulesCopy, styles.rulesCopyAfter].join(" ")}>
         <p>
           Классика заканчивается удвоением (осталось&nbsp;4&nbsp;→ двойная&nbsp;2).
+          При&nbsp;50 очках можно закрыть буллом&nbsp;— он считается удвоением.
           Новичкам проще без удвоения: осталось&nbsp;4&nbsp;→ просто&nbsp;4. Можно
           и&nbsp;с&nbsp;утроением&nbsp;— это выбирается перед игрой.
         </p>

@@ -23,7 +23,14 @@ export type RoundRobinMatchRow = {
 type DrawPhase = "idle" | "spinning" | "revealing" | "done";
 
 type DrawResponse = {
-  roundRobinMatches: RoundRobinMatchRow[];
+  roundRobinMatches?: RoundRobinMatchRow[];
+  playoffMatches?: Array<{
+    id: string;
+    player1_id: number | null;
+    player2_id: number | null;
+    game_id: string | null;
+    winner_id: number | null;
+  }>;
 };
 
 type Props = {
@@ -31,6 +38,8 @@ type Props = {
   player: (id: number) => BracketPlayer | null;
   onDrawn: (matches: RoundRobinMatchRow[]) => void;
   onPhaseChange?: (phase: DrawPhase) => void;
+  /** pair_ko: subtitle about random pairs / byes */
+  pairKnockout?: boolean;
 };
 
 export function RoundRobinDrawPanel({
@@ -38,6 +47,7 @@ export function RoundRobinDrawPanel({
   player,
   onDrawn,
   onPhaseChange,
+  pairKnockout = false,
 }: Props) {
   const [phase, setPhase] = useState<DrawPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +80,19 @@ export function RoundRobinDrawPanel({
         await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
 
-      const drawn = data.roundRobinMatches ?? [];
+      const fromRr = data.roundRobinMatches ?? [];
+      const fromPairs = (data.playoffMatches ?? [])
+        .filter((m) => m.player1_id != null && m.player2_id != null)
+        .map((m) => ({
+          id: m.id,
+          player1_id: m.player1_id as number,
+          player2_id: m.player2_id as number,
+          game_id: m.game_id,
+          played: Boolean(m.winner_id),
+          points_p1: null,
+          points_p2: null,
+        }));
+      const drawn = fromRr.length > 0 ? fromRr : fromPairs;
       setMatches(drawn);
       setPhaseSafe("revealing");
 
@@ -94,7 +116,9 @@ export function RoundRobinDrawPanel({
       {phase === "idle" && (
         <>
           <p className={styles.drawHint}>
-            Пары кругового этапа появятся после жеребьёвки в случайном порядке.
+            {pairKnockout
+              ? "Случайные пары до двух побед. При нечётном числе один игрок проходит без игры."
+              : "Пары кругового этапа появятся после жеребьёвки в случайном порядке."}
           </p>
           <Button
             type="button"

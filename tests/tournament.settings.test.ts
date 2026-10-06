@@ -6,20 +6,25 @@ import {
 } from "@/lib/tournament/settings";
 
 describe("tournament settings", () => {
-  it("defaults to 1 leg to win", () => {
-    expect(parseTournamentSettings(null)).toEqual({ legsToWin: 1 });
-    expect(parseTournamentSettings({})).toEqual({ legsToWin: 1 });
+  it("defaults to 2 legs to win (pair knockout)", () => {
+    expect(parseTournamentSettings(null)).toEqual({ legsToWin: 2 });
+    expect(parseTournamentSettings({})).toEqual({ legsToWin: 2 });
   });
 
   it("reads legsToWin from stored settings", () => {
-    expect(parseTournamentSettings({ legsToWin: 2 })).toEqual({
+    expect(parseTournamentSettings({ legsToWin: 1 })).toEqual({
+      legsToWin: 1,
+    });
+    expect(parseTournamentSettings({ legsToWin: 2, format: "pair_ko" })).toEqual({
       legsToWin: 2,
+      format: "pair_ko",
     });
   });
 
   it("normalizes legsToWin input", () => {
     expect(normalizeLegsToWin(2)).toBe(2);
-    expect(normalizeLegsToWin(3)).toBe(1);
+    expect(normalizeLegsToWin(1)).toBe(1);
+    expect(normalizeLegsToWin(3)).toBe(2);
   });
 
   it("applies legsToWin to game settings", () => {

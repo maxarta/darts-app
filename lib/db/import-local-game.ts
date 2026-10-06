@@ -4,6 +4,7 @@ import {
   type GameSettings,
 } from "@/lib/darts/rules";
 import { getGame } from "@/lib/db/games";
+import { isPairKnockoutFormat } from "@/lib/tournament/pair-draw";
 
 export type ImportLocalGameParams = {
   localId: string;
@@ -95,6 +96,18 @@ async function handleTournamentMatchWin(
       .from("playoff_matches")
       .update({ winner_id: winnerId })
       .eq("id", matchRef);
+
+    const { data: tournament } = await db
+      .from("tournaments")
+      .select("settings")
+      .eq("id", po.tournament_id)
+      .maybeSingle();
+
+    if (isPairKnockoutFormat(tournament?.settings)) {
+      const { maybeAdvancePairKnockout } = await import("@/lib/db/tournaments");
+      await maybeAdvancePairKnockout(po.tournament_id);
+      return;
+    }
 
     const { data: nextRound } = await db
       .from("playoff_matches")

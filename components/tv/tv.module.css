@@ -1,0 +1,310 @@
+.tvRoot {
+  --tv-bg: #0b1220;
+  --tv-panel: #111827;
+  --tv-ink: #f8fafc;
+  --tv-muted: rgba(248, 250, 252, 0.62);
+  --tv-accent: #facc15;
+  min-height: 100dvh;
+  width: 100%;
+  display: grid;
+  /* TV: sheet ~half as wide as before (~20% vs ~40%) */
+  grid-template-columns: minmax(0, 1fr) minmax(160px, 0.42fr);
+  gap: 0;
+  background: var(--tv-bg);
+  color: var(--tv-ink);
+  overflow: hidden;
+}
+
+.tvRootKenny {
+  --tv-bg: #14532d;
+  --tv-panel: #166534;
+  --tv-accent: #fde047;
+}
+
+.tvLeft {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: clamp(20px, 3vw, 40px);
+  background:
+    radial-gradient(120% 80% at 20% 0%, rgba(250, 204, 21, 0.12), transparent 55%),
+    var(--tv-bg);
+}
+
+.tvRight {
+  min-height: 100dvh;
+  overflow: auto;
+  background: rgba(255, 255, 255, 0.04);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: clamp(8px, 1vw, 14px);
+}
+
+.tvRight :global([data-tournament-screen]) {
+  min-height: auto;
+  background: transparent !important;
+}
+
+.tvBrand {
+  font-size: clamp(14px, 1.4vw, 18px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tv-muted);
+  margin: 0 0 8px;
+}
+
+.tvStage {
+  font-size: clamp(18px, 2vw, 28px);
+  font-weight: 700;
+  margin: 0 0 20px;
+}
+
+.tvIdle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  text-align: center;
+}
+
+.tvIdleTitle {
+  font-size: clamp(28px, 4vw, 52px);
+  font-weight: 800;
+  margin: 0;
+}
+
+.tvIdleHint {
+  margin: 0;
+  color: var(--tv-muted);
+  font-size: clamp(16px, 1.6vw, 22px);
+}
+
+.tvMatchup {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: clamp(16px, 2vw, 32px);
+  width: min(920px, 100%);
+}
+
+.tvPlayer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.tvAvatar {
+  width: clamp(96px, 12vw, 160px);
+  height: clamp(96px, 12vw, 160px);
+  border-radius: 9999px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #fb923c, #ef4444);
+  display: grid;
+  place-items: center;
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 800;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+.tvAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tvPlayerName {
+  font-size: clamp(22px, 2.6vw, 36px);
+  font-weight: 700;
+  margin: 0;
+}
+
+.tvAvatarHero {
+  width: clamp(120px, 16vw, 220px);
+  height: clamp(120px, 16vw, 220px);
+  font-size: clamp(36px, 5vw, 64px);
+}
+
+.tvPlayerNameHero {
+  font-size: clamp(32px, 4.2vw, 64px);
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: 0.02em;
+}
+
+.tvVsHero {
+  font-size: clamp(40px, 5vw, 72px);
+  font-weight: 800;
+  color: var(--tv-accent);
+  line-height: 1;
+}
+
+.tvVs {
+  font-size: clamp(28px, 3vw, 42px);
+  color: var(--tv-muted);
+  font-weight: 700;
+}
+
+.tvPlaying {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(16px, 2vw, 28px);
+  min-height: 0;
+}
+
+.tvMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  font-size: clamp(16px, 1.6vw, 22px);
+  color: var(--tv-muted);
+}
+
+.tvMetaPill {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+  padding: 8px 16px;
+  color: var(--tv-ink);
+  font-weight: 600;
+}
+
+.tvScoreGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(16px, 2vw, 28px);
+  align-items: stretch;
+}
+
+.tvScoreCard {
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 2px solid transparent;
+  padding: clamp(20px, 2.5vw, 36px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+.tvScoreCardActive {
+  border-color: var(--tv-accent);
+  background: rgba(250, 204, 21, 0.12);
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
+}
+
+.tvScoreValue {
+  font-size: clamp(72px, 12vw, 160px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.tvLegs {
+  font-size: clamp(18px, 2vw, 28px);
+  color: var(--tv-muted);
+  font-weight: 600;
+}
+
+.tvVisit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.tvVisitLabel {
+  font-size: clamp(14px, 1.4vw, 18px);
+  color: var(--tv-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.tvVisitScore {
+  font-size: clamp(40px, 5vw, 64px);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.tvVisitThrows {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.tvThrowChip {
+  min-width: 56px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+  text-align: center;
+}
+
+.tvEmpty {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  text-align: center;
+  background: var(--tv-bg);
+  color: var(--tv-ink);
+}
+
+.tvEmptyTitle {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 12px;
+}
+
+.tvEmptyHint {
+  margin: 0;
+  color: var(--tv-muted);
+  font-size: 18px;
+  max-width: 36ch;
+}
+
+.tvSheetCard {
+  background: #fff;
+  color: #0f172a;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: calc(100dvh - 40px);
+}
+
+.tvSheetScroll {
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .tvRoot {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .tvLeft,
+  .tvRight {
+    min-height: auto;
+  }
+
+  .tvRight {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .tvScoreValue {
+    font-size: 64px;
+  }
+}

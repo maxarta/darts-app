@@ -10,6 +10,7 @@ import {
 import { segmentFromDb, segmentToDb } from "@/lib/game/throws-from-db";
 import { getActiveVisitIndex } from "@/lib/darts/visit-index";
 import { getTournamentContextForMatch } from "@/lib/tournament/game-context";
+import { isPairKnockoutFormat } from "@/lib/tournament/pair-draw";
 import { isMultiplayerGame } from "@/lib/game/multiplayer";
 import {
   FINISHED_GAME_STATUSES,
@@ -112,7 +113,7 @@ export async function getGame(gameId: string) {
 
   const { data: players } = await db
     .from("game_players")
-    .select("*, users(first_name, username)")
+    .select("*, users(first_name, username, photo_url)")
     .eq("game_id", gameId)
     .order("order_index");
 
@@ -535,10 +536,23 @@ async function handleTournamentMatchWin(
     .maybeSingle();
 
   if (po) {
+    if (po.winner_id) return;
     await db
       .from("playoff_matches")
       .update({ winner_id: winnerId })
       .eq("id", matchRef);
+
+    const { data: tournament } = await db
+      .from("tournaments")
+      .select("settings")
+      .eq("id", po.tournament_id)
+      .maybeSingle();
+
+    if (isPairKnockoutFormat(tournament?.settings)) {
+      const { maybeAdvancePairKnockout } = await import("@/lib/db/tournaments");
+      await maybeAdvancePairKnockout(po.tournament_id);
+      return;
+    }
 
     const { data: nextRound } = await db
       .from("playoff_matches")

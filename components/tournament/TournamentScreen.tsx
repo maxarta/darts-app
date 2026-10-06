@@ -24,6 +24,7 @@ import {
   gameSettingsForTournament,
   parseTournamentSettings,
 } from "@/lib/tournament/settings";
+import { isPairKnockoutFormat } from "@/lib/tournament/pair-draw";
 import {
   buildPlayerMetas,
   createAndSaveLocalGame,
@@ -50,6 +51,7 @@ import {
 } from "@/lib/tournament/local-match-occupancy";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { syncPendingMembers } from "@/lib/offline/members-service";
+import { setActiveTvTournament, tvPath, tvPublicUrl } from "@/lib/tournament/tv-live";
 import {
   KENNY_THEME_COLOR,
   normalizeTournamentVariant,
@@ -194,6 +196,7 @@ export function TournamentScreen({ tournamentId }: Props) {
   const [playoffOpen, setPlayoffOpen] = useState(false);
   const [sectionsReady, setSectionsReady] = useState(false);
   const [rrDrawBusy, setRrDrawBusy] = useState(false);
+  const [tvCopied, setTvCopied] = useState(false);
   const [celebrateFinal, setCelebrateFinal] = useState(() =>
     readCelebrateFinal(tournamentId)
   );
@@ -258,20 +261,6 @@ export function TournamentScreen({ tournamentId }: Props) {
     }
   }, [searchParams, tournamentId, router]);
 
-  const handleDrawn = useCallback((matches: RoundRobinMatchRow[]) => {
-    rrMatchOrderRef.current = matches.map((m) => m.id);
-    setData((prev) =>
-      prev
-        ? {
-            ...prev,
-            roundRobinMatches: stableRoundRobinOrder(matches, rrMatchOrderRef),
-          }
-        : prev
-    );
-    setRrOpen(true);
-    setRrDrawBusy(false);
-  }, []);
-
   const playoffSize = (data?.tournament.playoff_size === 8 ? 8 : 4) as 4 | 8;
 
   const refreshLocalOccupancy = useCallback(async () => {
@@ -304,6 +293,13 @@ export function TournamentScreen({ tournamentId }: Props) {
       );
   }, [tournamentId, applyTournamentData, refreshLocalOccupancy]);
 
+  const handleDrawn = useCallback((_matches: RoundRobinMatchRow[]) => {
+    setRrDrawBusy(false);
+    setPlayoffOpen(true);
+    setRrOpen(false);
+    load();
+  }, [load]);
+
   useEffect(() => {
     if (!readCelebrateFinal(tournamentId)) return;
     load();
@@ -331,16 +327,31 @@ export function TournamentScreen({ tournamentId }: Props) {
     };
   }, [refreshLocalOccupancy]);
 
+  const pairKo = isPairKnockoutFormat(data?.tournament.settings);
+
   const playoffDisplay = useMemo(() => {
     if (!data) return [];
+    if (pairKo) {
+      return data.playoffMatches
+        .filter((m) => m.player2_id != null)
+        .map((m) => ({ ...m, isPreview: false }));
+    }
     return buildPlayoffDisplay(playoffSize, data.playoffMatches);
-  }, [data, playoffSize]);
+  }, [data, playoffSize, pairKo]);
 
-  const totalPlayoffRounds = getPlayoffRoundCount(playoffSize);
-  const playoffBracketRounds = useMemo(
-    () => getPlayoffBracketRounds(playoffSize),
-    [playoffSize]
-  );
+  const totalPlayoffRounds = useMemo(() => {
+    if (!pairKo) return getPlayoffRoundCount(playoffSize);
+    const rounds = playoffDisplay.map((m) => m.round);
+    return rounds.length > 0 ? Math.max(...rounds) : 1;
+  }, [pairKo, playoffSize, playoffDisplay]);
+
+  const playoffBracketRounds = useMemo(() => {
+    if (!pairKo) return getPlayoffBracketRounds(playoffSize);
+    return Array.from(
+      { length: Math.max(0, totalPlayoffRounds - 1) },
+      (_, i) => i + 1
+    );
+  }, [pairKo, playoffSize, totalPlayoffRounds]);
 
   const finalMatch = useMemo(() => {
     const finals = playoffDisplay.filter((m) => m.round === totalPlayoffRounds);
@@ -349,10 +360,17 @@ export function TournamentScreen({ tournamentId }: Props) {
 
   const finalDbMatch = useMemo(() => {
     if (!data) return null;
+    if (pairKo) {
+      return (
+        data.playoffMatches.find(
+          (m) => m.round === totalPlayoffRounds && m.player2_id != null
+        ) ?? null
+      );
+    }
     return (
       data.playoffMatches.find((m) => m.round === totalPlayoffRounds) ?? null
     );
-  }, [data, totalPlayoffRounds]);
+  }, [data, totalPlayoffRounds, pairKo]);
 
   useEffect(() => {
     const matchId = finalDbMatch?.id ?? finalMatch?.id;
@@ -556,13 +574,24 @@ export function TournamentScreen({ tournamentId }: Props) {
 
       const tournamentSettings = parseTournamentSettings(data.tournament.settings);
       const mode = data.tournament.mode === "301" ? "301" : "501";
-      const totalPlayoffRounds = getPlayoffRoundCount(playoffSize);
+      const pairFormat = isPairKnockoutFormat(data.tournament.settings);
+      const liveRounds = pairFormat
+        ? Math.max(
+            1,
+            ...data.playoffMatches.map((m) => m.round),
+            poMatch?.round ?? 1
+          )
+        : getPlayoffRoundCount(playoffSize);
       const isFinalMatch =
-        type === "playoff" && poMatch?.round === totalPlayoffRounds;
+        type === "playoff" && poMatch?.round === liveRounds;
       const stage =
         type === "rr"
           ? "Круговой этап"
-          : getPlayoffRoundTitle(poMatch?.round ?? 1, totalPlayoffRounds);
+          : pairFormat
+            ? isFinalMatch
+              ? "Финал"
+              : `Раунд ${poMatch?.round ?? 1}`
+            : getPlayoffRoundTitle(poMatch?.round ?? 1, liveRounds);
 
       const participantsForMeta = data.participants.map((p) => ({
         user_id: p.user_id,
@@ -686,9 +715,11 @@ export function TournamentScreen({ tournamentId }: Props) {
     );
   }
 
-  const needsDraw =
-    data.tournament.status === "round_robin" &&
-    data.roundRobinMatches.length === 0;
+  const needsDraw = pairKo
+    ? data.tournament.status === "round_robin" &&
+      data.playoffMatches.length === 0
+    : data.tournament.status === "round_robin" &&
+      data.roundRobinMatches.length === 0;
 
   const rrPlayed = data.roundRobinMatches.filter((m) => m.played).length;
   const rrTotal = data.roundRobinMatches.length;
@@ -698,7 +729,9 @@ export function TournamentScreen({ tournamentId }: Props) {
   );
   const playoffPlayed = playoffBracketMatches.filter((m) => m.winner_id).length;
   const playoffTotal = playoffBracketMatches.length;
-  const playoffMeta = `${playoffPlayed}/${playoffTotal} матчей`;
+  const playoffMeta = pairKo
+    ? `${playoffPlayed}/${Math.max(playoffTotal, 1)} · до 2 побед`
+    : `${playoffPlayed}/${playoffTotal} матчей`;
 
   const { legsToWin } = parseTournamentSettings(data.tournament.settings);
   const isFinished = data.tournament.status === "finished";
@@ -733,10 +766,16 @@ export function TournamentScreen({ tournamentId }: Props) {
             ) : null}
             <h1 className={styles.title}>{data.tournament.name}</h1>
             <p className={styles.status}>
-              {STATUS_LABEL[data.tournament.status] ?? data.tournament.status}
+              {pairKo
+                ? data.tournament.status === "round_robin"
+                  ? "Жеребьёвка"
+                  : STATUS_LABEL[data.tournament.status] ??
+                    data.tournament.status
+                : STATUS_LABEL[data.tournament.status] ??
+                  data.tournament.status}
               {" · "}
-              501 · топ-{data.tournament.playoff_size} · до {legsToWin}{" "}
-              {legsToWin === 1 ? "победы" : "побед"}
+              501 · до {legsToWin} {legsToWin === 1 ? "победы" : "побед"}
+              {pairKo ? " · пары" : ` · топ-${data.tournament.playoff_size}`}
             </p>
           </div>
         </header>
@@ -747,12 +786,12 @@ export function TournamentScreen({ tournamentId }: Props) {
           </p>
         )}
 
-        {(needsDraw || data.roundRobinMatches.length > 0) && (
+        {(needsDraw || (!pairKo && data.roundRobinMatches.length > 0)) && (
           <CollapsibleSection
-            title="Круговой этап"
+            title={pairKo ? "Жеребьёвка" : "Круговой этап"}
             meta={
               needsDraw
-                ? "Жеребьёвка"
+                ? "Пары"
                 : `${rrPlayed}/${rrTotal} матчей сыграно`
             }
             open={needsDraw || rrOpen}
@@ -763,6 +802,7 @@ export function TournamentScreen({ tournamentId }: Props) {
                 tournamentId={tournamentId}
                 player={player}
                 onDrawn={handleDrawn}
+                pairKnockout={pairKo}
                 onPhaseChange={(phase) =>
                   setRrDrawBusy(phase === "spinning" || phase === "revealing")
                 }
@@ -810,7 +850,7 @@ export function TournamentScreen({ tournamentId }: Props) {
           </CollapsibleSection>
         )}
 
-        {data.tournament.status === "round_robin" && rrDone && (
+        {!pairKo && data.tournament.status === "round_robin" && rrDone && (
           <button
             type="button"
             className={styles.playoffCta}
@@ -823,10 +863,13 @@ export function TournamentScreen({ tournamentId }: Props) {
           </button>
         )}
 
+        {(pairKo
+          ? data.playoffMatches.some((m) => m.player2_id != null)
+          : true) && (
         <CollapsibleSection
-          title="Плей-офф"
+          title={pairKo ? "Сетка" : "Плей-офф"}
           meta={playoffMeta}
-          open={playoffOpen}
+          open={playoffOpen || pairKo}
           onToggle={() => setPlayoffOpen((v) => !v)}
           className={styles.playoffCard}
         >
@@ -841,6 +884,7 @@ export function TournamentScreen({ tournamentId }: Props) {
             localOccupancy={localOccupancy}
           />
         </CollapsibleSection>
+        )}
 
         <FinalStageCard
           ref={finalCardRef}
@@ -904,6 +948,40 @@ export function TournamentScreen({ tournamentId }: Props) {
         ) : null}
 
         <footer className={styles.tournamentFooter}>
+          {channelId ? (
+            <div className={styles.tvAddressBlock}>
+              <p className={styles.tvAddressLabel}>Адрес для телевизора</p>
+              <p className={styles.tvAddressUrl}>{tvPublicUrl(tournamentId)}</p>
+              <div className={styles.tvAddressActions}>
+                <button
+                  type="button"
+                  className={styles.tvLinkBtn}
+                  onClick={() => {
+                    const url = tvPublicUrl(tournamentId);
+                    void navigator.clipboard?.writeText(url).then(
+                      () => {
+                        setTvCopied(true);
+                        window.setTimeout(() => setTvCopied(false), 2000);
+                      },
+                      () => {}
+                    );
+                  }}
+                >
+                  {tvCopied ? "Скопировано" : "Копировать адрес"}
+                </button>
+                <button
+                  type="button"
+                  className={styles.tvLinkBtnSecondary}
+                  onClick={() => {
+                    setActiveTvTournament(channelId, tournamentId);
+                    router.push(tvPath(channelId, tournamentId));
+                  }}
+                >
+                  Открыть TV здесь
+                </button>
+              </div>
+            </div>
+          ) : null}
           {!isFinished ? (
             <button
               type="button"
