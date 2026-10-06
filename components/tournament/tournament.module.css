@@ -65,6 +65,71 @@
   z-index: 2;
 }
 
+.pageMenu {
+  position: absolute;
+  right: 0;
+  top: 0;
+  z-index: 3;
+}
+
+.pageMenuBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--ng-ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pageMenuDropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+  width: min(280px, calc(100vw - 24px));
+  padding: 12px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 12px 32px rgba(3, 7, 18, 0.16);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pageMenuTv {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pageMenuDanger {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: var(--ng-pill-radius);
+  background: #0f172a;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pageMenuDanger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .titleBlock {
   flex: 1;
   min-width: 0;
@@ -423,8 +488,8 @@
 }
 
 .tvCodeHuge {
-  margin: 0;
-  font-size: 40px;
+  margin: 0 0 4px;
+  font-size: 32px;
   font-weight: 800;
   letter-spacing: 0.28em;
   text-align: center;

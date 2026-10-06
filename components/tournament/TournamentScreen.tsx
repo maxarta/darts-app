@@ -51,7 +51,6 @@ import {
 } from "@/lib/tournament/local-match-occupancy";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { syncPendingMembers } from "@/lib/offline/members-service";
-import { setActiveTvTournament, tvPath } from "@/lib/tournament/tv-live";
 import {
   KENNY_THEME_COLOR,
   normalizeTournamentVariant,
@@ -200,6 +199,8 @@ export function TournamentScreen({ tournamentId }: Props) {
   const [tvCode, setTvCode] = useState<string | null>(null);
   const [tvDisplay, setTvDisplay] = useState<string | null>(null);
   const [tvUrl, setTvUrl] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [celebrateFinal, setCelebrateFinal] = useState(() =>
     readCelebrateFinal(tournamentId)
   );
@@ -229,6 +230,17 @@ export function TournamentScreen({ tournamentId }: Props) {
       ),
     };
   }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDoc = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [menuOpen]);
 
   useEffect(() => {
     const cached = readTournamentCache<TournamentData>(tournamentId);
@@ -804,6 +816,63 @@ export function TournamentScreen({ tournamentId }: Props) {
               {pairKo ? " · пары" : ` · топ-${data.tournament.playoff_size}`}
             </p>
           </div>
+          <div ref={menuRef} className={styles.pageMenu}>
+            <button
+              type="button"
+              className={styles.pageMenuBtn}
+              aria-label="Меню"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              ⋯
+            </button>
+            {menuOpen ? (
+              <div className={styles.pageMenuDropdown} role="menu">
+                {channelId ? (
+                  <div className={styles.pageMenuTv}>
+                    <p className={styles.tvAddressLabel}>На телевизоре откройте</p>
+                    <p className={styles.tvAddressUrl}>
+                      {tvDisplay ?? "artdart.vercel.app/tv"}
+                    </p>
+                    <p className={styles.tvAddressLabel}>Код турнира</p>
+                    <p className={styles.tvCodeHuge}>{tvCode ?? "····"}</p>
+                    <button
+                      type="button"
+                      className={styles.tvLinkBtn}
+                      role="menuitem"
+                      disabled={!tvUrl}
+                      onClick={() => {
+                        if (!tvUrl) return;
+                        void navigator.clipboard?.writeText(tvUrl).then(
+                          () => {
+                            setTvCopied(true);
+                            window.setTimeout(() => setTvCopied(false), 2000);
+                          },
+                          () => {}
+                        );
+                      }}
+                    >
+                      {tvCopied ? "Скопировано" : "Копировать адрес"}
+                    </button>
+                  </div>
+                ) : null}
+                {!isFinished ? (
+                  <button
+                    type="button"
+                    className={styles.pageMenuDanger}
+                    role="menuitem"
+                    disabled={deleteLoading}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      void removeTournament();
+                    }}
+                  >
+                    {deleteLoading ? "Удаление…" : "Удалить турнир"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </header>
 
         {error && (
@@ -972,58 +1041,6 @@ export function TournamentScreen({ tournamentId }: Props) {
             ) : null}
           </div>
         ) : null}
-
-        <footer className={styles.tournamentFooter}>
-          {channelId ? (
-            <div className={styles.tvAddressBlock}>
-              <p className={styles.tvAddressLabel}>На телевизоре откройте</p>
-              <p className={styles.tvAddressUrl}>
-                {tvDisplay ?? "artdart.vercel.app/tv"}
-              </p>
-              <p className={styles.tvAddressLabel}>Код турнира</p>
-              <p className={styles.tvCodeHuge}>{tvCode ?? "····"}</p>
-              <div className={styles.tvAddressActions}>
-                <button
-                  type="button"
-                  className={styles.tvLinkBtn}
-                  disabled={!tvUrl}
-                  onClick={() => {
-                    if (!tvUrl) return;
-                    void navigator.clipboard?.writeText(tvUrl).then(
-                      () => {
-                        setTvCopied(true);
-                        window.setTimeout(() => setTvCopied(false), 2000);
-                      },
-                      () => {}
-                    );
-                  }}
-                >
-                  {tvCopied ? "Скопировано" : "Копировать адрес"}
-                </button>
-                <button
-                  type="button"
-                  className={styles.tvLinkBtnSecondary}
-                  onClick={() => {
-                    setActiveTvTournament(channelId, tournamentId);
-                    router.push(tvPath(channelId, tournamentId));
-                  }}
-                >
-                  Открыть TV здесь
-                </button>
-              </div>
-            </div>
-          ) : null}
-          {!isFinished ? (
-            <button
-              type="button"
-              className={styles.deleteTournamentBtn}
-              disabled={deleteLoading}
-              onClick={() => void removeTournament()}
-            >
-              {deleteLoading ? "Удаление…" : "Удалить турнир"}
-            </button>
-          ) : null}
-        </footer>
       </div>
     </div>
   );
