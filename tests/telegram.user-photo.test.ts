@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  decodeDataImageUrl,
   isCustomClubPhoto,
   pickPhotoUrlToStore,
   resolveStoredPhotoUrl,
@@ -51,6 +52,13 @@ describe("telegram user photo", () => {
     expect(
       pickPhotoUrlToStore(1, "https://t.me/i/userpic/320/new.svg", club)
     ).toBe(club);
+  });
+
+  it("decodes club data-url photos for the avatar proxy", () => {
+    const decoded = decodeDataImageUrl("data:image/jpeg;base64,QQ==");
+    expect(decoded?.contentType).toBe("image/jpeg");
+    expect(Array.from(decoded!.body)).toEqual([65]);
+    expect(decodeDataImageUrl("https://example.com/a.jpg")).toBeNull();
   });
 
   it("preserves renamed club display names", () => {

@@ -465,7 +465,10 @@ export function TvScreen() {
 
   if (!board && !channelId && !forcedTournamentId) {
     return (
-      <div className={styles.tvRoot} data-tv-board>
+      <div
+        className={[styles.tvRoot, styles.tvRootSolo].join(" ")}
+        data-tv-board
+      >
         <TvCodeGate onResolved={onCodeResolved} />
       </div>
     );

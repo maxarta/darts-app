@@ -4,7 +4,9 @@
   --tv-ink: #f8fafc;
   --tv-muted: rgba(248, 250, 252, 0.62);
   --tv-accent: #facc15;
-  min-height: 100dvh;
+  /* Hard fit: any TV / browser chrome — never scroll the board shell */
+  height: 100dvh;
+  max-height: 100dvh;
   width: 100%;
   display: grid;
   /* TV: sheet ~half as wide as before (~20% vs ~40%) */
@@ -29,19 +31,26 @@
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  padding: clamp(20px, 3vw, 40px);
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  padding: clamp(10px, 1.6vmin, 28px);
   background:
     radial-gradient(120% 80% at 20% 0%, rgba(250, 204, 21, 0.12), transparent 55%),
     var(--tv-bg);
 }
 
 .tvRight {
-  min-height: 100dvh;
-  overflow: auto;
+  height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
-  padding: clamp(8px, 1vw, 14px);
+  padding: clamp(6px, 1vmin, 12px);
+  display: flex;
+  flex-direction: column;
 }
 
 .tvRight :global([data-tournament-screen]) {
@@ -152,19 +161,24 @@
 }
 
 .tvPlaying {
-  flex: 1;
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: clamp(16px, 2vw, 24px);
+  gap: clamp(6px, 1.2vmin, 16px);
+  height: 100%;
   min-height: 0;
-  padding-top: 4px;
+  max-height: 100%;
+  overflow: hidden;
+  padding-top: 0;
 }
 
 .tvGameHeader {
+  flex: 0 0 auto;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.1fr);
   align-items: center;
-  gap: 16px 20px;
+  gap: clamp(6px, 1vmin, 12px) clamp(10px, 1.4vmin, 20px);
+  min-height: 0;
 }
 
 .tvGameHeaderMain {
@@ -173,29 +187,35 @@
 
 .tvGameTitle {
   margin: 0;
-  font-size: clamp(18px, 2vw, 28px);
+  font-size: clamp(14px, 2.2vmin, 26px);
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tvGameSubtitle {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--tv-muted);
-  font-size: clamp(14px, 1.4vw, 20px);
+  font-size: clamp(12px, 1.6vmin, 18px);
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tvGameStats {
   display: flex;
-  gap: 14px;
+  gap: clamp(8px, 1.2vmin, 14px);
   align-items: baseline;
 }
 
 .tvGameStat {
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  font-size: clamp(28px, 3.2vw, 44px);
+  font-size: clamp(22px, 3.4vmin, 40px);
   line-height: 1;
 }
 
@@ -213,20 +233,22 @@
   justify-content: flex-end;
   align-items: center;
   min-width: 0;
-  min-height: 1.2em;
+  min-height: 0;
 }
 
 .tvFinishHint {
   margin: 0;
   max-width: 100%;
-  font-size: clamp(22px, 2.6vw, 40px);
+  font-size: clamp(16px, 2.8vmin, 36px);
   font-weight: 700;
   letter-spacing: 0.04em;
-  line-height: 1.15;
+  line-height: 1.1;
   color: var(--tv-muted);
   text-align: right;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tvVisitStrip {
@@ -260,10 +282,10 @@
 }
 
 .tvVisitChipWhiteSm {
-  min-width: 40px;
-  min-height: 32px;
-  font-size: 16px;
-  padding: 4px 10px;
+  min-width: clamp(28px, min(10cqw, 8cqh), 40px);
+  min-height: clamp(22px, min(8cqw, 6cqh), 32px);
+  font-size: clamp(12px, min(4.5cqw, 3.5cqh), 16px);
+  padding: 2px 8px;
 }
 
 .tvVisitChipDark {
@@ -279,31 +301,37 @@
 .tvScoreGrid {
   flex: 1;
   display: flex;
-  gap: clamp(16px, 2vw, 28px);
+  gap: clamp(10px, 1.6vmin, 24px);
   align-items: stretch;
   min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .tvScoreGridMulti {
   flex: 1;
   display: flex;
-  gap: clamp(8px, 1vw, 16px);
+  gap: clamp(6px, 1vmin, 14px);
   align-items: stretch;
   min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
 }
 
 .tvScoreCard {
-  container-type: inline-size;
+  /* Size query: scale type from both width AND height so tall TVs don't blow up */
+  container-type: size;
   container-name: tvcard;
   flex: 1 1 0;
-  border-radius: clamp(16px, 4cqw, 28px);
+  border-radius: clamp(12px, min(4cqw, 3cqh), 24px);
   background: rgba(255, 255, 255, 0.06);
   border: 3px solid transparent;
-  padding: clamp(12px, 4cqw, 32px);
+  padding: clamp(8px, min(3.5cqw, 2.8cqh), 22px);
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  max-height: 100%;
   overflow: hidden;
   opacity: 0.88;
   transition:
@@ -319,20 +347,29 @@
 .tvScoreCardInner {
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 2.5cqw, 12px);
+  gap: clamp(4px, min(2cqw, 1.6cqh), 10px);
   flex: 1;
   min-width: 0;
   min-height: 0;
+  overflow: hidden;
 }
 
 .tvScoreCardActive {
-  flex: 2 1 0;
+  flex: 1.45 1 0;
   opacity: 1;
   border-color: var(--tv-accent);
   background: rgba(250, 204, 21, 0.14);
   box-shadow:
     0 0 0 1px rgba(250, 204, 21, 0.35),
     0 12px 40px rgba(250, 204, 21, 0.12);
+}
+
+.tvPlaying[data-players="2"] .tvScoreCardActive {
+  flex: 1.7 1 0;
+}
+
+.tvPlaying[data-players="3"] .tvScoreCardActive {
+  flex: 1.55 1 0;
 }
 
 .tvScoreCardPulse {
@@ -370,7 +407,7 @@
 .tvTurnHint {
   margin: 0;
   color: var(--tv-accent);
-  font-size: clamp(11px, 6cqw, 18px);
+  font-size: clamp(10px, min(5.5cqw, 4cqh), 16px);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -391,15 +428,16 @@
 .tvScoreCardTop {
   display: flex;
   align-items: center;
-  gap: clamp(8px, 3cqw, 14px);
+  gap: clamp(6px, min(2.5cqw, 2cqh), 12px);
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .tvScoreCardStacked .tvScoreCardTop {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: clamp(6px, 2cqw, 10px);
+  gap: clamp(4px, min(1.8cqw, 1.4cqh), 8px);
 }
 
 .tvScoreCardStacked .tvScoreCardMeta {
@@ -417,16 +455,16 @@
 }
 
 .tvAvatarBoard {
-  width: clamp(56px, 22cqw, 110px);
-  height: clamp(56px, 22cqw, 110px);
-  font-size: clamp(18px, 7cqw, 36px);
+  width: clamp(40px, min(18cqw, 16cqh), 96px);
+  height: clamp(40px, min(18cqw, 16cqh), 96px);
+  font-size: clamp(14px, min(6cqw, 5.5cqh), 32px);
   flex-shrink: 0;
 }
 
 .tvAvatarBoardCompact {
-  width: clamp(40px, 28cqw, 72px);
-  height: clamp(40px, 28cqw, 72px);
-  font-size: clamp(14px, 9cqw, 24px);
+  width: clamp(32px, min(22cqw, 12cqh), 64px);
+  height: clamp(32px, min(22cqw, 12cqh), 64px);
+  font-size: clamp(12px, min(8cqw, 5cqh), 22px);
   flex-shrink: 0;
 }
 
@@ -434,11 +472,11 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .tvScoreCard .tvPlayerName {
-  font-size: clamp(12px, 9cqw, 28px);
+  font-size: clamp(11px, min(8cqw, 5.5cqh), 26px);
   font-weight: 700;
   margin: 0;
   overflow: hidden;
@@ -447,25 +485,22 @@
   max-width: 100%;
 }
 
-.tvTurnHintIdle {
-  margin: 0;
-  min-height: 1.1em;
-}
-
 .tvVisitMeta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
 .tvCardDarts {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: 8px;
-  margin: 0 0 clamp(8px, 2cqw, 14px);
+  gap: clamp(4px, 1.5cqw, 8px);
+  margin: 0;
   min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .tvScoreCardStacked .tvCardDarts {
@@ -474,72 +509,95 @@
 
 .tvCardDarts .tvVisitChipDark,
 .tvCardDarts .tvVisitChipSlot {
-  min-width: clamp(40px, 14cqw, 56px);
-  min-height: clamp(36px, 12cqw, 48px);
-  padding: 6px 10px;
-  font-size: clamp(14px, 5.5cqw, 22px);
-  border-radius: 12px;
+  min-width: clamp(28px, min(12cqw, 10cqh), 52px);
+  min-height: clamp(26px, min(10cqw, 9cqh), 44px);
+  padding: 4px 8px;
+  font-size: clamp(12px, min(5cqw, 4.5cqh), 20px);
+  border-radius: 10px;
+  flex-shrink: 1;
+}
+
+.tvCardDarts .tvVisitChipSlot img {
+  width: clamp(14px, min(8cqw, 6cqh), 28px);
+  height: auto;
 }
 
 .tvStartStrike {
   color: var(--tv-muted);
   text-decoration: line-through;
-  font-size: clamp(12px, 7cqw, 22px);
+  font-size: clamp(11px, min(6cqw, 4.5cqh), 20px);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .tvScoreValue {
-  font-size: clamp(28px, 46cqw, 148px);
+  /* Fit 3-digit scores inside the card on any aspect ratio */
+  font-size: clamp(1.6rem, min(36cqw, 38cqh), 7rem);
   font-weight: 800;
-  line-height: 0.92;
+  line-height: 0.9;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   margin: auto 0;
   max-width: 100%;
   overflow: hidden;
   text-align: center;
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
 }
 
 .tvScoreCard:not(.tvScoreCardStacked) .tvScoreValue {
+  justify-content: flex-start;
   text-align: left;
 }
 
 .tvScoreFooter {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   align-items: baseline;
   min-width: 0;
+  flex: 0 0 auto;
 }
 
 .tvLegs {
-  font-size: clamp(11px, 6cqw, 22px);
+  font-size: clamp(10px, min(5.5cqw, 4cqh), 20px);
   color: var(--tv-muted);
   font-weight: 600;
 }
 
 .tvPpr {
-  font-size: clamp(11px, 6.5cqw, 26px);
+  font-size: clamp(10px, min(6cqw, 4.2cqh), 22px);
   color: var(--tv-ink);
   font-weight: 700;
   letter-spacing: 0.04em;
   white-space: nowrap;
 }
 
-/* Idle cards stay compact; active card grows via flex:2 + cqw */
+/* Many players: keep inactive seats readable, active slightly roomier */
+.tvPlaying[data-players="4"] .tvScoreCardActive,
+.tvPlaying[data-players="5"] .tvScoreCardActive,
+.tvPlaying[data-players="6"] .tvScoreCardActive,
+.tvPlaying[data-players="7"] .tvScoreCardActive,
+.tvPlaying[data-players="8"] .tvScoreCardActive {
+  flex: 1.28 1 0;
+}
+
+.tvPlaying[data-players="4"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
 .tvPlaying[data-players="5"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
 .tvPlaying[data-players="6"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
 .tvPlaying[data-players="7"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
 .tvPlaying[data-players="8"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue {
-  font-size: clamp(22px, 34cqw, 72px);
+  font-size: clamp(1.35rem, min(32cqw, 30cqh), 4.5rem);
 }
 
 .tvPlaying[data-players="5"] .tvScoreCard,
 .tvPlaying[data-players="6"] .tvScoreCard,
 .tvPlaying[data-players="7"] .tvScoreCard,
 .tvPlaying[data-players="8"] .tvScoreCard {
-  padding: clamp(8px, 3cqw, 16px);
+  padding: clamp(6px, min(2.5cqw, 2cqh), 14px);
   border-width: 2px;
 }
 
@@ -547,7 +605,7 @@
 .tvPlaying[data-players="6"] .tvScoreCardActive,
 .tvPlaying[data-players="7"] .tvScoreCardActive,
 .tvPlaying[data-players="8"] .tvScoreCardActive {
-  padding: clamp(12px, 4cqw, 22px);
+  padding: clamp(8px, min(3cqw, 2.4cqh), 18px);
   border-width: 3px;
 }
 
@@ -608,7 +666,9 @@
 }
 
 .tvEmpty {
-  min-height: 100dvh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
   display: grid;
   place-items: center;
   padding: 40px;
@@ -633,92 +693,125 @@
 .tvSheetCard {
   background: #fff;
   color: #0f172a;
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
-  min-height: calc(100dvh - 40px);
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .tvSheetScroll {
-  max-height: calc(100dvh - 40px);
+  flex: 1;
+  min-height: 0;
   overflow: auto;
 }
 
 .tvGate {
-  min-height: 100dvh;
+  box-sizing: border-box;
+  height: 100%;
+  max-height: 100dvh;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 32px 20px;
+  gap: clamp(4px, 1.2vmin, 12px);
+  padding: clamp(8px, 2vmin, 24px);
   text-align: center;
   background: var(--tv-bg, #0b1220);
   color: var(--tv-ink, #f8fafc);
+  overflow: hidden;
+}
+
+.tvGate > .tvBrand {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: clamp(11px, 1.6vmin, 16px);
 }
 
 .tvGateTitle {
+  flex: 0 0 auto;
   margin: 0;
-  font-size: clamp(36px, 5vw, 64px);
+  font-size: clamp(22px, 4.5vmin, 48px);
   font-weight: 800;
+  line-height: 1.05;
 }
 
 .tvGateHint {
+  flex: 0 0 auto;
   margin: 0;
   color: var(--tv-muted, rgba(248, 250, 252, 0.62));
-  font-size: clamp(16px, 1.8vw, 22px);
+  font-size: clamp(12px, 2vmin, 20px);
+  line-height: 1.2;
+  max-width: 36ch;
 }
 
 .tvGateError {
+  flex: 0 0 auto;
   margin: 0;
   color: #fca5a5;
-  font-size: 18px;
+  font-size: clamp(13px, 2vmin, 18px);
   font-weight: 600;
 }
 
 .tvGateForm {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  width: min(420px, 100%);
+  justify-content: center;
+  gap: clamp(8px, 1.6vmin, 16px);
+  width: min(440px, 92vw);
 }
 
 .tvGateSlots {
+  flex: 0 0 auto;
   display: flex;
-  gap: 14px;
+  gap: clamp(6px, 1.4vmin, 14px);
 }
 
 .tvGateSlot {
-  width: clamp(52px, 8vw, 72px);
-  height: clamp(64px, 10vw, 88px);
-  border-radius: 14px;
+  width: clamp(40px, 7vmin, 68px);
+  height: clamp(48px, 8.5vmin, 80px);
+  border-radius: clamp(10px, 1.4vmin, 14px);
   border: 2px solid rgba(248, 250, 252, 0.25);
   display: grid;
   place-items: center;
-  font-size: clamp(28px, 4vw, 44px);
+  font-size: clamp(20px, 4vmin, 40px);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   background: rgba(255, 255, 255, 0.06);
 }
 
 .tvGatePad {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-rows: repeat(4, minmax(0, 1fr));
+  gap: clamp(6px, 1.2vmin, 12px);
   width: 100%;
+  /* Never taller than remaining viewport — all 4 key rows stay on screen */
+  height: min(52dvh, 380px);
+  max-height: 100%;
 }
 
 .tvGateKey {
   border: none;
-  border-radius: 16px;
-  min-height: 64px;
-  font-size: 28px;
+  border-radius: clamp(10px, 1.5vmin, 16px);
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+  font-size: clamp(18px, 4.2vmin, 32px);
   font-weight: 700;
   font-family: inherit;
   color: #f8fafc;
   background: rgba(255, 255, 255, 0.1);
   cursor: pointer;
+  padding: 0;
 }
 
 .tvGateKey:disabled {
@@ -726,15 +819,53 @@
   cursor: default;
 }
 
+/* Short TV / browser chrome: shrink chrome, keep all keys visible */
+@media (max-height: 700px) {
+  .tvGateTitle {
+    font-size: clamp(18px, 4vmin, 28px);
+  }
+
+  .tvGateHint,
+  .tvGate > .tvBrand {
+    display: none;
+  }
+
+  .tvGateForm {
+    gap: 8px;
+  }
+
+  .tvGatePad {
+    height: min(68dvh, 340px);
+  }
+
+  .tvLeft {
+    padding: clamp(6px, 1.2vmin, 14px);
+  }
+
+  .tvGameTitle {
+    font-size: clamp(12px, 2vmin, 18px);
+  }
+
+  .tvGameSubtitle {
+    font-size: clamp(11px, 1.4vmin, 14px);
+  }
+
+  .tvGameStat {
+    font-size: clamp(18px, 3vmin, 28px);
+  }
+}
+
 @media (max-width: 900px) {
   .tvRoot {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 0.9fr);
+    height: 100dvh;
   }
 
   .tvLeft,
   .tvRight {
-    min-height: auto;
+    min-height: 0;
+    height: 100%;
   }
 
   .tvRight {
@@ -743,6 +874,6 @@
   }
 
   .tvScoreValue {
-    font-size: clamp(36px, 40cqw, 72px);
+    font-size: clamp(1.5rem, min(34cqw, 28cqh), 4rem);
   }
 }

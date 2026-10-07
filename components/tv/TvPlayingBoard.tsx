@@ -191,21 +191,19 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
                   <p className={styles.tvPlayerName}>{p.name}</p>
                   {p.active ? (
                     <p className={styles.tvTurnHint}>Ход</p>
-                  ) : (
-                    <p className={styles.tvTurnHintIdle}> </p>
-                  )}
-                  <div className={styles.tvVisitMeta}>
-                    <span className={styles.tvStartStrike}>
-                      {p.active
-                        ? (p.visitStartScore ?? p.remaining)
-                        : p.remaining}
-                    </span>
-                    {p.active && dartsInVisit > 0 ? (
-                      <span className={styles.tvVisitChipWhiteSm}>
-                        <AnimatedNumber value={p.visitScore} />
+                  ) : null}
+                  {p.active ? (
+                    <div className={styles.tvVisitMeta}>
+                      <span className={styles.tvStartStrike}>
+                        {p.visitStartScore ?? p.remaining}
                       </span>
-                    ) : null}
-                  </div>
+                      {dartsInVisit > 0 ? (
+                        <span className={styles.tvVisitChipWhiteSm}>
+                          <AnimatedNumber value={p.visitScore} />
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

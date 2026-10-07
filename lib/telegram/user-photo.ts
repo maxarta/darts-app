@@ -15,6 +15,31 @@ export function isCustomClubPhoto(
 }
 
 /**
+ * Decode a club `data:image/...;base64,...` photo for the avatar HTTP route.
+ * Returns null when the string is not a supported data URL.
+ */
+export function decodeDataImageUrl(
+  dataUrl: string
+): { contentType: string; body: Uint8Array } | null {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/.exec(
+    dataUrl.trim()
+  );
+  if (!match) return null;
+  const contentType = match[1]!;
+  const b64 = match[2]!.replace(/\s+/g, "");
+  try {
+    const binary = atob(b64);
+    const body = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      body[i] = binary.charCodeAt(i);
+    }
+    return { contentType, body };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Club UI clears username on rename. Preserve that custom first_name so
  * Telegram session upserts don't wipe the player's club identity.
  */
