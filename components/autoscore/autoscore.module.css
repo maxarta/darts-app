@@ -1,0 +1,249 @@
+.calibrateRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+  color: #f8fafc;
+}
+
+.videoWrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: #020617;
+}
+
+.video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* cover: fill the phone screen; guide maps via containedVideoRect */
+  object-fit: cover;
+  background: #020617;
+  z-index: 0;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+}
+
+.overlayCanvas,
+.lidarCanvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Must stay transparent — CSS background would hide the <video> */
+  background: transparent;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.lidarCanvas {
+  z-index: 2;
+  mix-blend-mode: screen;
+  opacity: 0.95;
+}
+
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  padding: max(12px, env(safe-area-inset-top)) 16px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.hudTitle {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(248, 250, 252, 0.72);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.hudHint {
+  margin: 4px 0 0;
+  font-size: 15px;
+  font-weight: 600;
+  max-width: 18ch;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
+}
+
+.modeToggle {
+  pointer-events: auto;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(248, 250, 252, 0.16);
+  backdrop-filter: blur(8px);
+}
+
+.modeBtn {
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(248, 250, 252, 0.7);
+  background: transparent;
+  cursor: pointer;
+}
+
+.modeBtnActive {
+  color: #0f172a;
+  background: #facc15;
+}
+
+.footer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px max(16px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(11, 18, 32, 0.2), #0b1220 30%);
+}
+
+.error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 10px;
+}
+
+.btnGhost,
+.btnPrimary {
+  appearance: none;
+  border: 0;
+  border-radius: 14px;
+  min-height: 52px;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btnGhost {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.btnPrimary {
+  color: #0f172a;
+  background: #facc15;
+}
+
+.btnPrimary:disabled,
+.btnGhost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Active session chrome */
+.banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 12px 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(250, 204, 21, 0.16);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.bannerMuted {
+  background: rgba(15, 23, 42, 0.06);
+  border-color: rgba(15, 23, 42, 0.12);
+  color: #334155;
+}
+
+.bannerCountdown {
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #14532d;
+}
+
+.bannerStop {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+}
+
+.hiddenVideo {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  left: -9999px;
+  top: 0;
+}
+
+/* Header toggle next to ⋯ */
+.autoBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--g-ink, #0f172a);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.autoBtnActive {
+  color: #0f172a;
+  background: #facc15;
+}
+
+.autoBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.autoBtnSvg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.menuRow {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}

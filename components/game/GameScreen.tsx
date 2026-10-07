@@ -49,7 +49,29 @@ import { ScoringKeypad } from "./ScoringKeypad";
 import { HeaderVisitChips } from "./HeaderVisitChips";
 import { VisitBar } from "./VisitBar";
 import { usePublishTvLive } from "@/components/tv/usePublishTvLive";
+import { AutoScoreCalibrate } from "@/components/autoscore/AutoScoreCalibrate";
+import { AutoScoreEngine } from "@/components/autoscore/AutoScoreEngine";
+import { AutoScoreBanner } from "@/components/autoscore/AutoScoreBanner";
+import type {
+  AutoScorePhase,
+  BoardCalibration,
+  DetectedDart,
+} from "@/lib/autoscore/types";
+import {
+  playCountdownTickSound,
+  playDartHitSound,
+  playTurnHandoffSound,
+} from "@/lib/autoscore/sounds";
+import {
+  isNativeShell,
+  nativeStartAutoScore,
+  nativeStopAutoScore,
+  parseNativeThrow,
+  subscribeNativeBridge,
+} from "@/lib/autoscore/native-bridge";
 import styles from "./game.module.css";
+
+const HANDOFF_SECONDS = 5;
 
 export function GameScreen({ gameId }: { gameId: string }) {
   const router = useRouter();
@@ -74,6 +96,22 @@ export function GameScreen({ gameId }: { gameId: string }) {
   } | null>(null);
   const [tvCode, setTvCode] = useState<string | null>(null);
 
+  const [autoPhase, setAutoPhase] = useState<AutoScorePhase>("off");
+  const [autoStream, setAutoStream] = useState<MediaStream | null>(null);
+  const [autoCalib, setAutoCalib] = useState<BoardCalibration | null>(null);
+  const [autoCorrecting, setAutoCorrecting] = useState(false);
+  const [autoCamError, setAutoCamError] = useState<string | null>(null);
+  /** True when throws come from the iOS ARKit LiDAR shell (no web camera). */
+  const [nativeLidar, setNativeLidar] = useState(false);
+  const [handoffLeft, setHandoffLeft] = useState<number | null>(null);
+  const handoffTimerRef = useRef<number | null>(null);
+  const autoCorrectingRef = useRef(false);
+  const scoringLockedRef = useRef(false);
+  const visitReadyRef = useRef(false);
+  const autoPhaseRef = useRef<AutoScorePhase>("off");
+  autoCorrectingRef.current = autoCorrecting;
+  autoPhaseRef.current = autoPhase;
+
   const persistGenRef = useRef(0);
   const persist = useCallback(async (next: LocalGameRecord) => {
     const gen = ++persistGenRef.current;
@@ -95,6 +133,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
       /* sync retries on online */
     }
   }, []);
+  const persistRef = useRef(persist);
+  persistRef.current = persist;
 
   useEffect(() => {
     recordRef.current = record;
@@ -281,25 +321,142 @@ export function GameScreen({ gameId }: { gameId: string }) {
     };
   }, [gameId]);
 
-  const onThrow = (input: ThrowInput) => {
+  const clearHandoff = useCallback(() => {
+    if (handoffTimerRef.current != null) {
+      window.clearInterval(handoffTimerRef.current);
+      handoffTimerRef.current = null;
+    }
+    setHandoffLeft(null);
+  }, []);
+
+  const stopAutoScore = useCallback(() => {
+    clearHandoff();
+    nativeStopAutoScore();
+    setAutoPhase("off");
+    setAutoCalib(null);
+    setAutoCorrecting(false);
+    setAutoCamError(null);
+    setNativeLidar(false);
+    setAutoStream((prev) => {
+      prev?.getTracks().forEach((t) => t.stop());
+      return null;
+    });
+  }, [clearHandoff]);
+
+  /** Web/Safari camera path (used when not inside the iOS LiDAR shell). */
+  const startWebCameraAutoScore = useCallback(async () => {
+    clearHandoff();
+    setAutoCorrecting(false);
+    setAutoCamError(null);
+    setNativeLidar(false);
+
+    const media = navigator.mediaDevices;
+    if (!media?.getUserMedia) {
+      setAutoCamError(
+        "Камера недоступна здесь. Откройте в приложении Darts Score или Safari"
+      );
+      setAutoPhase("off");
+      return;
+    }
+
+    const attempts: MediaStreamConstraints[] = [
+      {
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      },
+      { audio: false, video: { facingMode: "environment" } },
+      { audio: false, video: true },
+    ];
+
+    let lastErr: unknown = null;
+    for (const constraints of attempts) {
+      try {
+        const stream = await media.getUserMedia(constraints);
+        setAutoStream(stream);
+        setAutoPhase("calibrate");
+        return;
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    const name =
+      lastErr && typeof lastErr === "object" && "name" in lastErr
+        ? String((lastErr as { name?: string }).name)
+        : "";
+    const msg =
+      lastErr instanceof Error ? lastErr.message : "нет доступа к камере";
+    setAutoCamError(
+      name === "NotAllowedError"
+        ? "Доступ к камере запрещён — разрешите в настройках браузера"
+        : `Камера: ${name || msg}`
+    );
+    setAutoPhase("off");
+  }, [clearHandoff]);
+
+  const applyAutoThrow = useCallback((input: ThrowInput) => {
+    if (autoPhaseRef.current !== "active") return;
+    if (autoCorrectingRef.current) return;
+    if (scoringLockedRef.current) return;
     const prev = recordRef.current;
     if (!prev) return;
     const next = localGameThrow(prev, input);
     if (!next) return;
-    void persist(next);
-  };
+    playDartHitSound();
+    hapticImpact("light");
+    void persistRef.current(next);
+  }, []);
 
-  const onUndo = () => {
-    const prev = recordRef.current;
-    if (!prev) return;
-    const next = localGameUndo(prev);
-    if (!next) return;
-    void persist(next);
-  };
+  const onToggleAutoScore = useCallback(() => {
+    if (autoPhase !== "off") {
+      stopAutoScore();
+      return;
+    }
+    clearHandoff();
+    setAutoCorrecting(false);
+    setAutoCamError(null);
+    // Prefer real ARKit LiDAR when running inside the iOS shell.
+    if (isNativeShell() && nativeStartAutoScore()) {
+      return;
+    }
+    void startWebCameraAutoScore();
+  }, [autoPhase, stopAutoScore, clearHandoff, startWebCameraAutoScore]);
 
-  const onNextPlayer = () => {
+  useEffect(() => {
+    return subscribeNativeBridge((msg) => {
+      if (msg.type === "autoScoreReady") {
+        setNativeLidar(Boolean(msg.lidar));
+        setAutoCorrecting(false);
+        setAutoCamError(null);
+        setAutoPhase("active");
+        hapticImpact("medium");
+        return;
+      }
+      if (msg.type === "autoScoreCancelled") {
+        clearHandoff();
+        setAutoPhase("off");
+        setNativeLidar(false);
+        setAutoCalib(null);
+        return;
+      }
+      if (msg.type === "autoScoreFallback") {
+        void startWebCameraAutoScore();
+        return;
+      }
+      if (msg.type === "autoThrow") {
+        const input = parseNativeThrow(msg.input);
+        if (input) applyAutoThrow(input);
+      }
+    });
+  }, [applyAutoThrow, clearHandoff, startWebCameraAutoScore]);
+
+  const endVisitNow = useCallback(() => {
     const prev = recordRef.current;
-    if (!prev) return;
+    if (!prev) return false;
     if (
       prev.snapshot.game.status === "active" &&
       prev.snapshot.activeVisitThrows.length > 0
@@ -320,15 +477,86 @@ export function GameScreen({ gameId }: { gameId: string }) {
           settings
         ).legWon
       ) {
-        // Re-open checkout confirm if the player dismissed it by mistake.
         setVictoryConfirmDismissed(false);
-        return;
+        return false;
       }
     }
     const next = localGameEndVisit(prev);
+    if (!next) return false;
+    void persist(next);
+    return true;
+  }, [persist]);
+
+  const startHandoffCountdown = useCallback(() => {
+    if (autoPhaseRef.current !== "active") return;
+    if (autoCorrectingRef.current) return;
+    if (handoffTimerRef.current != null) return;
+
+    setHandoffLeft(HANDOFF_SECONDS);
+    playCountdownTickSound();
+    let left = HANDOFF_SECONDS;
+    handoffTimerRef.current = window.setInterval(() => {
+      left -= 1;
+      if (left <= 0) {
+        clearHandoff();
+        playTurnHandoffSound();
+        hapticImpact("medium");
+        const ok = endVisitNow();
+        if (ok) setAutoCorrecting(false);
+        return;
+      }
+      setHandoffLeft(left);
+      playCountdownTickSound();
+    }, 1000);
+  }, [clearHandoff, endVisitNow]);
+
+  const onThrow = (input: ThrowInput, fromAuto = false) => {
+    const prev = recordRef.current;
+    if (!prev) return;
+    if (!fromAuto && autoPhaseRef.current === "active") {
+      setAutoCorrecting(true);
+      clearHandoff();
+    }
+    const next = localGameThrow(prev, input);
     if (!next) return;
     void persist(next);
   };
+
+  const onUndo = () => {
+    if (autoPhaseRef.current === "active") {
+      setAutoCorrecting(true);
+      clearHandoff();
+    }
+    const prev = recordRef.current;
+    if (!prev) return;
+    const next = localGameUndo(prev);
+    if (!next) return;
+    void persist(next);
+  };
+
+  const onNextPlayer = () => {
+    clearHandoff();
+    const ok = endVisitNow();
+    if (ok) setAutoCorrecting(false);
+  };
+
+  const onAutoDetect = useCallback(
+    (dart: DetectedDart) => {
+      applyAutoThrow(dart.input);
+    },
+    [applyAutoThrow]
+  );
+
+  useEffect(() => {
+    return () => {
+      clearHandoff();
+      nativeStopAutoScore();
+      setAutoStream((prev) => {
+        prev?.getTracks().forEach((t) => t.stop());
+        return null;
+      });
+    };
+  }, [clearHandoff]);
 
   const onRestart = async () => {
     const prev = recordRef.current;
@@ -491,6 +719,57 @@ export function GameScreen({ gameId }: { gameId: string }) {
     }
   };
 
+  // Auto handoff: after a full visit with no manual corrections, wait 5s then pass.
+  useEffect(() => {
+    if (autoPhase !== "active" || !record) {
+      clearHandoff();
+      return;
+    }
+    const snap = record.snapshot;
+    if (snap.game.status !== "active") {
+      clearHandoff();
+      return;
+    }
+    const throws = snap.activeVisitThrows;
+    const settings = {
+      ...defaultSettings(snap.game.mode),
+      ...snap.game.settings,
+      startingScore: snap.game.settings.startingScore as 301 | 501,
+    };
+    const activePlayer = snap.players.find(
+      (p) => p.order_index === snap.game.current_player_index
+    );
+    const visitApplyLocal =
+      throws.length > 0 && activePlayer
+        ? applyVisit(activePlayer.score_at_visit_start, throws, settings)
+        : null;
+    const checkout = Boolean(visitApplyLocal?.legWon);
+    const showConfirm =
+      checkout && !victoryStats && !victoryConfirmDismissed;
+    const ready =
+      throws.length >= 3 ||
+      Boolean(activePlayer?.awaiting_visit_end) ||
+      (checkout && !victoryConfirmDismissed);
+
+    if (autoCorrecting || showConfirm || victoryStats) {
+      clearHandoff();
+      return;
+    }
+    if (ready) {
+      startHandoffCountdown();
+    } else {
+      clearHandoff();
+    }
+  }, [
+    autoPhase,
+    autoCorrecting,
+    record,
+    victoryStats,
+    victoryConfirmDismissed,
+    clearHandoff,
+    startHandoffCountdown,
+  ]);
+
   if (loading) {
     return (
       <div className={styles.gameScreen} data-game-screen>
@@ -550,6 +829,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const visitReady = visitComplete;
   const scoringLocked =
     showVictoryConfirm || victoryStats != null || visitComplete;
+  scoringLockedRef.current = scoringLocked;
+  visitReadyRef.current = visitReady;
 
   const checkoutRemaining =
     visitApply && !visitApply.bust
@@ -594,8 +875,42 @@ export function GameScreen({ gameId }: { gameId: string }) {
           ? "Сохраняем на сервер…"
           : null;
 
+  const autoBannerMode =
+    handoffLeft != null
+      ? ("countdown" as const)
+      : autoCorrecting
+        ? ("correcting" as const)
+        : ("listening" as const);
+
   return (
     <div className={styles.gameScreen} data-game-screen>
+      {!nativeLidar && autoPhase === "calibrate" && autoStream ? (
+        <AutoScoreCalibrate
+          stream={autoStream}
+          onCancel={stopAutoScore}
+          onConfirm={(calib) => {
+            setAutoCalib(calib);
+            setAutoCorrecting(false);
+            setAutoPhase("active");
+            hapticImpact("medium");
+          }}
+        />
+      ) : null}
+
+      {!nativeLidar && autoPhase === "active" && autoStream && autoCalib ? (
+        <AutoScoreEngine
+          stream={autoStream}
+          calibration={autoCalib}
+          enabled={
+            !scoringLocked &&
+            !autoCorrecting &&
+            !finished &&
+            handoffLeft == null
+          }
+          onDetect={onAutoDetect}
+        />
+      ) : null}
+
       <div className={styles.gameTopStrip}>
         <GameHeader
           mode={game.mode}
@@ -633,6 +948,14 @@ export function GameScreen({ gameId }: { gameId: string }) {
           onLeave={onLeave}
           disabled={finished}
           finishHint={finishHint}
+          autoScore={
+            finished
+              ? null
+              : {
+                  active: autoPhase !== "off",
+                  onToggle: onToggleAutoScore,
+                }
+          }
           tv={
             clubTvEnabled && !record.tournamentContext
               ? {
@@ -652,6 +975,21 @@ export function GameScreen({ gameId }: { gameId: string }) {
             ) : undefined
           }
         />
+
+        {autoPhase === "active" && !finished ? (
+          <AutoScoreBanner
+            mode={autoBannerMode}
+            secondsLeft={handoffLeft ?? undefined}
+            lidar={nativeLidar}
+            onStop={stopAutoScore}
+          />
+        ) : null}
+
+        {autoCamError ? (
+          <p className={styles.syncHint} role="alert">
+            {autoCamError}
+          </p>
+        ) : null}
 
         {syncHint ? (
           <p className={styles.syncHint} role="status">

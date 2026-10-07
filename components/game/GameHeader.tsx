@@ -2,7 +2,9 @@
 
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
+import { AutoScoreButton } from "@/components/autoscore/AutoScoreButton";
 import styles from "./game.module.css";
+import autoStyles from "@/components/autoscore/autoscore.module.css";
 
 type TournamentHeader = {
   name: string;
@@ -34,6 +36,11 @@ type Props = {
   } | null;
   /** Gray finish hint in place of Rules (e.g. double-out checkout). */
   finishHint?: string | null;
+  /** Camera auto-scoring toggle (next to ⋯). */
+  autoScore?: {
+    active: boolean;
+    onToggle: () => void;
+  } | null;
 };
 
 function HeaderCounter({
@@ -73,6 +80,7 @@ export function GameHeader({
   visitSlot,
   tv = null,
   finishHint = null,
+  autoScore = null,
 }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -122,16 +130,25 @@ export function GameHeader({
   return (
     <header className={styles.header}>
       <div ref={menuRef} className={styles.menuWrap}>
-        <button
-          type="button"
-          className={styles.menuBtnFallback}
-          aria-label="Меню"
-          aria-expanded={open}
-          disabled={disabled}
-          onClick={() => setOpen((v) => !v)}
-        >
-          ⋯
-        </button>
+        <div className={autoStyles.menuRow}>
+          <button
+            type="button"
+            className={styles.menuBtnFallback}
+            aria-label="Меню"
+            aria-expanded={open}
+            disabled={disabled}
+            onClick={() => setOpen((v) => !v)}
+          >
+            ⋯
+          </button>
+          {autoScore ? (
+            <AutoScoreButton
+              active={autoScore.active}
+              disabled={disabled}
+              onClick={autoScore.onToggle}
+            />
+          ) : null}
+        </div>
         {open && (
           <div className={styles.menuDropdown} role="menu">
             {tv ? (
