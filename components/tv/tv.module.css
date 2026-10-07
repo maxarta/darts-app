@@ -428,7 +428,7 @@
 .tvScoreCardTop {
   display: flex;
   align-items: center;
-  gap: clamp(6px, min(2.5cqw, 2cqh), 12px);
+  gap: clamp(12px, min(5cqw, 4cqh), 24px);
   min-width: 0;
   flex: 0 0 auto;
 }
@@ -437,7 +437,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: clamp(4px, min(1.8cqw, 1.4cqh), 8px);
+  gap: clamp(8px, min(3.6cqw, 2.8cqh), 16px);
 }
 
 .tvScoreCardStacked .tvScoreCardMeta {
@@ -532,7 +532,7 @@
 
 .tvScoreValue {
   /* Fit 3-digit scores inside the card on any aspect ratio */
-  font-size: clamp(1.6rem, min(36cqw, 38cqh), 7rem);
+  font-size: clamp(3.2rem, min(72cqw, 76cqh), 14rem);
   font-weight: 800;
   line-height: 0.9;
   letter-spacing: -0.04em;
@@ -590,7 +590,7 @@
 .tvPlaying[data-players="6"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
 .tvPlaying[data-players="7"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue,
 .tvPlaying[data-players="8"] .tvScoreCard:not(.tvScoreCardActive) .tvScoreValue {
-  font-size: clamp(1.35rem, min(32cqw, 30cqh), 4.5rem);
+  font-size: clamp(2.7rem, min(64cqw, 60cqh), 9rem);
 }
 
 .tvPlaying[data-players="5"] .tvScoreCard,
