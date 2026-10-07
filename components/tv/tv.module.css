@@ -455,16 +455,16 @@
 }
 
 .tvAvatarBoard {
-  width: clamp(40px, min(18cqw, 16cqh), 96px);
-  height: clamp(40px, min(18cqw, 16cqh), 96px);
-  font-size: clamp(14px, min(6cqw, 5.5cqh), 32px);
+  width: clamp(120px, min(54cqw, 48cqh), 288px);
+  height: clamp(120px, min(54cqw, 48cqh), 288px);
+  font-size: clamp(42px, min(18cqw, 16.5cqh), 96px);
   flex-shrink: 0;
 }
 
 .tvAvatarBoardCompact {
-  width: clamp(32px, min(22cqw, 12cqh), 64px);
-  height: clamp(32px, min(22cqw, 12cqh), 64px);
-  font-size: clamp(12px, min(8cqw, 5cqh), 22px);
+  width: clamp(96px, min(66cqw, 36cqh), 192px);
+  height: clamp(96px, min(66cqw, 36cqh), 192px);
+  font-size: clamp(36px, min(24cqw, 15cqh), 66px);
   flex-shrink: 0;
 }
 
