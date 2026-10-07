@@ -12,7 +12,6 @@ import { AnimatedNumber } from "@/components/game/AnimatedNumber";
 import { formatCheckoutHint } from "@/lib/darts/checkout";
 import { visitThrowSummary } from "@/lib/darts/format";
 import type { TvLivePayload } from "@/lib/tournament/tv-live";
-import { TvAvatar } from "./TvAvatar";
 import styles from "./tv.module.css";
 
 type Props = {
@@ -147,6 +146,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
             data-tv-player={p.userId}
             className={[
               styles.tvScoreCard,
+              p.photoUrl ? styles.tvScoreCardHasPhoto : "",
               dense ? styles.tvScoreCardStacked : "",
               p.active ? styles.tvScoreCardActive : "",
               pulseId === p.userId ? styles.tvScoreCardPulse : "",
@@ -155,6 +155,18 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
               .join(" ")}
             aria-current={p.active ? "true" : undefined}
           >
+            {p.photoUrl ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  className={styles.tvScoreCardBg}
+                  src={p.photoUrl}
+                  alt=""
+                  decoding="async"
+                />
+                <div className={styles.tvScoreCardScrim} aria-hidden />
+              </>
+            ) : null}
             <div className={styles.tvScoreCardInner} data-tv-inner>
               {p.active ? (
                 <div className={styles.tvCardDarts} aria-live="polite">
@@ -180,13 +192,6 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
               ) : null}
 
               <div className={styles.tvScoreCardTop}>
-                <TvAvatar
-                  name={p.name}
-                  photoUrl={p.photoUrl}
-                  size={
-                    p.active ? "board" : dense ? "boardCompact" : "board"
-                  }
-                />
                 <div className={styles.tvScoreCardMeta}>
                   <p className={styles.tvPlayerName}>{p.name}</p>
                   {p.active ? (

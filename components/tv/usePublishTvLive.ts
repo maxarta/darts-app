@@ -90,9 +90,19 @@ function idlePayload(matchId: string | null): TvLivePayload {
   };
 }
 
+/** Local Vite shares prod Supabase — never overwrite the live club TV board. */
+function canPublishRemoteTv(): boolean {
+  if (typeof window === "undefined") return false;
+  if (import.meta.env.DEV) return false;
+  const host = window.location.hostname;
+  return host !== "localhost" && host !== "127.0.0.1";
+}
+
 /**
  * Publishes live game state for TV.
  * Extended club only — temporary (guest) games never publish.
+ * Dev/localhost only writes localStorage so local TV works without
+ * stomping the production channel board.
  */
 export function usePublishTvLive(
   record: LocalGameRecord | null,
@@ -124,9 +134,12 @@ export function usePublishTvLive(
     if (!boardKey) return;
 
     let cancelled = false;
+    const publishRemote = canPublishRemoteTv();
 
     const post = (payload: TvLivePayload) => {
       writeTvLive(channelId, boardKey, payload);
+
+      if (!publishRemote) return;
 
       if (tournamentId) {
         void apiFetch<{ live: TvLivePayload | null }>(

@@ -554,11 +554,11 @@ export function TvScreen() {
         </aside>
       ) : null}
 
+      <TvScoreBursts active={scoreBursts} onRemove={removeScoreBurst} />
       <GameAchievements
         active={achievements}
         onRemove={removeAchievement}
       />
-      <TvScoreBursts active={scoreBursts} onRemove={removeScoreBurst} />
     </div>
   );
 }
