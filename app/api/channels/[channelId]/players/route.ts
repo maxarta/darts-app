@@ -4,7 +4,7 @@ import {
   createManualChannelPlayer,
 } from "@/lib/channel/manual-players";
 import { getChannelMembers } from "@/lib/db/channels";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 
 export async function GET(
   req: Request,

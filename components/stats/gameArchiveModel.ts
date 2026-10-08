@@ -4,7 +4,7 @@ import {
 } from "@/lib/stats/game-winners";
 import { isFinishedGameStatus } from "@/lib/game/status";
 import { getGameWinnerIds } from "@/lib/stats/player-stats";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 import type { StatsGamePlayer } from "@/components/stats/StatsGameLink";
 
 type GameUserRow = {

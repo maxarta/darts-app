@@ -3,7 +3,7 @@ import type { ThrowInput, Segment } from "@/lib/darts/rules";
 export type NativeBridgeMessage =
   | { type: "nativeReady"; supportsLidar: boolean }
   | { type: "pong"; supportsLidar: boolean; native: boolean }
-  | { type: "autoScoreReady"; lidar: boolean; supportsLidar: boolean }
+  | { type: "autoScoreReady"; lidar: boolean; ml?: boolean; supportsLidar: boolean }
   | { type: "autoScoreCancelled" }
   | { type: "autoScoreFallback"; reason: string; supportsLidar: boolean }
   | {
@@ -11,13 +11,19 @@ export type NativeBridgeMessage =
       input: { segment: Segment | number; multiplier: number };
       confidence?: number;
       source?: string;
-    };
+    }
+  /** LiDAR: visit complete, waiting until darts are pulled from the board. */
+  | { type: "waitingForRemoval" }
+  /** LiDAR: board looks empty again — safe to start next-player countdown. */
+  | { type: "boardCleared" };
 
 type DartsNativeAPI = {
   isNative: boolean;
   supportsLidar?: boolean;
   startAutoScore: () => void;
   stopAutoScore: () => void;
+  waitForRemoval?: () => void;
+  resumeListening?: () => void;
   ping?: () => void;
 };
 
@@ -70,6 +76,36 @@ export function nativeStopAutoScore(): void {
     window.DartsNative?.stopAutoScore?.();
     window.webkit?.messageHandlers?.dartsNative?.postMessage({
       type: "stopAutoScore",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Visit done — LiDAR should stop scoring and watch for darts being pulled. */
+export function nativeWaitForRemoval(): void {
+  try {
+    if (window.DartsNative?.waitForRemoval) {
+      window.DartsNative.waitForRemoval();
+      return;
+    }
+    window.webkit?.messageHandlers?.dartsNative?.postMessage({
+      type: "waitForRemoval",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Undo / cancel — LiDAR resumes listening for throws. */
+export function nativeResumeListening(): void {
+  try {
+    if (window.DartsNative?.resumeListening) {
+      window.DartsNative.resumeListening();
+      return;
+    }
+    window.webkit?.messageHandlers?.dartsNative?.postMessage({
+      type: "resumeListening",
     });
   } catch {
     /* ignore */

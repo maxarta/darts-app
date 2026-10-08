@@ -23,8 +23,7 @@ import * as tournamentLive from "@/app/api/tournaments/[tournamentId]/live/route
 import * as tournamentTvCode from "@/app/api/tournaments/[tournamentId]/tv-code/route";
 import * as tvByCode from "@/app/api/tv/[code]/route";
 import * as tvBoards from "@/app/api/tv/boards/[boardKey]/route";
-import * as telegramWebhook from "@/app/api/telegram/webhook/route";
-import * as telegramAvatar from "@/app/api/telegram/avatar/[telegramId]/route";
+import * as avatarById from "@/app/api/avatar/[userId]/route";
 import * as channelCurrent from "@/app/api/channels/[channelId]/current/route";
 import * as channelGames from "@/app/api/channels/[channelId]/games/route";
 import * as channelPlayers from "@/app/api/channels/[channelId]/players/route";
@@ -63,7 +62,6 @@ export function createApp() {
       origin: "*",
       allowHeaders: [
         "Content-Type",
-        "x-telegram-init-data",
         "x-web-auth",
         "x-dev-auth",
       ],
@@ -71,7 +69,7 @@ export function createApp() {
     })
   );
 
-  // Club avatars are JPEG data URLs (~512px for TV); allow up to 2MB JSON bodies.
+  // Club avatars are JPEG data URLs (~960px for TV); allow up to 2MB JSON bodies.
   app.use(
     "/api/channels/*/players",
     bodyLimit({
@@ -182,12 +180,15 @@ export function createApp() {
     })
   );
 
-  app.post("/api/telegram/webhook", (c) =>
-    call(telegramWebhook.POST, c.req.raw)
+  app.get("/api/avatar/:userId", (c) =>
+    call(avatarById.GET, c.req.raw, {
+      userId: c.req.param("userId"),
+    })
   );
-  app.get("/api/telegram/avatar/:telegramId", (c) =>
-    call(telegramAvatar.GET, c.req.raw, {
-      telegramId: c.req.param("telegramId"),
+  // Legacy path → same handler (club photos only).
+  app.get("/api/telegram/avatar/:userId", (c) =>
+    call(avatarById.GET, c.req.raw, {
+      userId: c.req.param("userId"),
     })
   );
 

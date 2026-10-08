@@ -5,14 +5,13 @@ import {
   WEB_CLUB_CHAT_ID,
 } from "@/lib/api/auth";
 import { getUserPhotoUrl, upsertUser } from "@/lib/db/users";
-import { pickPhotoUrlToStore } from "@/lib/telegram/user-photo";
+import { pickPhotoUrlToStore } from "@/lib/user-photo";
 import {
   ADMIN_ROLES,
   ensureChannel,
   registerChannelMember,
   type ChannelMemberRole,
 } from "@/lib/db/channels";
-import { parseStartParam } from "@/lib/telegram/init-data";
 import { isSupabaseConfigured } from "@/lib/supabase/server";
 
 export async function POST(req: Request) {
@@ -28,11 +27,6 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const startParam =
-      (body.startParam as string) ||
-      (body.start_param as string) ||
-      undefined;
-    const { channelChatId } = parseStartParam(startParam);
 
     await upsertUser(auth.ctx.user);
     const storedPhotoUrl = await getUserPhotoUrl(auth.ctx.user.id);
@@ -48,7 +42,7 @@ export async function POST(req: Request) {
     let channel = null;
     let isChannelAdmin = false;
     const web = isWebSession(auth.ctx.initData);
-    const chatId = channelChatId ?? (web ? WEB_CLUB_CHAT_ID : undefined);
+    const chatId = WEB_CLUB_CHAT_ID;
 
     if (chatId) {
       channel = await ensureChannel(
@@ -78,24 +72,14 @@ export async function POST(req: Request) {
     }
     if (
       message.includes("Invalid URL") ||
-      message.includes("SUPABASE_URL")
+      message.includes("SUPABASE") ||
+      message.includes("fetch failed")
     ) {
       return jsonError(
-        "Неверный SUPABASE_URL на сервере (нужен https://….supabase.co)",
+        "Не удалось подключиться к базе. Проверьте SUPABASE_URL на Vercel.",
         503
       );
     }
-    if (
-      message.includes("PGRST") ||
-      message.includes("relation") ||
-      message.includes("schema cache")
-    ) {
-      return jsonError(
-        "Таблицы в Supabase не созданы — выполните supabase/migrations/001_initial.sql",
-        503
-      );
-    }
-
     return jsonError(message, 500);
   }
 }

@@ -1,5 +1,5 @@
 import { HomeScreen } from "@/components/home/HomeScreen";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 
 export function HomePage() {
   const {
@@ -11,7 +11,7 @@ export function HomePage() {
     refreshSession,
     unlockExtended,
     switchToGuest,
-  } = useTelegram();
+  } = useSession();
 
   return (
     <HomeScreen

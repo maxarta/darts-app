@@ -28,7 +28,7 @@ import type { LocalGameRecord } from "@/lib/game/local/types";
 import { syncLocalGame } from "@/lib/game/sync/client";
 import { apiFetch } from "@/lib/api/client";
 import { GUEST_CLUB_CHAT_ID } from "@/lib/api/auth";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 import { syncPendingMembers } from "@/lib/offline/members-service";
 import { createAndSaveLocalGame } from "@/lib/game/local/create";
 import { hapticImpact } from "@/lib/haptic";
@@ -64,8 +64,10 @@ import {
 } from "@/lib/autoscore/sounds";
 import {
   isNativeShell,
+  nativeResumeListening,
   nativeStartAutoScore,
   nativeStopAutoScore,
+  nativeWaitForRemoval,
   parseNativeThrow,
   subscribeNativeBridge,
 } from "@/lib/autoscore/native-bridge";
@@ -75,7 +77,7 @@ const HANDOFF_SECONDS = 5;
 
 export function GameScreen({ gameId }: { gameId: string }) {
   const router = useRouter();
-  const { appMode, channel } = useTelegram();
+  const { appMode, channel } = useSession();
   const clubTvEnabled =
     appMode === "extended" &&
     channel != null &&
@@ -99,18 +101,31 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const [autoPhase, setAutoPhase] = useState<AutoScorePhase>("off");
   const [autoStream, setAutoStream] = useState<MediaStream | null>(null);
   const [autoCalib, setAutoCalib] = useState<BoardCalibration | null>(null);
+  /** ML keypoints path active (no manual circle calib). */
+  const [autoMl, setAutoMl] = useState(false);
+  const [autoMlFailed, setAutoMlFailed] = useState(false);
+  const [autoCalibProgress, setAutoCalibProgress] = useState<string | null>(
+    null
+  );
   const [autoCorrecting, setAutoCorrecting] = useState(false);
   const [autoCamError, setAutoCamError] = useState<string | null>(null);
   /** True when throws come from the iOS ARKit LiDAR shell (no web camera). */
   const [nativeLidar, setNativeLidar] = useState(false);
+  /** LiDAR: visit scored, waiting until darts are pulled before countdown. */
+  const [awaitingRemoval, setAwaitingRemoval] = useState(false);
   const [handoffLeft, setHandoffLeft] = useState<number | null>(null);
   const handoffTimerRef = useRef<number | null>(null);
   const autoCorrectingRef = useRef(false);
   const scoringLockedRef = useRef(false);
   const visitReadyRef = useRef(false);
+  const awaitingRemovalRef = useRef(false);
+  const nativeLidarRef = useRef(false);
   const autoPhaseRef = useRef<AutoScorePhase>("off");
+  const startHandoffCountdownRef = useRef<() => void>(() => {});
   autoCorrectingRef.current = autoCorrecting;
   autoPhaseRef.current = autoPhase;
+  awaitingRemovalRef.current = awaitingRemoval;
+  nativeLidarRef.current = nativeLidar;
 
   const persistGenRef = useRef(0);
   const persist = useCallback(async (next: LocalGameRecord) => {
@@ -331,9 +346,13 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
   const stopAutoScore = useCallback(() => {
     clearHandoff();
+    setAwaitingRemoval(false);
     nativeStopAutoScore();
     setAutoPhase("off");
     setAutoCalib(null);
+    setAutoMl(false);
+    setAutoMlFailed(false);
+    setAutoCalibProgress(null);
     setAutoCorrecting(false);
     setAutoCamError(null);
     setNativeLidar(false);
@@ -349,6 +368,10 @@ export function GameScreen({ gameId }: { gameId: string }) {
     setAutoCorrecting(false);
     setAutoCamError(null);
     setNativeLidar(false);
+    setAutoMl(false);
+    setAutoMlFailed(false);
+    setAutoCalibProgress("Загрузка модели…");
+    setAutoCalib(null);
 
     const media = navigator.mediaDevices;
     if (!media?.getUserMedia) {
@@ -429,7 +452,9 @@ export function GameScreen({ gameId }: { gameId: string }) {
   useEffect(() => {
     return subscribeNativeBridge((msg) => {
       if (msg.type === "autoScoreReady") {
-        setNativeLidar(Boolean(msg.lidar));
+        // Native shell (LiDAR or ML hybrid) shares visit/removal handoff.
+        setNativeLidar(Boolean(msg.lidar) || Boolean(msg.ml));
+        setAwaitingRemoval(false);
         setAutoCorrecting(false);
         setAutoCamError(null);
         setAutoPhase("active");
@@ -438,6 +463,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
       }
       if (msg.type === "autoScoreCancelled") {
         clearHandoff();
+        setAwaitingRemoval(false);
         setAutoPhase("off");
         setNativeLidar(false);
         setAutoCalib(null);
@@ -448,8 +474,15 @@ export function GameScreen({ gameId }: { gameId: string }) {
         return;
       }
       if (msg.type === "autoThrow") {
+        if (awaitingRemovalRef.current) return;
         const input = parseNativeThrow(msg.input);
         if (input) applyAutoThrow(input);
+        return;
+      }
+      if (msg.type === "boardCleared") {
+        setAwaitingRemoval(false);
+        hapticImpact("light");
+        startHandoffCountdownRef.current();
       }
     });
   }, [applyAutoThrow, clearHandoff, startWebCameraAutoScore]);
@@ -509,13 +542,16 @@ export function GameScreen({ gameId }: { gameId: string }) {
       playCountdownTickSound();
     }, 1000);
   }, [clearHandoff, endVisitNow]);
+  startHandoffCountdownRef.current = startHandoffCountdown;
 
   const onThrow = (input: ThrowInput, fromAuto = false) => {
     const prev = recordRef.current;
     if (!prev) return;
     if (!fromAuto && autoPhaseRef.current === "active") {
       setAutoCorrecting(true);
+      setAwaitingRemoval(false);
       clearHandoff();
+      if (nativeLidarRef.current) nativeResumeListening();
     }
     const next = localGameThrow(prev, input);
     if (!next) return;
@@ -525,7 +561,9 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const onUndo = () => {
     if (autoPhaseRef.current === "active") {
       setAutoCorrecting(true);
+      setAwaitingRemoval(false);
       clearHandoff();
+      if (nativeLidarRef.current) nativeResumeListening();
     }
     const prev = recordRef.current;
     if (!prev) return;
@@ -536,6 +574,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
   const onNextPlayer = () => {
     clearHandoff();
+    setAwaitingRemoval(false);
+    if (nativeLidarRef.current) nativeResumeListening();
     const ok = endVisitNow();
     if (ok) setAutoCorrecting(false);
   };
@@ -719,15 +759,19 @@ export function GameScreen({ gameId }: { gameId: string }) {
     }
   };
 
-  // Auto handoff: after a full visit with no manual corrections, wait 5s then pass.
+  // Auto handoff:
+  // - web camera: after a full visit → 5s countdown → next player
+  // - LiDAR: after a full visit → wait until darts are pulled → then countdown
   useEffect(() => {
     if (autoPhase !== "active" || !record) {
       clearHandoff();
+      setAwaitingRemoval(false);
       return;
     }
     const snap = record.snapshot;
     if (snap.game.status !== "active") {
       clearHandoff();
+      setAwaitingRemoval(false);
       return;
     }
     const throws = snap.activeVisitThrows;
@@ -753,19 +797,40 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
     if (autoCorrecting || showConfirm || victoryStats) {
       clearHandoff();
+      if (awaitingRemoval) {
+        setAwaitingRemoval(false);
+        if (nativeLidar) nativeResumeListening();
+      }
       return;
     }
-    if (ready) {
-      startHandoffCountdown();
-    } else {
+    if (!ready) {
       clearHandoff();
+      if (awaitingRemoval) {
+        setAwaitingRemoval(false);
+        if (nativeLidar) nativeResumeListening();
+      }
+      return;
     }
+    // Visit complete — wait for darts off board (native / ML), else countdown.
+    if (nativeLidar || autoMl) {
+      clearHandoff();
+      if (!awaitingRemoval && handoffLeft == null) {
+        setAwaitingRemoval(true);
+        if (nativeLidar) nativeWaitForRemoval();
+      }
+      return;
+    }
+    startHandoffCountdown();
   }, [
     autoPhase,
     autoCorrecting,
     record,
     victoryStats,
     victoryConfirmDismissed,
+    nativeLidar,
+    autoMl,
+    awaitingRemoval,
+    handoffLeft,
     clearHandoff,
     startHandoffCountdown,
   ]);
@@ -876,20 +941,28 @@ export function GameScreen({ gameId }: { gameId: string }) {
           : null;
 
   const autoBannerMode =
-    handoffLeft != null
-      ? ("countdown" as const)
-      : autoCorrecting
-        ? ("correcting" as const)
-        : ("listening" as const);
+    autoPhase === "calibrate" && autoCalibProgress
+      ? ("calibrating" as const)
+      : handoffLeft != null
+        ? ("countdown" as const)
+        : awaitingRemoval
+          ? ("removal" as const)
+          : autoCorrecting
+            ? ("correcting" as const)
+            : ("listening" as const);
 
   return (
     <div className={styles.gameScreen} data-game-screen>
-      {!nativeLidar && autoPhase === "calibrate" && autoStream ? (
+      {!nativeLidar &&
+      autoPhase === "calibrate" &&
+      autoStream &&
+      (autoMlFailed || autoCalibProgress == null) ? (
         <AutoScoreCalibrate
           stream={autoStream}
           onCancel={stopAutoScore}
           onConfirm={(calib) => {
             setAutoCalib(calib);
+            setAutoMl(false);
             setAutoCorrecting(false);
             setAutoPhase("active");
             hapticImpact("medium");
@@ -897,17 +970,52 @@ export function GameScreen({ gameId }: { gameId: string }) {
         />
       ) : null}
 
-      {!nativeLidar && autoPhase === "active" && autoStream && autoCalib ? (
+      {!nativeLidar &&
+      autoStream &&
+      (autoPhase === "calibrate" || autoPhase === "active") ? (
         <AutoScoreEngine
           stream={autoStream}
           calibration={autoCalib}
+          preferMl={!autoMlFailed}
+          waitForRemoval={awaitingRemoval && autoMl}
           enabled={
+            autoPhase === "active" &&
             !scoringLocked &&
             !autoCorrecting &&
             !finished &&
-            handoffLeft == null
+            handoffLeft == null &&
+            !awaitingRemoval
           }
           onDetect={onAutoDetect}
+          onMlUnavailable={() => {
+            setAutoMlFailed(true);
+            setAutoMl(false);
+            setAutoCalibProgress(null);
+          }}
+          onMlEvent={(e) => {
+            if (e.type === "calibProgress") {
+              setAutoCalibProgress(
+                `Калибровка ${e.locked ?? 0}/${e.need ?? 10}`
+              );
+              return;
+            }
+            if (e.type === "ready") {
+              setAutoMl(true);
+              setAutoCalibProgress(null);
+              setAutoPhase("active");
+              hapticImpact("medium");
+              return;
+            }
+            if (e.type === "waitRemoval") {
+              setAwaitingRemoval(true);
+              return;
+            }
+            if (e.type === "boardCleared") {
+              setAwaitingRemoval(false);
+              hapticImpact("light");
+              startHandoffCountdownRef.current();
+            }
+          }}
         />
       ) : null}
 
@@ -976,11 +1084,16 @@ export function GameScreen({ gameId }: { gameId: string }) {
           }
         />
 
-        {autoPhase === "active" && !finished ? (
+        {(autoPhase === "active" ||
+          (autoPhase === "calibrate" && Boolean(autoCalibProgress))) &&
+        !finished ? (
           <AutoScoreBanner
             mode={autoBannerMode}
             secondsLeft={handoffLeft ?? undefined}
             lidar={nativeLidar}
+            detail={
+              autoBannerMode === "calibrating" ? autoCalibProgress : null
+            }
             onStop={stopAutoScore}
           />
         ) : null}

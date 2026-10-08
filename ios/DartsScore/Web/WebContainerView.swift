@@ -11,6 +11,7 @@ struct WebContainerView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let userContent = WKUserContentController()
         userContent.add(context.coordinator, name: NativeBridge.handlerName)
+        userContent.addUserScript(NativeBridge.bootstrapScript)
 
         let config = WKWebViewConfiguration()
         config.userContentController = userContent
@@ -23,11 +24,18 @@ struct WebContainerView: UIViewRepresentable {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.scrollView.bounces = false
+        // Let UIKit respect safe area for the scroll view chrome; page itself
+        // sits in the safe rect because SwiftUI does not ignoreSafeArea here.
         webView.scrollView.contentInsetAdjustmentBehavior = .never
-        webView.isOpaque = false
-        webView.backgroundColor = UIColor(red: 0.07, green: 0.07, blue: 0.07, alpha: 1)
+        webView.scrollView.contentInset = .zero
+        webView.isOpaque = true
+        webView.backgroundColor = AppTheme.uiBackground
+        webView.scrollView.backgroundColor = AppTheme.uiBackground
+        if #available(iOS 15.0, *) {
+            webView.underPageBackgroundColor = AppTheme.uiBackground
+        }
 
-        bridge.attach(to: webView)
+        bridge.webView = webView
         context.coordinator.webView = webView
 
         var request = URLRequest(url: bridge.startURL)
@@ -41,6 +49,7 @@ struct WebContainerView: UIViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         let bridge: NativeBridge
         weak var webView: WKWebView?
+        private var didRetry = false
 
         init(bridge: NativeBridge) {
             self.bridge = bridge
@@ -54,11 +63,35 @@ struct WebContainerView: UIViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            bridge.attach(to: webView)
+            bridge.webView = webView
             bridge.sendToWeb([
                 "type": "nativeReady",
                 "supportsLidar": LidarSession.supportsSceneDepth,
             ])
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFail navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            retryIfNeeded(webView)
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            didFailProvisionalNavigation navigation: WKNavigation!,
+            withError error: Error
+        ) {
+            retryIfNeeded(webView)
+        }
+
+        private func retryIfNeeded(_ webView: WKWebView) {
+            guard !didRetry else { return }
+            didRetry = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                webView.load(URLRequest(url: self.bridge.startURL))
+            }
         }
     }
 }

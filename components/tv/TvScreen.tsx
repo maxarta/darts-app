@@ -25,8 +25,8 @@ import { tournamentBoardKey } from "@/lib/tournament/tv-board-key";
 import { normalizeTournamentVariant } from "@/lib/tournament/variant";
 import {
   resolveStoredPhotoUrl,
-  telegramAvatarPath,
-} from "@/lib/telegram/user-photo";
+  avatarPath,
+} from "@/lib/user-photo";
 import {
   TvTournamentSheet,
   type TvTournamentData,
@@ -439,7 +439,7 @@ export function TvScreen() {
         name: (user?.first_name ?? String(uid)).toUpperCase().slice(0, 18),
         photoUrl:
           resolveStoredPhotoUrl(uid, user?.photo_url) ??
-          telegramAvatarPath(uid),
+          avatarPath(uid),
       };
     };
     return {

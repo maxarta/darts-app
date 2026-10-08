@@ -8,7 +8,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import {
   resolveStoredPhotoUrl,
   syncUserProfilePhoto,
-} from "@/lib/telegram/user-photo";
+} from "@/lib/user-photo";
 
 export async function GET(req: Request) {
   try {

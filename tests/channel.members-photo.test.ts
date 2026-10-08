@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { photoFor, type MemberUser } from "@/lib/channel/members";
 
 describe("photoFor", () => {
-  it("prefers stored roster photo over session Telegram photo", () => {
+  it("prefers stored roster photo over session photo", () => {
     const user: MemberUser = {
       first_name: "Max",
       username: null,
@@ -10,9 +10,9 @@ describe("photoFor", () => {
     };
     const session = {
       id: 1,
-      photo_url: "https://t.me/i/userpic/1.jpg",
+      photo_url: "https://example.com/session.jpg",
     };
-    expect(photoFor(1, user, session)).toBe("data:image/jpeg;base64,abc");
+    expect(photoFor(1, user, session)).toBe("/api/avatar/1");
   });
 
   it("falls back to session photo when roster has none", () => {
@@ -23,8 +23,8 @@ describe("photoFor", () => {
     };
     const session = {
       id: 1,
-      photo_url: "https://t.me/i/userpic/1.jpg",
+      photo_url: "data:image/jpeg;base64,abc",
     };
-    expect(photoFor(1, user, session)).toBe("https://t.me/i/userpic/1.jpg");
+    expect(photoFor(1, user, session)).toBe("/api/avatar/1");
   });
 });

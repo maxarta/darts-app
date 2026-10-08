@@ -13,7 +13,7 @@ import {
 } from "react";
 import { apiFetch } from "@/lib/api/client";
 import { displayName, type MemberUser } from "@/lib/channel/members";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 import {
   buildPlayoffDisplay,
   getPlayoffBracketRounds,
@@ -29,7 +29,7 @@ import {
   buildPlayerMetas,
   createAndSaveLocalGame,
 } from "@/lib/game/local/create";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 import { AppBackButton } from "@/components/AppBackButton";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { roundRobinWinnerId } from "@/lib/tournament/round-robin";
@@ -181,7 +181,7 @@ export function TournamentScreen({ tournamentId }: Props) {
   const searchParams = useSearchParams();
   const channelId = searchParams.get("channelId") ?? "";
   const variantFromUrl = searchParams.get("variant");
-  const { session } = useTelegram();
+  const { session } = useSession();
 
   const [data, setData] = useState<TournamentData | null>(() =>
     readTournamentCache<TournamentData>(tournamentId)

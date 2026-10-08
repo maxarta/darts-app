@@ -1,25 +1,22 @@
-import {
-  validateInitData,
-  type TelegramUser,
-} from "@/lib/telegram/init-data";
+export type AppUser = {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+};
 
 export type AuthContext = {
-  user: TelegramUser;
+  user: AppUser;
+  /** Always `"web"` after Telegram removal. */
   initData: string;
 };
 
-/** Local club chat id used for plain web sessions (not a Telegram chat). */
+/** Local club chat id used for plain web sessions. */
 export const WEB_CLUB_CHAT_ID = -1000000000001;
 
 /** Synthetic chat id for temporary (guest) local-only sessions. */
 export const GUEST_CLUB_CHAT_ID = -1000000000002;
-
-export function getInitDataFromRequest(req: Request): string | null {
-  const header = req.headers.get("x-telegram-init-data");
-  if (header) return header;
-  const url = new URL(req.url);
-  return url.searchParams.get("initData");
-}
 
 function isWebAuthHeader(req: Request): boolean {
   const web = req.headers.get("x-web-auth");
@@ -27,13 +24,8 @@ function isWebAuthHeader(req: Request): boolean {
   return web === "local" || legacy === "local";
 }
 
-/** Browser / web app guest — no Telegram required. */
-function webAuthUser(req: Request): TelegramUser | null {
-  if (!isWebAuthHeader(req)) return null;
-  // Prefer Telegram when both are present
-  const initData = getInitDataFromRequest(req);
-  if (initData && initData.length > 0 && initData !== "dev") return null;
-
+/** Browser / web app session — no Telegram. */
+function webAuthUser(): AppUser {
   return {
     id: 1,
     first_name: "Игрок",
@@ -43,27 +35,11 @@ function webAuthUser(req: Request): TelegramUser | null {
 export function authenticateRequest(
   req: Request
 ): { ok: true; ctx: AuthContext } | { ok: false; error: string; status: number } {
-  const webUser = webAuthUser(req);
-  if (webUser) {
-    return { ok: true, ctx: { user: webUser, initData: "web" } };
-  }
-
-  const initData = getInitDataFromRequest(req);
-  if (!initData) {
+  if (!isWebAuthHeader(req)) {
     return { ok: false, error: "Missing auth", status: 401 };
   }
 
-  const botToken = process.env.BOT_TOKEN?.trim();
-  if (!botToken) {
-    return { ok: false, error: "Server misconfigured", status: 500 };
-  }
-
-  const { valid, user } = validateInitData(initData, botToken);
-  if (!valid || !user) {
-    return { ok: false, error: "Invalid init data", status: 401 };
-  }
-
-  return { ok: true, ctx: { user, initData } };
+  return { ok: true, ctx: { user: webAuthUser(), initData: "web" } };
 }
 
 export function isWebSession(initData: string): boolean {

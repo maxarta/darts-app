@@ -21,7 +21,7 @@ import type { ThrowInput } from "@/lib/darts/rules";
 import { formatStatsPlayerSummary } from "@/lib/i18n/ru-plural";
 import { isMultiplayerGame } from "@/lib/game/multiplayer";
 import { getGameLegsPlayed } from "@/lib/stats/game-winners";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 
 type PlayerProfile = {
   name: string;

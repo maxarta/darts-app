@@ -1,13 +1,14 @@
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import type { TelegramUser } from "@/lib/telegram/init-data";
+import type { AppUser } from "@/lib/api/auth";
 import {
   isCustomClubPhoto,
   pickPhotoUrlToStore,
   shouldPreserveClubDisplayName,
   syncUserProfilePhoto,
-} from "@/lib/telegram/user-photo";
+} from "@/lib/user-photo";
 
 export type StoredUserProfile = {
+  /** Legacy column name in Supabase (`users.telegram_id`). */
   telegram_id: number;
   first_name: string;
   username: string | null;
@@ -15,32 +16,32 @@ export type StoredUserProfile = {
 };
 
 export async function getUserPhotoUrl(
-  telegramId: number
+  userId: number
 ): Promise<string | null> {
-  const profile = await getUserProfile(telegramId);
+  const profile = await getUserProfile(userId);
   return profile?.photo_url ?? null;
 }
 
 export async function getUserProfile(
-  telegramId: number
+  userId: number
 ): Promise<StoredUserProfile | null> {
   const db = getSupabaseAdmin();
   const { data, error } = await db
     .from("users")
     .select("telegram_id, first_name, username, photo_url")
-    .eq("telegram_id", telegramId)
+    .eq("telegram_id", userId)
     .maybeSingle();
   if (error) throw error;
   if (!data) return null;
   return {
     telegram_id: data.telegram_id as number,
-    first_name: (data.first_name as string) ?? String(telegramId),
+    first_name: (data.first_name as string) ?? String(userId),
     username: (data.username as string | null) ?? null,
     photo_url: (data.photo_url as string | null) ?? null,
   };
 }
 
-export async function upsertUser(user: TelegramUser) {
+export async function upsertUser(user: AppUser) {
   const db = getSupabaseAdmin();
   const existing = await getUserProfile(user.id);
   const existingPhotoUrl = existing?.photo_url ?? null;
@@ -70,14 +71,12 @@ export async function upsertUser(user: TelegramUser) {
     });
     if (error) throw error;
   } else if (isCustomClubPhoto(existingPhotoUrl)) {
-    // Club-edited avatar must never be wiped by session / Telegram upsert.
     const { error } = await db
       .from("users")
       .update(nameFields)
       .eq("telegram_id", user.id);
     if (error) throw error;
   } else {
-    // Re-read: a concurrent club photo PATCH may have landed after our first read.
     const freshPhoto = await getUserPhotoUrl(user.id);
     if (isCustomClubPhoto(freshPhoto)) {
       const { error } = await db

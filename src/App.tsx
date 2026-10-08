@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import { ExtendedOnly } from "@/components/ExtendedOnly";
 import { SyncOnOnline } from "@/components/game/SyncOnOnline";
-import { TelegramProvider } from "@/components/TelegramProvider";
+import { SessionProvider } from "@/components/SessionProvider";
 import { HomePage } from "@/src/pages/HomePage";
 import { NewGamePage } from "@/src/pages/NewGamePage";
 import { GamePage } from "@/src/pages/GamePage";
@@ -16,7 +16,7 @@ import { TvPage } from "@/src/pages/TvPage";
 
 export function App() {
   return (
-    <TelegramProvider>
+    <SessionProvider>
       <SyncOnOnline />
       <div className="appShell">
         <Routes>
@@ -83,6 +83,6 @@ export function App() {
           />
         </Routes>
       </div>
-    </TelegramProvider>
+    </SessionProvider>
   );
 }

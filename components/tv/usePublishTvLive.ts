@@ -12,8 +12,8 @@ import {
 import {
   isCustomClubPhoto,
   resolveStoredPhotoUrl,
-  telegramAvatarPath,
-} from "@/lib/telegram/user-photo";
+  avatarPath,
+} from "@/lib/user-photo";
 import {
   writeTvLive,
   type TvLivePayload,
@@ -28,7 +28,7 @@ function playerPhotoUrl(
 ): string {
   const resolved = resolveStoredPhotoUrl(userId, fromMeta);
   if (resolved && !isCustomClubPhoto(resolved)) return resolved;
-  return telegramAvatarPath(userId);
+  return avatarPath(userId);
 }
 
 function buildPayload(

@@ -37,6 +37,9 @@ export function TvAvatar({ name, photoUrl, size = "default" }: Props) {
           src={photoUrl!}
           alt=""
           className={styles.tvAvatarImg}
+          decoding="async"
+          // Hint browsers to fetch a sharper decode for large TV surfaces.
+          sizes="(min-width: 1200px) 220px, 160px"
           onError={() => setFailed(true)}
         />
       ) : (

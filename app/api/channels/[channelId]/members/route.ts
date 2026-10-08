@@ -1,12 +1,7 @@
-import { authenticateRequest, isWebSession, jsonError } from "@/lib/api/auth";
-import { isManualPlayerId } from "@/lib/channel/manual-players";
+import { authenticateRequest, jsonError } from "@/lib/api/auth";
 import { getChannelMembers } from "@/lib/db/channels";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
-import {
-  isCustomClubPhoto,
-  resolveStoredPhotoUrl,
-  syncUserProfilePhotos,
-} from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 
 export async function GET(
   req: Request,
@@ -28,27 +23,6 @@ export async function GET(
   if (!member) return jsonError("Not a channel member", 403);
 
   const members = await getChannelMembers(channelId);
-
-  // Skip Telegram photo sync for web club + manual/club-edited avatars (data URLs).
-  if (!isWebSession(auth.ctx.initData)) {
-    const toSync = members.flatMap((m) => {
-      const u = Array.isArray(m.users) ? m.users[0] : m.users;
-      if (!u) return [];
-      const userId = m.user_id as number;
-      if (isManualPlayerId(userId) || isCustomClubPhoto(u.photo_url)) return [];
-      return [
-        {
-          id: userId,
-          photo_url: u.photo_url ?? undefined,
-          existingPhotoUrl: u.photo_url ?? null,
-        },
-      ];
-    });
-
-    void syncUserProfilePhotos(toSync).catch((e) =>
-      console.warn("[channels/members] sync photos", e)
-    );
-  }
 
   const membersWithPhotos = members.map((m) => {
     const u = Array.isArray(m.users) ? m.users[0] : m.users;

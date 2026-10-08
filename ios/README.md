@@ -2,14 +2,16 @@
 
 Нативный контейнер вокруг https://artdart.vercel.app с **ARKit `sceneDepth`**.
 
-В Safari/Telegram LiDAR недоступен. Этот таргет нужен для iPhone **Pro** (12 Pro и новее).
+В Safari LiDAR недоступен. Этот таргет нужен для iPhone **Pro** (12 Pro и новее).
 
 ## Что делает
 
 1. `WKWebView` грузит прод (или локальный URL).
 2. Кнопка камеры в игре вызывает `DartsNative.startAutoScore()`.
 3. Открывается ARKit-экран: вертикальная плоскость + mesh, тап в булл.
-4. После «Готово» LiDAR следит за глубиной у мишени и шлёт `autoThrow` → веб-скоринг.
+4. После «Готово» работает схема как у DartsMind: **счёт в 2D по RGB** (tip в кадре →
+   круг мишени). LiDAR только задаёт масштаб (170 мм → radius в пикселях), проверяет
+   глубину у типа и детектит «достали дротики». Шлёт `autoThrow` → веб-скоринг.
 5. На не-Pro девайсе web получает `autoScoreFallback` и включает обычную камеру.
 
 ## Требования
@@ -51,13 +53,14 @@ defaults write app.artdart.score DartsStartURL -string "http://<mac-ip>:5173"
 | `DartsScore/Bridge/NativeBridge.swift` | JS ↔ Swift |
 | `DartsScore/LiDAR/LidarSession.swift` | ARKit session |
 | `DartsScore/LiDAR/LidarCalibrateView.swift` | UI калибровки |
-| `DartsScore/LiDAR/DartScorer.swift` | depth → throw |
+| `DartsScore/LiDAR/DartScorer.swift` | RGB+LiDAR fusion → throw |
+| `DartsScore/LiDAR/RgbMotionDetector.swift` | frame-diff tip on capturedImage |
 | `DartsScore/LiDAR/BoardPlaneEstimator.swift` | plane + score math |
 
 Веб-сторона: `lib/autoscore/native-bridge.ts` + `GameScreen`.
 
 ## Ограничения
 
-- Скоринг по depth-диспаритету — MVP; для прод-точности позже подключить RGB tip-модель (Core ML) поверх той же плоскости.
-- Нужен стабильный свет и штатив ~1–2 м.
-- Сборка/подпись только с Mac — в этом cloud-агенте Xcode нет.
+- RGB tip — motion/frame-diff (как веб-MVP), не нейросеть; в темноте RGB слабее, LiDAR держит fallback.
+- Штатив ~1.5–2.5 м напротив мишени заметно точнее.
+- Сборка/подпись только с Mac.

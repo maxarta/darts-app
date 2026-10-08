@@ -12,7 +12,7 @@ import styles from "@/components/stats/statsScreen.module.css";
 import { Button } from "@/components/ui/Button";
 import { statsFetchMessage } from "@/components/stats/statsFetchError";
 import type { ThrowInput } from "@/lib/darts/rules";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 import { loadPlayerStatsOfflineFirst } from "@/lib/offline/stats-service";
 
 type PlayerStats = {
@@ -26,7 +26,7 @@ type PlayerStats = {
 function StatsContent() {
   const params = useSearchParams();
   const channelId = params.get("channelId") ?? "";
-  const { session } = useTelegram();
+  const { session } = useSession();
   const userId = session?.user.id;
 
   const [stats, setStats] = useState<PlayerStats | null>(null);

@@ -1,7 +1,7 @@
 import { defaultSettings, type GameSettings } from "@/lib/darts/rules";
 import type { GameSnapshot } from "@/lib/game/optimistic";
 import type { GameTournamentContext } from "@/lib/tournament/game-context";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 import type { LocalGameMeta, LocalPlayerMeta } from "./types";
 
 export function buildPlayerMetas(

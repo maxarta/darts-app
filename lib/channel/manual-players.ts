@@ -1,7 +1,7 @@
 import { MAX_PHOTO_DATA_URL_CHARS } from "@/lib/channel/player-photo";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 
-/** Manual (non-Telegram) player IDs are negative — Telegram IDs are always positive. */
+/** Manual player IDs are negative — club/web user ids are positive. */
 export function isManualPlayerId(userId: number): boolean {
   return Number.isFinite(userId) && userId < 0;
 }

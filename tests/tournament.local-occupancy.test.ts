@@ -103,9 +103,9 @@ describe("tournament local match occupancy", () => {
     });
   });
 
-  it("does not sync cancelled tournament games", () => {
+  it("marks cancelled tournament games for sync", () => {
     const cancelled = localGameCancel(baseRecord());
     expect(cancelled.snapshot.game.status).toBe("cancelled");
-    expect(needsSync(cancelled)).toBe(false);
+    expect(needsSync(cancelled)).toBe(true);
   });
 });

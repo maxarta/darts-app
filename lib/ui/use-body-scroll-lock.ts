@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 /**
  * Lock background scroll while a modal is open.
- * Avoid position:fixed on body — it breaks Telegram/iOS after navigation.
+ * Avoid position:fixed on body — it breaks iOS Safari after navigation.
  */
 export function useBodyScrollLock(locked = true) {
   useEffect(() => {

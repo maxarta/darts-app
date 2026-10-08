@@ -7,25 +7,60 @@ import Combine
 final class NativeBridge: NSObject, ObservableObject {
     static let handlerName = "dartsNative"
 
+    /// Injected into WKUserContentController before WKWebView is created.
+    static var bootstrapScript: WKUserScript {
+        let js = """
+        (function(){
+          if (window.__dartsNativeBridgeInstalled) return;
+          window.__dartsNativeBridgeInstalled = true;
+          window.DartsNative = {
+            isNative: true,
+            supportsLidar: true,
+            startAutoScore: function(){
+              window.webkit.messageHandlers.dartsNative.postMessage({type:'startAutoScore'});
+            },
+            stopAutoScore: function(){
+              window.webkit.messageHandlers.dartsNative.postMessage({type:'stopAutoScore'});
+            },
+            waitForRemoval: function(){
+              window.webkit.messageHandlers.dartsNative.postMessage({type:'waitForRemoval'});
+            },
+            resumeListening: function(){
+              window.webkit.messageHandlers.dartsNative.postMessage({type:'resumeListening'});
+            },
+            ping: function(){
+              window.webkit.messageHandlers.dartsNative.postMessage({type:'ping'});
+            }
+          };
+          window.__dartsNative = window.__dartsNative || {};
+          document.dispatchEvent(new CustomEvent('darts-native-ready', {
+            detail: { supportsLidar: true }
+          }));
+        })();
+        """
+        return WKUserScript(
+            source: js,
+            injectionTime: .atDocumentStart,
+            forMainFrameOnly: true
+        )
+    }
+
     @Published var showLidarCalibrate = false
 
     weak var webView: WKWebView?
 
     var onStartAutoScore: (() -> Void)?
     var onStopAutoScore: (() -> Void)?
+    var onWaitForRemoval: (() -> Void)?
+    var onResumeListening: (() -> Void)?
 
-    /// App URL loaded in the shell. Override via scheme query `?url=` for local dev.
+    /// App URL loaded in the shell. Override via UserDefaults `DartsStartURL`.
     var startURL: URL {
         if let override = UserDefaults.standard.string(forKey: "DartsStartURL"),
            let url = URL(string: override) {
             return url
         }
         return URL(string: "https://artdart.vercel.app")!
-    }
-
-    func attach(to webView: WKWebView) {
-        self.webView = webView
-        injectBootstrap()
     }
 
     func handleMessage(body: Any) {
@@ -37,6 +72,10 @@ final class NativeBridge: NSObject, ObservableObject {
             onStartAutoScore?()
         case "stopAutoScore":
             onStopAutoScore?()
+        case "waitForRemoval":
+            onWaitForRemoval?()
+        case "resumeListening":
+            onResumeListening?()
         case "ping":
             sendToWeb([
                 "type": "pong",
@@ -54,38 +93,6 @@ final class NativeBridge: NSObject, ObservableObject {
               let json = String(data: data, encoding: .utf8) else { return }
         let js = "window.__dartsNative && window.__dartsNative.onNativeMessage(\(json));"
         webView.evaluateJavaScript(js, completionHandler: nil)
-    }
-
-    private func injectBootstrap() {
-        let js = """
-        (function(){
-          if (window.__dartsNativeBridgeInstalled) return;
-          window.__dartsNativeBridgeInstalled = true;
-          window.DartsNative = {
-            isNative: true,
-            supportsLidar: true,
-            startAutoScore: function(){
-              window.webkit.messageHandlers.dartsNative.postMessage({type:'startAutoScore'});
-            },
-            stopAutoScore: function(){
-              window.webkit.messageHandlers.dartsNative.postMessage({type:'stopAutoScore'});
-            },
-            ping: function(){
-              window.webkit.messageHandlers.dartsNative.postMessage({type:'ping'});
-            }
-          };
-          window.__dartsNative = window.__dartsNative || {};
-          document.dispatchEvent(new CustomEvent('darts-native-ready', {
-            detail: { supportsLidar: true }
-          }));
-        })();
-        """
-        let script = WKUserScript(
-            source: js,
-            injectionTime: .atDocumentStart,
-            forMainFrameOnly: true
-        )
-        webView?.configuration.userContentController.addUserScript(script)
     }
 }
 

@@ -1,104 +1,15 @@
-// server/app.ts
-import { Hono } from "hono";
-import { cors } from "hono/cors";
-
-// lib/telegram/init-data.ts
-import crypto from "crypto";
-function parseInitData(initData) {
-  const params = new URLSearchParams(initData);
-  const result = {};
-  params.forEach((value, key) => {
-    result[key] = value;
-  });
-  return result;
-}
-function validateInitData(initData, botToken) {
-  if (!initData || !botToken) {
-    return { valid: false };
-  }
-  const params = parseInitData(initData);
-  const hash = params.hash;
-  if (!hash) return { valid: false };
-  const dataCheckString = Object.keys(params).filter((k) => k !== "hash").sort().map((k) => `${k}=${params[k]}`).join("\n");
-  const secretKey = crypto.createHmac("sha256", "WebAppData").update(botToken).digest();
-  const calculatedHash = crypto.createHmac("sha256", secretKey).update(dataCheckString).digest("hex");
-  if (calculatedHash !== hash) {
-    return { valid: false };
-  }
-  const authDate = Number(params.auth_date);
-  if (authDate && Date.now() / 1e3 - authDate > 86400) {
-    return { valid: false };
-  }
-  let user;
-  if (params.user) {
-    try {
-      user = JSON.parse(params.user);
-    } catch {
-      return { valid: false };
-    }
-  }
-  return { valid: true, user };
-}
-function parseStartParam(startParam) {
-  if (!startParam) return {};
-  const match = startParam.match(/^ch_(-?\d+)$/);
-  if (match) {
-    return { channelChatId: Number(match[1]) };
-  }
-  return {};
-}
-
-// lib/api/auth.ts
-var WEB_CLUB_CHAT_ID = -1000000000001;
-function getInitDataFromRequest(req) {
-  const header = req.headers.get("x-telegram-init-data");
-  if (header) return header;
-  const url = new URL(req.url);
-  return url.searchParams.get("initData");
-}
-function isWebAuthHeader(req) {
-  const web = req.headers.get("x-web-auth");
-  const legacy = req.headers.get("x-dev-auth");
-  return web === "local" || legacy === "local";
-}
-function webAuthUser(req) {
-  if (!isWebAuthHeader(req)) return null;
-  const initData = getInitDataFromRequest(req);
-  if (initData && initData.length > 0 && initData !== "dev") return null;
-  return {
-    id: 1,
-    first_name: "\u0418\u0433\u0440\u043E\u043A"
-  };
-}
-function authenticateRequest(req) {
-  const webUser = webAuthUser(req);
-  if (webUser) {
-    return { ok: true, ctx: { user: webUser, initData: "web" } };
-  }
-  const initData = getInitDataFromRequest(req);
-  if (!initData) {
-    return { ok: false, error: "Missing auth", status: 401 };
-  }
-  const botToken = process.env.BOT_TOKEN?.trim();
-  if (!botToken) {
-    return { ok: false, error: "Server misconfigured", status: 500 };
-  }
-  const { valid, user } = validateInitData(initData, botToken);
-  if (!valid || !user) {
-    return { ok: false, error: "Invalid init data", status: 401 };
-  }
-  return { ok: true, ctx: { user, initData } };
-}
-function isWebSession(initData) {
-  return initData === "web" || initData === "dev";
-}
-function jsonError(message, status) {
-  return Response.json({ error: message }, { status });
-}
+var __defProp = Object.defineProperty;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __esm = (fn, res) => function __init() {
+  return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
 
 // lib/supabase/server.ts
 import { createClient } from "@supabase/supabase-js";
-var adminClient = null;
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -117,337 +28,15 @@ function isSupabaseConfigured() {
     process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
   );
 }
-
-// lib/telegram/bot.ts
-import { Bot } from "grammy";
-var bot = null;
-function getTelegramBot() {
-  const token = process.env.BOT_TOKEN;
-  if (!token) throw new Error("BOT_TOKEN is required");
-  if (!bot) {
-    bot = new Bot(token);
+var adminClient;
+var init_server = __esm({
+  "lib/supabase/server.ts"() {
+    "use strict";
+    adminClient = null;
   }
-  return bot;
-}
-
-// lib/telegram/user-photo.ts
-function telegramAvatarPath(telegramId) {
-  return `/api/telegram/avatar/${telegramId}`;
-}
-function isCustomClubPhoto(photoUrl) {
-  return Boolean(photoUrl?.startsWith("data:image/"));
-}
-function shouldPreserveClubDisplayName(existing, telegramFirstName) {
-  if (!existing) return false;
-  if (isCustomClubPhoto(existing.photo_url)) return true;
-  if (existing.username == null && existing.first_name.trim().length > 0 && existing.first_name !== telegramFirstName) {
-    return true;
-  }
-  return false;
-}
-function resolveStoredPhotoUrl(_userId, photoUrl) {
-  if (!photoUrl || photoUrl.length === 0) return null;
-  if (photoUrl.startsWith("/api/telegram/avatar/")) return null;
-  return photoUrl;
-}
-function botFileUrl(filePath) {
-  const token = process.env.BOT_TOKEN?.trim();
-  if (!token) throw new Error("BOT_TOKEN is required");
-  return `https://api.telegram.org/file/bot${token}/${filePath}`;
-}
-async function getTelegramProfilePhotoFileUrl(telegramUserId) {
-  try {
-    const bot2 = getTelegramBot();
-    const photos = await bot2.api.getUserProfilePhotos(telegramUserId, {
-      limit: 1
-    });
-    if (!photos.total_count || photos.photos.length === 0) return null;
-    const sizes = photos.photos[0];
-    const largest = sizes[sizes.length - 1];
-    if (!largest) return null;
-    const file = await bot2.api.getFile(largest.file_id);
-    if (!file.file_path) return null;
-    return botFileUrl(file.file_path);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    if (!msg.includes("user not found")) {
-      console.warn("[telegram/user-photo] getUserProfilePhotos", telegramUserId, e);
-    }
-    return null;
-  }
-}
-function isPublicPhotoUrl(url) {
-  return url.startsWith("https://") && !url.includes("/bot") && !url.includes("api.telegram.org/file/bot");
-}
-function pickPhotoUrlToStore(telegramId, initPhotoUrl, existingPhotoUrl) {
-  if (isCustomClubPhoto(existingPhotoUrl)) {
-    return existingPhotoUrl;
-  }
-  if (initPhotoUrl && isPublicPhotoUrl(initPhotoUrl)) return initPhotoUrl;
-  if (existingPhotoUrl && isPublicPhotoUrl(existingPhotoUrl)) {
-    return existingPhotoUrl;
-  }
-  if (existingPhotoUrl?.startsWith("/api/telegram/avatar/")) {
-    return existingPhotoUrl;
-  }
-  return telegramAvatarPath(telegramId);
-}
-async function resolveAvatarUpstreamUrl(telegramId, storedPhotoUrl) {
-  const fileUrl = await getTelegramProfilePhotoFileUrl(telegramId);
-  if (fileUrl) return fileUrl;
-  if (storedPhotoUrl && isPublicPhotoUrl(storedPhotoUrl)) {
-    return storedPhotoUrl;
-  }
-  return null;
-}
-async function syncUserProfilePhoto(user, existingPhotoUrl) {
-  if (isCustomClubPhoto(existingPhotoUrl)) {
-    return existingPhotoUrl;
-  }
-  const db = getSupabaseAdmin();
-  const stored = pickPhotoUrlToStore(
-    user.id,
-    user.photo_url,
-    existingPhotoUrl
-  );
-  const { error } = await db.from("users").update({ photo_url: stored }).eq("telegram_id", user.id);
-  if (error) throw error;
-  return stored;
-}
-async function syncUserProfilePhotos(users) {
-  await Promise.all(
-    users.filter((u) => !isCustomClubPhoto(u.existingPhotoUrl)).map((u) => syncUserProfilePhoto(u, u.existingPhotoUrl))
-  );
-}
-
-// lib/db/users.ts
-async function getUserPhotoUrl(telegramId) {
-  const profile = await getUserProfile(telegramId);
-  return profile?.photo_url ?? null;
-}
-async function getUserProfile(telegramId) {
-  const db = getSupabaseAdmin();
-  const { data, error } = await db.from("users").select("telegram_id, first_name, username, photo_url").eq("telegram_id", telegramId).maybeSingle();
-  if (error) throw error;
-  if (!data) return null;
-  return {
-    telegram_id: data.telegram_id,
-    first_name: data.first_name ?? String(telegramId),
-    username: data.username ?? null,
-    photo_url: data.photo_url ?? null
-  };
-}
-async function upsertUser(user) {
-  const db = getSupabaseAdmin();
-  const existing = await getUserProfile(user.id);
-  const existingPhotoUrl = existing?.photo_url ?? null;
-  const photo_url = pickPhotoUrlToStore(
-    user.id,
-    user.photo_url,
-    existingPhotoUrl
-  );
-  const preserveName = shouldPreserveClubDisplayName(
-    existing,
-    user.first_name
-  );
-  if (!existing) {
-    const { error } = await db.from("users").insert({
-      telegram_id: user.id,
-      username: user.username ?? null,
-      first_name: user.first_name,
-      last_name: user.last_name ?? null,
-      photo_url
-    });
-    if (error) throw error;
-  } else {
-    const { error } = await db.from("users").update({
-      username: preserveName ? existing.username : user.username ?? null,
-      first_name: preserveName ? existing.first_name : user.first_name,
-      last_name: user.last_name ?? null,
-      photo_url
-    }).eq("telegram_id", user.id);
-    if (error) throw error;
-  }
-  if (!isCustomClubPhoto(photo_url) && !isCustomClubPhoto(existingPhotoUrl)) {
-    try {
-      await syncUserProfilePhoto(user, existingPhotoUrl);
-    } catch (e) {
-      console.warn("[users] syncUserProfilePhoto", user.id, e);
-    }
-  }
-  return user.id;
-}
-
-// lib/db/channels.ts
-var MEMBER_STATUSES = /* @__PURE__ */ new Set([
-  "creator",
-  "administrator",
-  "member"
-]);
-var ADMIN_ROLES = /* @__PURE__ */ new Set(["creator", "administrator"]);
-function roleFromTelegramStatus(status) {
-  if (status === "creator" || status === "administrator") return status;
-  return "member";
-}
-async function fetchTelegramMemberRole(telegramChatId, userId) {
-  try {
-    const bot2 = getTelegramBot();
-    const member = await bot2.api.getChatMember(telegramChatId, userId);
-    return roleFromTelegramStatus(member.status);
-  } catch {
-    return "member";
-  }
-}
-async function ensureChannel(telegramChatId, title) {
-  const db = getSupabaseAdmin();
-  const { data: existing } = await db.from("channels").select("*").eq("telegram_chat_id", telegramChatId).maybeSingle();
-  if (existing) return existing;
-  const { data, error } = await db.from("channels").insert({
-    telegram_chat_id: telegramChatId,
-    title: title ?? `Channel ${telegramChatId}`
-  }).select().single();
-  if (error) throw error;
-  return data;
-}
-async function verifyChannelMembership(telegramChatId, userId) {
-  try {
-    const bot2 = getTelegramBot();
-    const member = await bot2.api.getChatMember(telegramChatId, userId);
-    return MEMBER_STATUSES.has(member.status);
-  } catch {
-    return false;
-  }
-}
-async function registerChannelMember(channelId, telegramChatId, userId, role) {
-  const skipVerify = telegramChatId === WEB_CLUB_CHAT_ID || process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_AUTH === "true";
-  let resolvedRole = role;
-  if (!skipVerify) {
-    const isMember = await verifyChannelMembership(telegramChatId, userId);
-    if (!isMember) {
-      throw new Error("NOT_CHANNEL_MEMBER");
-    }
-    resolvedRole = await fetchTelegramMemberRole(telegramChatId, userId);
-  } else if (!resolvedRole) {
-    resolvedRole = userId === 1 ? "creator" : "member";
-  }
-  const db = getSupabaseAdmin();
-  const { error } = await db.from("channel_members").upsert(
-    {
-      channel_id: channelId,
-      user_id: userId,
-      role: resolvedRole ?? "member",
-      last_verified_at: (/* @__PURE__ */ new Date()).toISOString()
-    },
-    { onConflict: "channel_id,user_id" }
-  );
-  if (error) throw error;
-  return resolvedRole ?? "member";
-}
-async function getChannelMemberRole(channelId, userId) {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("channel_members").select("role").eq("channel_id", channelId).eq("user_id", userId).maybeSingle();
-  if (!data?.role) return null;
-  const role = data.role;
-  if (role === "creator" || role === "administrator" || role === "member") {
-    return role;
-  }
-  return "member";
-}
-async function isChannelAdmin(channelId, userId) {
-  if (process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_AUTH === "true" && userId === 1) {
-    return true;
-  }
-  const role = await getChannelMemberRole(channelId, userId);
-  return role != null && ADMIN_ROLES.has(role);
-}
-async function getChannelMembers(channelId) {
-  const db = getSupabaseAdmin();
-  const { data, error } = await db.from("channel_members").select(
-    `
-      user_id,
-      role,
-      last_verified_at,
-      users (
-        telegram_id,
-        username,
-        first_name,
-        last_name,
-        photo_url
-      )
-    `
-  ).eq("channel_id", channelId).order("last_verified_at", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
-}
-
-// app/api/auth/session/route.ts
-async function POST(req) {
-  try {
-    const auth = authenticateRequest(req);
-    if (!auth.ok) return jsonError(auth.error, auth.status);
-    if (!isSupabaseConfigured()) {
-      return jsonError(
-        "\u0411\u0430\u0437\u0430 \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0430: \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 SUPABASE_URL \u0438 SUPABASE_SERVICE_ROLE_KEY \u043D\u0430 Vercel",
-        503
-      );
-    }
-    const body = await req.json().catch(() => ({}));
-    const startParam = body.startParam || body.start_param || void 0;
-    const { channelChatId } = parseStartParam(startParam);
-    await upsertUser(auth.ctx.user);
-    const stored = await getUserProfile(auth.ctx.user.id);
-    const user = {
-      ...auth.ctx.user,
-      first_name: stored?.first_name || auth.ctx.user.first_name,
-      username: stored?.username ?? auth.ctx.user.username,
-      photo_url: resolveStoredPhotoUrl(auth.ctx.user.id, stored?.photo_url) ?? auth.ctx.user.photo_url
-    };
-    let channel = null;
-    let isChannelAdmin2 = false;
-    const web = isWebSession(auth.ctx.initData);
-    const chatId = channelChatId ?? (web ? WEB_CLUB_CHAT_ID : void 0);
-    if (chatId) {
-      channel = await ensureChannel(
-        chatId,
-        body.channelTitle ?? (web ? "\u041A\u043B\u0443\u0431" : void 0)
-      );
-      const role = await registerChannelMember(
-        channel.id,
-        chatId,
-        auth.ctx.user.id,
-        web ? "creator" : void 0
-      );
-      isChannelAdmin2 = ADMIN_ROLES.has(role);
-    }
-    return Response.json({
-      user,
-      channel,
-      isChannelAdmin: isChannelAdmin2
-    });
-  } catch (e) {
-    console.error("[auth/session]", e);
-    const message = e instanceof Error ? e.message : "Server error";
-    if (message === "NOT_CHANNEL_MEMBER") {
-      return jsonError("\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A \u044D\u0442\u043E\u043C\u0443 \u043A\u043B\u0443\u0431\u0443", 403);
-    }
-    if (message.includes("Invalid URL") || message.includes("SUPABASE_URL")) {
-      return jsonError(
-        "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 SUPABASE_URL \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435 (\u043D\u0443\u0436\u0435\u043D https://\u2026.supabase.co)",
-        503
-      );
-    }
-    if (message.includes("PGRST") || message.includes("relation") || message.includes("schema cache")) {
-      return jsonError(
-        "\u0422\u0430\u0431\u043B\u0438\u0446\u044B \u0432 Supabase \u043D\u0435 \u0441\u043E\u0437\u0434\u0430\u043D\u044B \u2014 \u0432\u044B\u043F\u043E\u043B\u043D\u0438\u0442\u0435 supabase/migrations/001_initial.sql",
-        503
-      );
-    }
-    return jsonError(message, 500);
-  }
-}
+});
 
 // lib/darts/rules.ts
-var UNLIMITED_ROUNDS = 9999;
 function defaultSettings(mode) {
   const score = typeof mode === "string" ? Number(mode) : mode;
   return {
@@ -501,6 +90,13 @@ function calculatePpr(startingScore, remaining, dartsThrown) {
   const scored = startingScore - remaining;
   return Math.round(scored / (dartsThrown / 3) * 10) / 10;
 }
+var UNLIMITED_ROUNDS;
+var init_rules = __esm({
+  "lib/darts/rules.ts"() {
+    "use strict";
+    UNLIMITED_ROUNDS = 9999;
+  }
+});
 
 // lib/game/throws-from-db.ts
 function segmentFromDb(segment, multiplier) {
@@ -517,6 +113,11 @@ function segmentToDb(segment) {
   if (typeof segment === "number") return String(segment);
   return segment;
 }
+var init_throws_from_db = __esm({
+  "lib/game/throws-from-db.ts"() {
+    "use strict";
+  }
+});
 
 // lib/darts/visit-index.ts
 function getActiveVisitIndex(dartsThrown, visitScore, awaitingVisitEnd = false) {
@@ -529,6 +130,11 @@ function getActiveVisitIndex(dartsThrown, visitScore, awaitingVisitEnd = false) 
   }
   return Math.floor(dartsThrown / 3);
 }
+var init_visit_index = __esm({
+  "lib/darts/visit-index.ts"() {
+    "use strict";
+  }
+});
 
 // lib/tournament/bracket.ts
 function generateRoundRobinPairings(participantIds) {
@@ -604,17 +210,29 @@ function generatePlayoffBracket(qualifiedIds, size) {
   }
   return matches;
 }
+var init_bracket = __esm({
+  "lib/tournament/bracket.ts"() {
+    "use strict";
+  }
+});
 
 // lib/tournament/playoff-display.ts
 function getPlayoffRoundTitle(round, totalRounds) {
   if (round === totalRounds) return "\u0424\u0438\u043D\u0430\u043B";
-  if (round === totalRounds - 1) return "\u041F\u043E\u043B\u0443\u0444\u0438\u043D\u0430\u043B";
-  if (round === 1 && totalRounds === 3) return "1/4 \u0444\u0438\u043D\u0430\u043B\u0430";
+  if (totalRounds === 2 && round === 1) return "\u041F\u043E\u043B\u0443\u0444\u0438\u043D\u0430\u043B";
+  if (totalRounds === 3 && round === 2) return "\u041F\u043E\u043B\u0443\u0444\u0438\u043D\u0430\u043B";
+  if (totalRounds === 3 && round === 1) return "1/4 \u0444\u0438\u043D\u0430\u043B\u0430";
   return `\u0420\u0430\u0443\u043D\u0434 ${round}`;
 }
 function getPlayoffRoundCount(playoffSize) {
   return playoffSize === 8 ? 3 : 2;
 }
+var init_playoff_display = __esm({
+  "lib/tournament/playoff-display.ts"() {
+    "use strict";
+    init_bracket();
+  }
+});
 
 // lib/tournament/variant.ts
 function normalizeTournamentVariant(value) {
@@ -634,6 +252,11 @@ function isMissingVariantColumnError(error) {
   const msg = (error.message ?? "").toLowerCase();
   return msg.includes("variant") && msg.includes("column");
 }
+var init_variant = __esm({
+  "lib/tournament/variant.ts"() {
+    "use strict";
+  }
+});
 
 // lib/tournament/game-context.ts
 async function getTournamentContextForMatch(matchId) {
@@ -662,9 +285,43 @@ async function getTournamentContextForMatch(matchId) {
     variant: variantFromTournamentRow(tournament)
   };
 }
+var init_game_context = __esm({
+  "lib/tournament/game-context.ts"() {
+    "use strict";
+    init_server();
+    init_playoff_display();
+    init_variant();
+  }
+});
+
+// lib/tournament/pair-draw.ts
+function drawRandomPairs(playerIds, random = Math.random) {
+  const unique = [...new Set(playerIds.filter((id) => Number.isFinite(id)))];
+  const shuffled = shuffleInPlace(unique, random);
+  const byes = [];
+  let pool = shuffled;
+  if (pool.length % 2 === 1) {
+    byes.push(pool[pool.length - 1]);
+    pool = pool.slice(0, -1);
+  }
+  const pairs = [];
+  for (let i = 0; i < pool.length; i += 2) {
+    pairs.push([pool[i], pool[i + 1]]);
+  }
+  return { pairs, byes };
+}
+function isPairKnockoutFormat(settings) {
+  if (!settings || typeof settings !== "object") return false;
+  return settings.format === "pair_ko";
+}
+var init_pair_draw = __esm({
+  "lib/tournament/pair-draw.ts"() {
+    "use strict";
+    init_bracket();
+  }
+});
 
 // lib/game/multiplayer.ts
-var MIN_PLAYERS_FOR_STATS = 2;
 function isMultiplayerGame(players) {
   return (players?.length ?? 0) >= MIN_PLAYERS_FOR_STATS;
 }
@@ -679,6 +336,455 @@ function gameIdsWithMinPlayers(rows, minPlayers = MIN_PLAYERS_FOR_STATS) {
   }
   return ids;
 }
+var MIN_PLAYERS_FOR_STATS;
+var init_multiplayer = __esm({
+  "lib/game/multiplayer.ts"() {
+    "use strict";
+    MIN_PLAYERS_FOR_STATS = 2;
+  }
+});
+
+// lib/game/status.ts
+var init_status = __esm({
+  "lib/game/status.ts"() {
+    "use strict";
+  }
+});
+
+// lib/tournament/tv-code.ts
+function normalizeTvCode(raw) {
+  return raw.replace(/\D/g, "").slice(0, TV_CODE_LENGTH);
+}
+function isValidTvCode(code) {
+  return /^\d{4}$/.test(code);
+}
+function generateTvCode(random = Math.random) {
+  const n = Math.floor(random() * 1e4);
+  return String(n).padStart(TV_CODE_LENGTH, "0");
+}
+function readTvCodeFromSettings(settings) {
+  if (!settings || typeof settings !== "object") return null;
+  const raw = settings.tvCode;
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    const code2 = String(Math.trunc(raw)).padStart(TV_CODE_LENGTH, "0");
+    return isValidTvCode(code2) ? code2 : null;
+  }
+  if (typeof raw !== "string") return null;
+  const code = normalizeTvCode(raw);
+  return isValidTvCode(code) ? code : null;
+}
+var TV_CODE_LENGTH;
+var init_tv_code = __esm({
+  "lib/tournament/tv-code.ts"() {
+    "use strict";
+    TV_CODE_LENGTH = 4;
+  }
+});
+
+// lib/db/tournament-tv-code.ts
+async function tvCodeTaken(code) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("tournaments").select("id").contains("settings", { tvCode: code }).limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+async function allocateUniqueTvCode() {
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const code = generateTvCode();
+    if (!await tvCodeTaken(code)) return code;
+  }
+  throw new Error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u0434\u0435\u043B\u0438\u0442\u044C TV-\u043A\u043E\u0434");
+}
+async function findTournamentIdByTvCode(rawCode) {
+  const code = normalizeTvCode(rawCode);
+  if (!isValidTvCode(code)) return null;
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("tournaments").select("id").contains("settings", { tvCode: code }).limit(1).maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
+}
+async function ensureTournamentTvCode(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { data: row, error } = await db.from("tournaments").select("settings").eq("id", tournamentId).single();
+  if (error) throw error;
+  const existing = readTvCodeFromSettings(row.settings);
+  if (existing) return existing;
+  const code = await allocateUniqueTvCode();
+  const prev = row.settings && typeof row.settings === "object" ? { ...row.settings } : {};
+  prev.tvCode = code;
+  const { error: writeErr } = await db.from("tournaments").update({ settings: prev }).eq("id", tournamentId);
+  if (writeErr) throw writeErr;
+  return code;
+}
+var init_tournament_tv_code = __esm({
+  "lib/db/tournament-tv-code.ts"() {
+    "use strict";
+    init_server();
+    init_tv_code();
+  }
+});
+
+// lib/tournament/name.ts
+function capitalizeMonth(month) {
+  return month.charAt(0).toUpperCase() + month.slice(1);
+}
+function generateTournamentName(date = /* @__PURE__ */ new Date()) {
+  const month = capitalizeMonth(MONTHS_NOMINATIVE_RU[date.getMonth()]);
+  const year = date.getFullYear();
+  return `\u0422\u0443\u0440\u043D\u0438\u0440 \u2022 ${month} ${year}`;
+}
+var MONTHS_NOMINATIVE_RU;
+var init_name = __esm({
+  "lib/tournament/name.ts"() {
+    "use strict";
+    MONTHS_NOMINATIVE_RU = [
+      "\u044F\u043D\u0432\u0430\u0440\u044C",
+      "\u0444\u0435\u0432\u0440\u0430\u043B\u044C",
+      "\u043C\u0430\u0440\u0442",
+      "\u0430\u043F\u0440\u0435\u043B\u044C",
+      "\u043C\u0430\u0439",
+      "\u0438\u044E\u043D\u044C",
+      "\u0438\u044E\u043B\u044C",
+      "\u0430\u0432\u0433\u0443\u0441\u0442",
+      "\u0441\u0435\u043D\u0442\u044F\u0431\u0440\u044C",
+      "\u043E\u043A\u0442\u044F\u0431\u0440\u044C",
+      "\u043D\u043E\u044F\u0431\u0440\u044C",
+      "\u0434\u0435\u043A\u0430\u0431\u0440\u044C"
+    ];
+  }
+});
+
+// lib/tournament/settings.ts
+function parseTournamentSettings(raw) {
+  const legsToWin = raw && typeof raw === "object" && "legsToWin" in raw && raw.legsToWin === 1 ? 1 : 2;
+  const format = raw && typeof raw === "object" && raw.format === "pair_ko" ? "pair_ko" : raw && typeof raw === "object" && raw.format === "legacy" ? "legacy" : void 0;
+  return { legsToWin, format };
+}
+function gameSettingsForTournament(mode, tournamentSettings, options) {
+  const base = defaultSettings(mode);
+  const legsToWin = options?.final ? FINAL_MATCH_LEGS_TO_WIN : tournamentSettings.legsToWin;
+  return {
+    legsToWin,
+    doubleOut: base.doubleOut,
+    maxRounds: base.maxRounds
+  };
+}
+var FINAL_MATCH_LEGS_TO_WIN, DEFAULT_TOURNAMENT_LEGS_TO_WIN;
+var init_settings = __esm({
+  "lib/tournament/settings.ts"() {
+    "use strict";
+    init_rules();
+    FINAL_MATCH_LEGS_TO_WIN = 2;
+    DEFAULT_TOURNAMENT_LEGS_TO_WIN = 2;
+  }
+});
+
+// lib/db/tournaments.ts
+var tournaments_exports = {};
+__export(tournaments_exports, {
+  assertChannelTournamentParticipants: () => assertChannelTournamentParticipants,
+  createMatchGame: () => createMatchGame,
+  createTournament: () => createTournament,
+  deleteTournament: () => deleteTournament,
+  drawRoundRobin: () => drawRoundRobin,
+  finishTournament: () => finishTournament,
+  getTournament: () => getTournament,
+  listChannelActiveTournaments: () => listChannelActiveTournaments,
+  listChannelFinishedTournaments: () => listChannelFinishedTournaments,
+  listChannelTournaments: () => listChannelTournaments,
+  listCreatorActiveTournaments: () => listCreatorActiveTournaments,
+  maybeAdvancePairKnockout: () => maybeAdvancePairKnockout,
+  normalizeTournamentParticipantIds: () => normalizeTournamentParticipantIds,
+  startPlayoff: () => startPlayoff
+});
+function normalizeTournamentParticipantIds(ids) {
+  return [...new Set(ids)];
+}
+async function assertChannelTournamentParticipants(channelId, participantIds) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).in("user_id", participantIds);
+  if (error) throw error;
+  const registered = new Set((data ?? []).map((m) => m.user_id));
+  const missing = participantIds.filter((id) => !registered.has(id));
+  if (missing.length > 0) {
+    throw new Error(
+      `\u0418\u0433\u0440\u043E\u043A\u0438 \u043D\u0435 \u0432 \u0440\u0435\u0435\u0441\u0442\u0440\u0435 \u043A\u0430\u043D\u0430\u043B\u0430: ${missing.join(", ")}. \u041F\u0443\u0441\u0442\u044C \u043E\u0442\u043A\u0440\u043E\u044E\u0442 \u043C\u0438\u043D\u0438-\u0430\u043F\u043F \u0438\u0437 \u043A\u0430\u043D\u0430\u043B\u0430.`
+    );
+  }
+}
+async function createTournament(params) {
+  const db = getSupabaseAdmin();
+  const participantIds = normalizeTournamentParticipantIds(params.participantIds);
+  if (participantIds.length < 3) {
+    throw new Error("At least 3 participants required");
+  }
+  const name = params.name?.trim() || generateTournamentName();
+  const mode = params.mode === "301" ? "301" : "501";
+  const legsToWin = DEFAULT_TOURNAMENT_LEGS_TO_WIN;
+  const variant = normalizeTournamentVariant(params.variant);
+  const tvCode = await allocateUniqueTvCode();
+  const settings = { legsToWin, variant, format: "pair_ko", tvCode };
+  const playoffSize = participantIds.length >= 8 ? 8 : 4;
+  const baseRow = {
+    channel_id: params.channelId,
+    name,
+    mode,
+    playoff_size: playoffSize,
+    settings,
+    status: "round_robin",
+    created_by: params.createdBy
+  };
+  let { data: tournament, error } = await db.from("tournaments").insert({ ...baseRow, variant }).select().single();
+  if (error && isMissingVariantColumnError(error)) {
+    ({ data: tournament, error } = await db.from("tournaments").insert(baseRow).select().single());
+  }
+  if (error) throw error;
+  if (!tournament) throw new Error("Tournament insert failed");
+  try {
+    const participants = participantIds.map((userId) => ({
+      tournament_id: tournament.id,
+      user_id: userId
+    }));
+    const { error: participantsError } = await db.from("tournament_participants").insert(participants);
+    if (participantsError) throw participantsError;
+  } catch (e) {
+    await db.from("tournaments").delete().eq("id", tournament.id);
+    throw e;
+  }
+  return getTournament(tournament.id);
+}
+async function insertPairKnockoutRound(tournamentId, round, playerIds) {
+  const db = getSupabaseAdmin();
+  const { pairs, byes } = drawRandomPairs(playerIds);
+  const rows = [
+    ...pairs.map(([p1, p2], slot) => ({
+      tournament_id: tournamentId,
+      round,
+      slot,
+      player1_id: p1,
+      player2_id: p2,
+      winner_id: null
+    })),
+    ...byes.map((byeId, i) => ({
+      tournament_id: tournamentId,
+      round,
+      slot: pairs.length + i,
+      player1_id: byeId,
+      player2_id: null,
+      winner_id: byeId
+    }))
+  ];
+  if (rows.length === 0) {
+    throw new Error("\u041D\u0435\u0434\u043E\u0441\u0442\u0430\u0442\u043E\u0447\u043D\u043E \u0438\u0433\u0440\u043E\u043A\u043E\u0432 \u0434\u043B\u044F \u0440\u0430\u0443\u043D\u0434\u0430");
+  }
+  const { error } = await db.from("playoff_matches").insert(rows);
+  if (error) throw error;
+}
+async function drawRoundRobin(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { tournament, participants, roundRobinMatches, playoffMatches } = await getTournament(tournamentId);
+  if (tournament.status !== "round_robin") {
+    throw new Error("Tournament is not in round robin stage");
+  }
+  const participantIds = participants.map((p) => p.user_id);
+  if (participantIds.length < 3) {
+    throw new Error("At least 3 participants required");
+  }
+  if (isPairKnockoutFormat(tournament.settings)) {
+    if (playoffMatches.length > 0) {
+      throw new Error("\u0416\u0435\u0440\u0435\u0431\u044C\u0451\u0432\u043A\u0430 \u0443\u0436\u0435 \u043F\u0440\u043E\u0432\u0435\u0434\u0435\u043D\u0430");
+    }
+    await insertPairKnockoutRound(tournamentId, 1, participantIds);
+    await db.from("tournaments").update({ status: "playoff" }).eq("id", tournamentId);
+    return getTournament(tournamentId);
+  }
+  if (roundRobinMatches.length > 0) {
+    throw new Error("Round robin draw already completed");
+  }
+  const pairings = shuffleInPlace(
+    generateRoundRobinPairings(participantIds)
+  );
+  const matches = pairings.map(([p1, p2]) => ({
+    tournament_id: tournamentId,
+    player1_id: p1,
+    player2_id: p2
+  }));
+  const { data: inserted, error } = await db.from("round_robin_matches").insert(matches).select();
+  if (error) throw error;
+  return {
+    tournament,
+    roundRobinMatches: inserted ?? []
+  };
+}
+async function maybeAdvancePairKnockout(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { tournament, playoffMatches } = await getTournament(tournamentId);
+  if (!isPairKnockoutFormat(tournament.settings)) return;
+  if (tournament.status !== "playoff") return;
+  if (playoffMatches.length === 0) return;
+  const maxRound = Math.max(...playoffMatches.map((m) => m.round));
+  const current = playoffMatches.filter((m) => m.round === maxRound);
+  if (!current.every((m) => m.winner_id != null)) return;
+  const winners = current.map((m) => m.winner_id).filter((id) => Number.isFinite(id));
+  if (winners.length <= 1) {
+    return;
+  }
+  const nextExists = playoffMatches.some((m) => m.round === maxRound + 1);
+  if (nextExists) return;
+  await insertPairKnockoutRound(tournamentId, maxRound + 1, winners);
+}
+async function getTournament(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { data: tournament, error: tournamentError } = await db.from("tournaments").select("*").eq("id", tournamentId).single();
+  if (tournamentError || !tournament) {
+    throw new Error("Tournament not found");
+  }
+  const tournamentWithVariant = {
+    ...tournament,
+    variant: variantFromTournamentRow(tournament)
+  };
+  const { data: participants } = await db.from("tournament_participants").select("*, users(first_name, username, photo_url)").eq("tournament_id", tournamentId);
+  const { data: rrMatches } = await db.from("round_robin_matches").select("*").eq("tournament_id", tournamentId).order("id");
+  const { data: playoffMatches } = await db.from("playoff_matches").select("*").eq("tournament_id", tournamentId).order("round").order("slot");
+  const standings = buildStandings(participants ?? [], rrMatches ?? []);
+  return {
+    tournament: tournamentWithVariant,
+    participants: participants ?? [],
+    roundRobinMatches: rrMatches ?? [],
+    playoffMatches: playoffMatches ?? [],
+    standings
+  };
+}
+function buildStandings(participants, matches) {
+  const map = /* @__PURE__ */ new Map();
+  for (const p of participants) {
+    map.set(p.user_id, {
+      userId: p.user_id,
+      points: p.rr_points,
+      legsDiff: p.rr_legs_diff,
+      name: p.users?.first_name ?? p.users?.username ?? String(p.user_id)
+    });
+  }
+  for (const m of matches) {
+    if (!m.played || m.points_p1 == null) continue;
+    const s1 = map.get(m.player1_id);
+    const s2 = map.get(m.player2_id);
+    if (s1) s1.points += m.points_p1;
+    if (s2 && m.points_p2 != null) s2.points += m.points_p2;
+  }
+  return sortStandings([...map.values()]);
+}
+async function startPlayoff(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { tournament, standings } = await getTournament(tournamentId);
+  const qualified = standings.slice(0, tournament.playoff_size).map((s) => s.userId);
+  const seeds = generatePlayoffBracket(qualified, tournament.playoff_size);
+  await db.from("playoff_matches").insert(
+    seeds.map((s) => ({
+      tournament_id: tournamentId,
+      round: s.round,
+      slot: s.slot,
+      player1_id: s.player1Id,
+      player2_id: s.player2Id
+    }))
+  );
+  await db.from("tournaments").update({ status: "playoff" }).eq("id", tournamentId);
+  return getTournament(tournamentId);
+}
+async function createMatchGame(tournamentId, matchId, matchType, channelId, createdBy) {
+  const db = getSupabaseAdmin();
+  const table = matchType === "rr" ? "round_robin_matches" : "playoff_matches";
+  const { data: match } = await db.from(table).select("*").eq("id", matchId).single();
+  if (!match) throw new Error("MATCH_NOT_FOUND");
+  const { tournament } = await getTournament(tournamentId);
+  const playerIds = matchType === "rr" ? [match.player1_id, match.player2_id] : [match.player1_id, match.player2_id].filter(Boolean);
+  if (playerIds.length < 2) throw new Error("PLAYERS_NOT_READY");
+  const tournamentSettings = parseTournamentSettings(tournament.settings);
+  const isPairKo = isPairKnockoutFormat(tournament.settings);
+  const playoffSize = tournament.playoff_size === 8 ? 8 : 4;
+  const { playoffMatches } = await getTournament(tournamentId);
+  const maxRound = playoffMatches.length > 0 ? Math.max(...playoffMatches.map((m) => m.round)) : getPlayoffRoundCount(playoffSize);
+  const isFinalMatch = matchType === "playoff" && (isPairKo ? match.round === maxRound : match.round === getPlayoffRoundCount(playoffSize));
+  const { game } = await createGame({
+    channelId,
+    mode: tournament.mode,
+    playerIds,
+    createdBy,
+    settings: gameSettingsForTournament(tournament.mode, tournamentSettings, {
+      final: isFinalMatch || isPairKo
+    }),
+    tournamentMatchId: matchId
+  });
+  await db.from(table).update({ game_id: game.id }).eq("id", matchId);
+  return game;
+}
+async function listChannelTournaments(channelId) {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("tournaments").select("*").eq("channel_id", channelId).order("created_at", { ascending: false });
+  return data ?? [];
+}
+async function listCreatorActiveTournaments(channelId, createdBy) {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("tournaments").select("id, name, status, settings, created_at, created_by").eq("channel_id", channelId).eq("created_by", createdBy).in("status", ["round_robin", "playoff"]).order("created_at", { ascending: false });
+  return data ?? [];
+}
+async function listChannelActiveTournaments(channelId) {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("tournaments").select("id, name, status, settings, created_at").eq("channel_id", channelId).in("status", ["round_robin", "playoff"]).order("created_at", { ascending: false });
+  return data ?? [];
+}
+async function listChannelFinishedTournaments(channelId) {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("tournaments").select("id, name, status, settings, created_at").eq("channel_id", channelId).eq("status", "finished").order("created_at", { ascending: false });
+  return data ?? [];
+}
+async function finishTournament(tournamentId) {
+  const { tournament, playoffMatches } = await getTournament(tournamentId);
+  if (tournament.status === "finished") {
+    return;
+  }
+  if (tournament.status !== "playoff") {
+    throw new Error("\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044C \u043C\u043E\u0436\u043D\u043E \u0442\u043E\u043B\u044C\u043A\u043E \u0442\u0443\u0440\u043D\u0438\u0440 \u043D\u0430 \u0441\u0442\u0430\u0434\u0438\u0438 \u043F\u043B\u0435\u0439-\u043E\u0444\u0444");
+  }
+  if (playoffMatches.length === 0) {
+    throw new Error("\u041F\u043B\u0435\u0439-\u043E\u0444\u0444 \u0435\u0449\u0451 \u043D\u0435 \u043D\u0430\u0447\u0430\u0442");
+  }
+  const maxRound = Math.max(...playoffMatches.map((m) => m.round));
+  const finals = playoffMatches.filter((m) => m.round === maxRound);
+  if (finals.length === 0 || !finals.every((m) => m.winner_id != null)) {
+    throw new Error("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043D\u0443\u0436\u043D\u043E \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043F\u043E\u0431\u0435\u0434\u0438\u0442\u0435\u043B\u044F \u0432 \u0444\u0438\u043D\u0430\u043B\u0435");
+  }
+  const db = getSupabaseAdmin();
+  const { error } = await db.from("tournaments").update({ status: "finished" }).eq("id", tournamentId);
+  if (error) throw error;
+}
+async function deleteTournament(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { data: rr } = await db.from("round_robin_matches").select("game_id").eq("tournament_id", tournamentId);
+  const { data: po } = await db.from("playoff_matches").select("game_id").eq("tournament_id", tournamentId);
+  const gameIds = [...rr ?? [], ...po ?? []].map((m) => m.game_id).filter((id) => Boolean(id));
+  if (gameIds.length > 0) {
+    await db.from("throws").delete().in("game_id", gameIds);
+    await db.from("game_players").delete().in("game_id", gameIds);
+    await db.from("games").delete().in("id", gameIds);
+  }
+  const { error } = await db.from("tournaments").delete().eq("id", tournamentId);
+  if (error) throw error;
+}
+var init_tournaments = __esm({
+  "lib/db/tournaments.ts"() {
+    "use strict";
+    init_server();
+    init_bracket();
+    init_pair_draw();
+    init_tournament_tv_code();
+    init_playoff_display();
+    init_name();
+    init_variant();
+    init_games();
+    init_settings();
+  }
+});
 
 // lib/db/games.ts
 function parseSettings(mode, raw) {
@@ -720,7 +826,7 @@ async function getGame(gameId) {
   const db = getSupabaseAdmin();
   const { data: game, error } = await db.from("games").select("*").eq("id", gameId).single();
   if (error) throw error;
-  const { data: players } = await db.from("game_players").select("*, users(first_name, username)").eq("game_id", gameId).order("order_index");
+  const { data: players } = await db.from("game_players").select("*, users(first_name, username, photo_url)").eq("game_id", gameId).order("order_index");
   const settings = parseSettings(game.mode, game.settings);
   const enriched = (players ?? []).map((p) => ({
     ...p,
@@ -994,7 +1100,14 @@ async function handleTournamentMatchWin(matchRef, winnerId) {
   }
   const { data: po } = await db.from("playoff_matches").select("*").eq("id", matchRef).maybeSingle();
   if (po) {
+    if (po.winner_id) return;
     await db.from("playoff_matches").update({ winner_id: winnerId }).eq("id", matchRef);
+    const { data: tournament } = await db.from("tournaments").select("settings").eq("id", po.tournament_id).maybeSingle();
+    if (isPairKnockoutFormat(tournament?.settings)) {
+      const { maybeAdvancePairKnockout: maybeAdvancePairKnockout2 } = await Promise.resolve().then(() => (init_tournaments(), tournaments_exports));
+      await maybeAdvancePairKnockout2(po.tournament_id);
+      return;
+    }
     const { data: nextRound } = await db.from("playoff_matches").select("*").eq("tournament_id", po.tournament_id).eq("round", po.round + 1).eq("slot", Math.floor(po.slot / 2)).maybeSingle();
     if (nextRound) {
       const field = po.slot % 2 === 0 ? "player1_id" : "player2_id";
@@ -1063,8 +1176,318 @@ async function listChannelActiveGames(channelId, limit = 50) {
   if (error) throw error;
   return (data ?? []).filter((g) => isMultiplayerGame(g.game_players));
 }
+var init_games = __esm({
+  "lib/db/games.ts"() {
+    "use strict";
+    init_server();
+    init_rules();
+    init_throws_from_db();
+    init_visit_index();
+    init_game_context();
+    init_pair_draw();
+    init_multiplayer();
+    init_status();
+  }
+});
+
+// server/app.ts
+import { Hono } from "hono";
+import { bodyLimit } from "hono/body-limit";
+import { cors } from "hono/cors";
+
+// lib/api/auth.ts
+var WEB_CLUB_CHAT_ID = -1000000000001;
+function isWebAuthHeader(req) {
+  const web = req.headers.get("x-web-auth");
+  const legacy = req.headers.get("x-dev-auth");
+  return web === "local" || legacy === "local";
+}
+function webAuthUser() {
+  return {
+    id: 1,
+    first_name: "\u0418\u0433\u0440\u043E\u043A"
+  };
+}
+function authenticateRequest(req) {
+  if (!isWebAuthHeader(req)) {
+    return { ok: false, error: "Missing auth", status: 401 };
+  }
+  return { ok: true, ctx: { user: webAuthUser(), initData: "web" } };
+}
+function isWebSession(initData) {
+  return initData === "web" || initData === "dev";
+}
+function jsonError(message, status) {
+  return Response.json({ error: message }, { status });
+}
+
+// lib/db/users.ts
+init_server();
+
+// lib/user-photo.ts
+function avatarPath(userId) {
+  return `/api/avatar/${userId}`;
+}
+function isCustomClubPhoto(photoUrl) {
+  return Boolean(photoUrl?.startsWith("data:image/"));
+}
+function decodeDataImageUrl(dataUrl) {
+  const match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,([A-Za-z0-9+/=\s]+)$/.exec(
+    dataUrl.trim()
+  );
+  if (!match) return null;
+  const contentType = match[1];
+  const b64 = match[2].replace(/\s+/g, "");
+  try {
+    const binary = atob(b64);
+    const body = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      body[i] = binary.charCodeAt(i);
+    }
+    return { contentType, body };
+  } catch {
+    return null;
+  }
+}
+function shouldPreserveClubDisplayName(existing, telegramFirstName) {
+  if (!existing) return false;
+  if (isCustomClubPhoto(existing.photo_url)) return true;
+  if (existing.username == null && existing.first_name.trim().length > 0 && existing.first_name !== telegramFirstName) {
+    return true;
+  }
+  return false;
+}
+function resolveStoredPhotoUrl(userId, photoUrl) {
+  if (!photoUrl || photoUrl.length === 0) return null;
+  if (isCustomClubPhoto(photoUrl)) {
+    return avatarPath(userId);
+  }
+  if (photoUrl.startsWith("/api/avatar/") || photoUrl.startsWith("/api/telegram/avatar/")) {
+    return avatarPath(userId);
+  }
+  return photoUrl;
+}
+function pickPhotoUrlToStore(userId, incomingPhotoUrl, existingPhotoUrl) {
+  if (isCustomClubPhoto(existingPhotoUrl)) {
+    return existingPhotoUrl;
+  }
+  if (isCustomClubPhoto(incomingPhotoUrl)) {
+    return incomingPhotoUrl;
+  }
+  if (existingPhotoUrl?.startsWith("/api/avatar/")) {
+    return existingPhotoUrl;
+  }
+  if (existingPhotoUrl?.startsWith("/api/telegram/avatar/")) {
+    return avatarPath(userId);
+  }
+  if (existingPhotoUrl && existingPhotoUrl.length > 0) {
+    return existingPhotoUrl;
+  }
+  return avatarPath(userId);
+}
+async function syncUserProfilePhoto(user, existingPhotoUrl) {
+  if (isCustomClubPhoto(existingPhotoUrl)) {
+    return existingPhotoUrl;
+  }
+  return pickPhotoUrlToStore(user.id, user.photo_url, existingPhotoUrl);
+}
+
+// lib/db/users.ts
+async function getUserPhotoUrl(userId) {
+  const profile = await getUserProfile(userId);
+  return profile?.photo_url ?? null;
+}
+async function getUserProfile(userId) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("users").select("telegram_id, first_name, username, photo_url").eq("telegram_id", userId).maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  return {
+    telegram_id: data.telegram_id,
+    first_name: data.first_name ?? String(userId),
+    username: data.username ?? null,
+    photo_url: data.photo_url ?? null
+  };
+}
+async function upsertUser(user) {
+  const db = getSupabaseAdmin();
+  const existing = await getUserProfile(user.id);
+  const existingPhotoUrl = existing?.photo_url ?? null;
+  const photo_url = pickPhotoUrlToStore(
+    user.id,
+    user.photo_url,
+    existingPhotoUrl
+  );
+  const preserveName = shouldPreserveClubDisplayName(
+    existing,
+    user.first_name
+  );
+  const nameFields = {
+    username: preserveName ? existing?.username ?? null : user.username ?? null,
+    first_name: preserveName ? existing?.first_name ?? user.first_name : user.first_name,
+    last_name: user.last_name ?? null
+  };
+  if (!existing) {
+    const { error } = await db.from("users").insert({
+      telegram_id: user.id,
+      ...nameFields,
+      photo_url
+    });
+    if (error) throw error;
+  } else if (isCustomClubPhoto(existingPhotoUrl)) {
+    const { error } = await db.from("users").update(nameFields).eq("telegram_id", user.id);
+    if (error) throw error;
+  } else {
+    const freshPhoto = await getUserPhotoUrl(user.id);
+    if (isCustomClubPhoto(freshPhoto)) {
+      const { error } = await db.from("users").update(nameFields).eq("telegram_id", user.id);
+      if (error) throw error;
+    } else {
+      const { error } = await db.from("users").update({ ...nameFields, photo_url }).eq("telegram_id", user.id);
+      if (error) throw error;
+    }
+  }
+  if (!isCustomClubPhoto(photo_url) && !isCustomClubPhoto(existingPhotoUrl)) {
+    try {
+      await syncUserProfilePhoto(user, existingPhotoUrl);
+    } catch (e) {
+      console.warn("[users] syncUserProfilePhoto", user.id, e);
+    }
+  }
+  return user.id;
+}
+
+// lib/db/channels.ts
+init_server();
+var ADMIN_ROLES = /* @__PURE__ */ new Set(["creator", "administrator"]);
+async function ensureChannel(telegramChatId, title) {
+  const db = getSupabaseAdmin();
+  const { data: existing } = await db.from("channels").select("*").eq("telegram_chat_id", telegramChatId).maybeSingle();
+  if (existing) return existing;
+  const { data, error } = await db.from("channels").insert({
+    telegram_chat_id: telegramChatId,
+    title: title ?? (telegramChatId === WEB_CLUB_CHAT_ID ? "\u041A\u043B\u0443\u0431" : `Club ${telegramChatId}`)
+  }).select().single();
+  if (error) throw error;
+  return data;
+}
+async function registerChannelMember(channelId, telegramChatId, userId, role) {
+  void telegramChatId;
+  const resolvedRole = role ?? (userId === 1 ? "creator" : "member");
+  const db = getSupabaseAdmin();
+  const { error } = await db.from("channel_members").upsert(
+    {
+      channel_id: channelId,
+      user_id: userId,
+      role: resolvedRole,
+      last_verified_at: (/* @__PURE__ */ new Date()).toISOString()
+    },
+    { onConflict: "channel_id,user_id" }
+  );
+  if (error) throw error;
+  return resolvedRole;
+}
+async function getChannelMemberRole(channelId, userId) {
+  const db = getSupabaseAdmin();
+  const { data } = await db.from("channel_members").select("role").eq("channel_id", channelId).eq("user_id", userId).maybeSingle();
+  if (!data?.role) return null;
+  const role = data.role;
+  if (role === "creator" || role === "administrator" || role === "member") {
+    return role;
+  }
+  return "member";
+}
+async function isChannelAdmin(channelId, userId) {
+  if (process.env.NODE_ENV === "development" && process.env.ALLOW_DEV_AUTH === "true" && userId === 1) {
+    return true;
+  }
+  const role = await getChannelMemberRole(channelId, userId);
+  return role != null && ADMIN_ROLES.has(role);
+}
+async function getChannelMembers(channelId) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("channel_members").select(
+    `
+      user_id,
+      role,
+      last_verified_at,
+      users (
+        telegram_id,
+        username,
+        first_name,
+        last_name,
+        photo_url
+      )
+    `
+  ).eq("channel_id", channelId).order("last_verified_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+// app/api/auth/session/route.ts
+init_server();
+async function POST(req) {
+  try {
+    const auth = authenticateRequest(req);
+    if (!auth.ok) return jsonError(auth.error, auth.status);
+    if (!isSupabaseConfigured()) {
+      return jsonError(
+        "\u0411\u0430\u0437\u0430 \u043D\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0435\u043D\u0430: \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 SUPABASE_URL \u0438 SUPABASE_SERVICE_ROLE_KEY \u043D\u0430 Vercel",
+        503
+      );
+    }
+    const body = await req.json().catch(() => ({}));
+    await upsertUser(auth.ctx.user);
+    const storedPhotoUrl = await getUserPhotoUrl(auth.ctx.user.id);
+    const user = {
+      ...auth.ctx.user,
+      photo_url: pickPhotoUrlToStore(
+        auth.ctx.user.id,
+        auth.ctx.user.photo_url,
+        storedPhotoUrl
+      )
+    };
+    let channel = null;
+    let isChannelAdmin2 = false;
+    const web = isWebSession(auth.ctx.initData);
+    const chatId = WEB_CLUB_CHAT_ID;
+    if (chatId) {
+      channel = await ensureChannel(
+        chatId,
+        body.channelTitle ?? (web ? "\u041A\u043B\u0443\u0431" : void 0)
+      );
+      const role = await registerChannelMember(
+        channel.id,
+        chatId,
+        auth.ctx.user.id,
+        web ? "creator" : void 0
+      );
+      isChannelAdmin2 = ADMIN_ROLES.has(role);
+    }
+    return Response.json({
+      user,
+      channel,
+      isChannelAdmin: isChannelAdmin2
+    });
+  } catch (e) {
+    console.error("[auth/session]", e);
+    const message = e instanceof Error ? e.message : "Server error";
+    if (message === "NOT_CHANNEL_MEMBER") {
+      return jsonError("\u041D\u0435\u0442 \u0434\u043E\u0441\u0442\u0443\u043F\u0430 \u043A \u044D\u0442\u043E\u043C\u0443 \u043A\u043B\u0443\u0431\u0443", 403);
+    }
+    if (message.includes("Invalid URL") || message.includes("SUPABASE") || message.includes("fetch failed")) {
+      return jsonError(
+        "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0431\u0430\u0437\u0435. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 SUPABASE_URL \u043D\u0430 Vercel.",
+        503
+      );
+    }
+    return jsonError(message, 500);
+  }
+}
 
 // app/api/games/route.ts
+init_games();
+init_server();
 async function POST2(req) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1096,6 +1519,10 @@ async function POST2(req) {
 }
 
 // lib/db/import-local-game.ts
+init_server();
+init_rules();
+init_games();
+init_pair_draw();
 function findFinishedGameWinner(params) {
   const settings = {
     ...defaultSettings(params.mode),
@@ -1126,6 +1553,12 @@ async function handleTournamentMatchWin2(matchRef, winnerId) {
   if (po) {
     if (po.winner_id) return;
     await db.from("playoff_matches").update({ winner_id: winnerId }).eq("id", matchRef);
+    const { data: tournament } = await db.from("tournaments").select("settings").eq("id", po.tournament_id).maybeSingle();
+    if (isPairKnockoutFormat(tournament?.settings)) {
+      const { maybeAdvancePairKnockout: maybeAdvancePairKnockout2 } = await Promise.resolve().then(() => (init_tournaments(), tournaments_exports));
+      await maybeAdvancePairKnockout2(po.tournament_id);
+      return;
+    }
     const { data: nextRound } = await db.from("playoff_matches").select("*").eq("tournament_id", po.tournament_id).eq("round", po.round + 1).eq("slot", Math.floor(po.slot / 2)).maybeSingle();
     if (nextRound) {
       const field = po.slot % 2 === 0 ? "player1_id" : "player2_id";
@@ -1287,6 +1720,7 @@ async function POST3(req) {
 }
 
 // app/api/games/[gameId]/route.ts
+init_games();
 async function GET(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1296,6 +1730,7 @@ async function GET(req, { params }) {
 }
 
 // app/api/games/[gameId]/throw/route.ts
+init_games();
 async function POST4(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1308,6 +1743,7 @@ async function POST4(req, { params }) {
 }
 
 // app/api/games/[gameId]/undo/route.ts
+init_games();
 async function POST5(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1317,6 +1753,7 @@ async function POST5(req, { params }) {
 }
 
 // app/api/games/[gameId]/end-visit/route.ts
+init_games();
 async function POST6(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1326,6 +1763,7 @@ async function POST6(req, { params }) {
 }
 
 // app/api/games/[gameId]/restart/route.ts
+init_games();
 async function POST7(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1335,6 +1773,7 @@ async function POST7(req, { params }) {
 }
 
 // app/api/games/[gameId]/leave/route.ts
+init_games();
 async function POST8(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1342,6 +1781,14 @@ async function POST8(req, { params }) {
   const result = await cancelGame(gameId);
   return Response.json(result);
 }
+
+// lib/db/stats.ts
+init_server();
+init_multiplayer();
+init_throws_from_db();
+
+// lib/stats/player-stats.ts
+init_rules();
 
 // lib/stats/game-winners.ts
 function getFinishedGameWinnerIds(players, isFinished) {
@@ -1529,6 +1976,7 @@ async function getPlayerThrowsByGame(channelId, userId) {
 }
 
 // app/api/stats/player/route.ts
+init_server();
 async function GET2(req) {
   try {
     const auth = authenticateRequest(req);
@@ -1551,15 +1999,10 @@ async function GET2(req) {
     const allThrows = throwsByGameList.flatMap((g) => g.throws);
     const { data: userRow, error: userErr } = await db.from("users").select("first_name, username, photo_url").eq("telegram_id", userId).maybeSingle();
     if (userErr) throw userErr;
-    if (!isCustomClubPhoto(userRow?.photo_url)) {
-      void syncUserProfilePhoto(
-        {
-          id: userId,
-          photo_url: userRow?.photo_url ?? void 0
-        },
-        userRow?.photo_url ?? null
-      ).catch((e) => console.warn("[stats/player] sync photo", e));
-    }
+    void syncUserProfilePhoto({
+      id: userId,
+      photo_url: userRow?.photo_url ?? void 0
+    }).catch((e) => console.warn("[stats/player] sync photo", e));
     const profile = {
       name: userRow?.first_name ?? userRow?.username ?? `\u0418\u0433\u0440\u043E\u043A #${userId}`,
       photoUrl: resolveStoredPhotoUrl(userId, userRow?.photo_url)
@@ -1580,6 +2023,7 @@ async function GET2(req) {
 }
 
 // app/api/stats/leaderboard/route.ts
+init_server();
 async function GET3(req) {
   try {
     const auth = authenticateRequest(req);
@@ -1600,274 +2044,9 @@ async function GET3(req) {
   }
 }
 
-// lib/tournament/name.ts
-var MONTHS_NOMINATIVE_RU = [
-  "\u044F\u043D\u0432\u0430\u0440\u044C",
-  "\u0444\u0435\u0432\u0440\u0430\u043B\u044C",
-  "\u043C\u0430\u0440\u0442",
-  "\u0430\u043F\u0440\u0435\u043B\u044C",
-  "\u043C\u0430\u0439",
-  "\u0438\u044E\u043D\u044C",
-  "\u0438\u044E\u043B\u044C",
-  "\u0430\u0432\u0433\u0443\u0441\u0442",
-  "\u0441\u0435\u043D\u0442\u044F\u0431\u0440\u044C",
-  "\u043E\u043A\u0442\u044F\u0431\u0440\u044C",
-  "\u043D\u043E\u044F\u0431\u0440\u044C",
-  "\u0434\u0435\u043A\u0430\u0431\u0440\u044C"
-];
-function capitalizeMonth(month) {
-  return month.charAt(0).toUpperCase() + month.slice(1);
-}
-function generateTournamentName(date = /* @__PURE__ */ new Date()) {
-  const month = capitalizeMonth(MONTHS_NOMINATIVE_RU[date.getMonth()]);
-  const year = date.getFullYear();
-  return `\u0422\u0443\u0440\u043D\u0438\u0440 \u2022 ${month} ${year}`;
-}
-
-// lib/tournament/settings.ts
-var FINAL_MATCH_LEGS_TO_WIN = 2;
-function parseTournamentSettings(raw) {
-  const legsToWin = raw && typeof raw === "object" && "legsToWin" in raw && raw.legsToWin === 2 ? 2 : 1;
-  return { legsToWin };
-}
-function gameSettingsForTournament(mode, tournamentSettings, options) {
-  const base = defaultSettings(mode);
-  const legsToWin = options?.final ? FINAL_MATCH_LEGS_TO_WIN : tournamentSettings.legsToWin;
-  return {
-    legsToWin,
-    doubleOut: base.doubleOut,
-    maxRounds: base.maxRounds
-  };
-}
-function normalizeLegsToWin(value) {
-  return value === 2 ? 2 : 1;
-}
-
-// lib/db/tournaments.ts
-function normalizeTournamentParticipantIds(ids) {
-  return [...new Set(ids)];
-}
-async function assertChannelTournamentParticipants(channelId, participantIds) {
-  const db = getSupabaseAdmin();
-  const { data, error } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).in("user_id", participantIds);
-  if (error) throw error;
-  const registered = new Set((data ?? []).map((m) => m.user_id));
-  const missing = participantIds.filter((id) => !registered.has(id));
-  if (missing.length > 0) {
-    throw new Error(
-      `\u0418\u0433\u0440\u043E\u043A\u0438 \u043D\u0435 \u0432 \u0440\u0435\u0435\u0441\u0442\u0440\u0435 \u043A\u0430\u043D\u0430\u043B\u0430: ${missing.join(", ")}. \u041F\u0443\u0441\u0442\u044C \u043E\u0442\u043A\u0440\u043E\u044E\u0442 \u043C\u0438\u043D\u0438-\u0430\u043F\u043F \u0438\u0437 \u043A\u0430\u043D\u0430\u043B\u0430.`
-    );
-  }
-}
-async function createTournament(params) {
-  const db = getSupabaseAdmin();
-  const participantIds = normalizeTournamentParticipantIds(params.participantIds);
-  if (participantIds.length < 3) {
-    throw new Error("At least 3 participants required");
-  }
-  if (participantIds.length < params.playoffSize) {
-    throw new Error(
-      `At least ${params.playoffSize} participants required for top-${params.playoffSize} playoff`
-    );
-  }
-  const name = params.name?.trim() || generateTournamentName();
-  const mode = params.mode === "301" ? "301" : "501";
-  const legsToWin = normalizeLegsToWin(params.legsToWin);
-  const variant = normalizeTournamentVariant(params.variant);
-  const settings = { legsToWin, variant };
-  const baseRow = {
-    channel_id: params.channelId,
-    name,
-    mode,
-    playoff_size: params.playoffSize,
-    settings,
-    status: "round_robin",
-    created_by: params.createdBy
-  };
-  let { data: tournament, error } = await db.from("tournaments").insert({ ...baseRow, variant }).select().single();
-  if (error && isMissingVariantColumnError(error)) {
-    ({ data: tournament, error } = await db.from("tournaments").insert(baseRow).select().single());
-  }
-  if (error) throw error;
-  if (!tournament) throw new Error("Tournament insert failed");
-  try {
-    const participants = participantIds.map((userId) => ({
-      tournament_id: tournament.id,
-      user_id: userId
-    }));
-    const { error: participantsError } = await db.from("tournament_participants").insert(participants);
-    if (participantsError) throw participantsError;
-  } catch (e) {
-    await db.from("tournaments").delete().eq("id", tournament.id);
-    throw e;
-  }
-  return getTournament(tournament.id);
-}
-async function drawRoundRobin(tournamentId) {
-  const db = getSupabaseAdmin();
-  const { tournament, participants, roundRobinMatches } = await getTournament(tournamentId);
-  if (tournament.status !== "round_robin") {
-    throw new Error("Tournament is not in round robin stage");
-  }
-  if (roundRobinMatches.length > 0) {
-    throw new Error("Round robin draw already completed");
-  }
-  const participantIds = participants.map((p) => p.user_id);
-  if (participantIds.length < 3) {
-    throw new Error("At least 3 participants required");
-  }
-  const pairings = shuffleInPlace(
-    generateRoundRobinPairings(participantIds)
-  );
-  const matches = pairings.map(([p1, p2]) => ({
-    tournament_id: tournamentId,
-    player1_id: p1,
-    player2_id: p2
-  }));
-  const { data: inserted, error } = await db.from("round_robin_matches").insert(matches).select();
-  if (error) throw error;
-  return {
-    tournament,
-    roundRobinMatches: inserted ?? []
-  };
-}
-async function getTournament(tournamentId) {
-  const db = getSupabaseAdmin();
-  const { data: tournament, error: tournamentError } = await db.from("tournaments").select("*").eq("id", tournamentId).single();
-  if (tournamentError || !tournament) {
-    throw new Error("Tournament not found");
-  }
-  const tournamentWithVariant = {
-    ...tournament,
-    variant: variantFromTournamentRow(tournament)
-  };
-  const { data: participants } = await db.from("tournament_participants").select("*, users(first_name, username, photo_url)").eq("tournament_id", tournamentId);
-  const { data: rrMatches } = await db.from("round_robin_matches").select("*").eq("tournament_id", tournamentId).order("id");
-  const { data: playoffMatches } = await db.from("playoff_matches").select("*").eq("tournament_id", tournamentId).order("round").order("slot");
-  const standings = buildStandings(participants ?? [], rrMatches ?? []);
-  return {
-    tournament: tournamentWithVariant,
-    participants: participants ?? [],
-    roundRobinMatches: rrMatches ?? [],
-    playoffMatches: playoffMatches ?? [],
-    standings
-  };
-}
-function buildStandings(participants, matches) {
-  const map = /* @__PURE__ */ new Map();
-  for (const p of participants) {
-    map.set(p.user_id, {
-      userId: p.user_id,
-      points: p.rr_points,
-      legsDiff: p.rr_legs_diff,
-      name: p.users?.first_name ?? p.users?.username ?? String(p.user_id)
-    });
-  }
-  for (const m of matches) {
-    if (!m.played || m.points_p1 == null) continue;
-    const s1 = map.get(m.player1_id);
-    const s2 = map.get(m.player2_id);
-    if (s1) s1.points += m.points_p1;
-    if (s2 && m.points_p2 != null) s2.points += m.points_p2;
-  }
-  return sortStandings([...map.values()]);
-}
-async function startPlayoff(tournamentId) {
-  const db = getSupabaseAdmin();
-  const { tournament, standings } = await getTournament(tournamentId);
-  const qualified = standings.slice(0, tournament.playoff_size).map((s) => s.userId);
-  const seeds = generatePlayoffBracket(qualified, tournament.playoff_size);
-  await db.from("playoff_matches").insert(
-    seeds.map((s) => ({
-      tournament_id: tournamentId,
-      round: s.round,
-      slot: s.slot,
-      player1_id: s.player1Id,
-      player2_id: s.player2Id
-    }))
-  );
-  await db.from("tournaments").update({ status: "playoff" }).eq("id", tournamentId);
-  return getTournament(tournamentId);
-}
-async function createMatchGame(tournamentId, matchId, matchType, channelId, createdBy) {
-  const db = getSupabaseAdmin();
-  const table = matchType === "rr" ? "round_robin_matches" : "playoff_matches";
-  const { data: match } = await db.from(table).select("*").eq("id", matchId).single();
-  if (!match) throw new Error("MATCH_NOT_FOUND");
-  const { tournament } = await getTournament(tournamentId);
-  const playerIds = matchType === "rr" ? [match.player1_id, match.player2_id] : [match.player1_id, match.player2_id].filter(Boolean);
-  if (playerIds.length < 2) throw new Error("PLAYERS_NOT_READY");
-  const tournamentSettings = parseTournamentSettings(tournament.settings);
-  const playoffSize = tournament.playoff_size === 8 ? 8 : 4;
-  const isFinalMatch = matchType === "playoff" && match.round === getPlayoffRoundCount(playoffSize);
-  const { game } = await createGame({
-    channelId,
-    mode: tournament.mode,
-    playerIds,
-    createdBy,
-    settings: gameSettingsForTournament(tournament.mode, tournamentSettings, {
-      final: isFinalMatch
-    }),
-    tournamentMatchId: matchId
-  });
-  await db.from(table).update({ game_id: game.id }).eq("id", matchId);
-  return game;
-}
-async function listChannelTournaments(channelId) {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("tournaments").select("*").eq("channel_id", channelId).order("created_at", { ascending: false });
-  return data ?? [];
-}
-async function listCreatorActiveTournaments(channelId, createdBy) {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("tournaments").select("id, name, status, settings, created_at, created_by").eq("channel_id", channelId).eq("created_by", createdBy).in("status", ["round_robin", "playoff"]).order("created_at", { ascending: false });
-  return data ?? [];
-}
-async function listChannelActiveTournaments(channelId) {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("tournaments").select("id, name, status, settings, created_at").eq("channel_id", channelId).in("status", ["round_robin", "playoff"]).order("created_at", { ascending: false });
-  return data ?? [];
-}
-async function listChannelFinishedTournaments(channelId) {
-  const db = getSupabaseAdmin();
-  const { data } = await db.from("tournaments").select("id, name, status, settings, created_at").eq("channel_id", channelId).eq("status", "finished").order("created_at", { ascending: false });
-  return data ?? [];
-}
-async function finishTournament(tournamentId) {
-  const { tournament, playoffMatches } = await getTournament(tournamentId);
-  if (tournament.status === "finished") {
-    return;
-  }
-  if (tournament.status !== "playoff") {
-    throw new Error("\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044C \u043C\u043E\u0436\u043D\u043E \u0442\u043E\u043B\u044C\u043A\u043E \u0442\u0443\u0440\u043D\u0438\u0440 \u043D\u0430 \u0441\u0442\u0430\u0434\u0438\u0438 \u043F\u043B\u0435\u0439-\u043E\u0444\u0444");
-  }
-  if (playoffMatches.length === 0) {
-    throw new Error("\u041F\u043B\u0435\u0439-\u043E\u0444\u0444 \u0435\u0449\u0451 \u043D\u0435 \u043D\u0430\u0447\u0430\u0442");
-  }
-  const maxRound = Math.max(...playoffMatches.map((m) => m.round));
-  const finals = playoffMatches.filter((m) => m.round === maxRound);
-  if (finals.length === 0 || !finals.every((m) => m.winner_id != null)) {
-    throw new Error("\u0421\u043D\u0430\u0447\u0430\u043B\u0430 \u043D\u0443\u0436\u043D\u043E \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043F\u043E\u0431\u0435\u0434\u0438\u0442\u0435\u043B\u044F \u0432 \u0444\u0438\u043D\u0430\u043B\u0435");
-  }
-  const db = getSupabaseAdmin();
-  const { error } = await db.from("tournaments").update({ status: "finished" }).eq("id", tournamentId);
-  if (error) throw error;
-}
-async function deleteTournament(tournamentId) {
-  const db = getSupabaseAdmin();
-  const { data: rr } = await db.from("round_robin_matches").select("game_id").eq("tournament_id", tournamentId);
-  const { data: po } = await db.from("playoff_matches").select("game_id").eq("tournament_id", tournamentId);
-  const gameIds = [...rr ?? [], ...po ?? []].map((m) => m.game_id).filter((id) => Boolean(id));
-  if (gameIds.length > 0) {
-    await db.from("throws").delete().in("game_id", gameIds);
-    await db.from("game_players").delete().in("game_id", gameIds);
-    await db.from("games").delete().in("id", gameIds);
-  }
-  const { error } = await db.from("tournaments").delete().eq("id", tournamentId);
-  if (error) throw error;
-}
-
 // app/api/tournaments/route.ts
+init_tournaments();
+init_variant();
 async function GET4(req) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -1898,7 +2077,7 @@ async function POST9(req) {
   if (!auth.ok) return jsonError(auth.error, auth.status);
   try {
     const body = await req.json();
-    const { channelId, name, participantIds, playoffSize, legsToWin, variant } = body;
+    const { channelId, name, participantIds, variant } = body;
     const tournamentVariant = normalizeTournamentVariant(variant);
     if (!channelId || !Array.isArray(participantIds) || participantIds.length < 1) {
       return jsonError("Invalid payload", 400);
@@ -1908,13 +2087,6 @@ async function POST9(req) {
     );
     if (ids.length < 3) {
       return jsonError("At least 3 participants required", 400);
-    }
-    const playoff = playoffSize === 8 ? 8 : 4;
-    if (ids.length < playoff) {
-      return jsonError(
-        `At least ${playoff} participants required for top-${playoff} playoff`,
-        400
-      );
     }
     await upsertUser(auth.ctx.user);
     await assertChannelTournamentParticipants(channelId, ids);
@@ -1929,8 +2101,6 @@ async function POST9(req) {
       name,
       variant: tournamentVariant,
       participantIds: ids,
-      playoffSize: playoff,
-      legsToWin: normalizeLegsToWin(legsToWin),
       createdBy: auth.ctx.user.id
     });
     return Response.json(tournament);
@@ -1941,14 +2111,556 @@ async function POST9(req) {
   }
 }
 
+// app/api/tournaments/[tournamentId]/route.ts
+init_tournaments();
+async function GET5(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  try {
+    const data = await getTournament(tournamentId);
+    const participants = data.participants.map((p) => {
+      const u = Array.isArray(p.users) ? p.users[0] : p.users;
+      if (!u) return p;
+      return {
+        ...p,
+        users: {
+          ...u,
+          photo_url: resolveStoredPhotoUrl(
+            p.user_id,
+            u.photo_url
+          )
+        }
+      };
+    });
+    return Response.json({ ...data, participants });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Tournament not found";
+    return jsonError(message, 404);
+  }
+}
+async function DELETE(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  await deleteTournament(tournamentId);
+  return Response.json({ ok: true });
+}
+
+// app/api/tournaments/[tournamentId]/draw/route.ts
+init_tournaments();
+async function POST10(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  try {
+    await drawRoundRobin(tournamentId);
+    const data = await getTournament(tournamentId);
+    return Response.json(data);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to run round robin draw";
+    const status = message.includes("not found") ? 404 : message.includes("already") ? 409 : 400;
+    return jsonError(message, status);
+  }
+}
+
+// app/api/tournaments/[tournamentId]/match/route.ts
+init_tournaments();
+async function POST11(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  const body = await req.json();
+  const { matchId, matchType, channelId } = body;
+  if (!matchId || !channelId) return jsonError("Invalid payload", 400);
+  const game = await createMatchGame(
+    tournamentId,
+    matchId,
+    matchType === "playoff" ? "playoff" : "rr",
+    channelId,
+    auth.ctx.user.id
+  );
+  return Response.json({ game });
+}
+
+// app/api/tournaments/[tournamentId]/playoff/route.ts
+init_tournaments();
+async function POST12(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  const data = await startPlayoff(tournamentId);
+  return Response.json(data);
+}
+
+// app/api/tournaments/[tournamentId]/finish/route.ts
+init_tournaments();
+init_server();
+async function POST13(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  try {
+    const { tournament } = await getTournament(tournamentId);
+    const db = getSupabaseAdmin();
+    const { data: member, error: memberErr } = await db.from("channel_members").select("user_id").eq("channel_id", tournament.channel_id).eq("user_id", auth.ctx.user.id).maybeSingle();
+    if (memberErr) throw memberErr;
+    if (!member) return jsonError("Not a channel member", 403);
+    await finishTournament(tournamentId);
+    return Response.json({ ok: true });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044C \u0442\u0443\u0440\u043D\u0438\u0440";
+    const status = message.includes("Not found") ? 404 : 400;
+    return jsonError(message, status);
+  }
+}
+
+// lib/db/tournament-live.ts
+init_server();
+async function getTournamentTvLive(tournamentId) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("tournaments").select("settings").eq("id", tournamentId).maybeSingle();
+  if (error) throw error;
+  const settings = data?.settings;
+  if (!settings || typeof settings !== "object") return null;
+  const live = settings.tvLive;
+  if (!live || typeof live !== "object") return null;
+  return live;
+}
+async function setTournamentTvLive(tournamentId, live) {
+  const db = getSupabaseAdmin();
+  const { error } = await db.rpc("set_tournament_tv_live", {
+    p_tournament_id: tournamentId,
+    p_live: live
+  });
+  if (error) {
+    console.warn("[tv-live] rpc failed, fallback merge", error.message);
+    return setTournamentTvLiveFallback(tournamentId, live);
+  }
+  return live;
+}
+async function setTournamentTvLiveFallback(tournamentId, live) {
+  const db = getSupabaseAdmin();
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data: row, error: readErr } = await db.from("tournaments").select("settings").eq("id", tournamentId).single();
+    if (readErr) throw readErr;
+    const prev = row.settings && typeof row.settings === "object" ? { ...row.settings } : {};
+    if (live == null) {
+      delete prev.tvLive;
+    } else {
+      prev.tvLive = live;
+    }
+    const { error } = await db.from("tournaments").update({ settings: prev }).eq("id", tournamentId);
+    if (!error) return live;
+    if (attempt === 2) throw error;
+  }
+  return live;
+}
+
+// app/api/tournaments/[tournamentId]/live/route.ts
+init_tournaments();
+async function GET6(_req, { params }) {
+  const auth = authenticateRequest(_req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  try {
+    await getTournament(tournamentId);
+    const live = await getTournamentTvLive(tournamentId);
+    return Response.json({ live });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Not found";
+    return jsonError(message, message.includes("not found") ? 404 : 400);
+  }
+}
+async function POST14(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  try {
+    await getTournament(tournamentId);
+    const body = await req.json().catch(() => ({}));
+    if (body.live === null) {
+      await setTournamentTvLive(tournamentId, null);
+      return Response.json({ live: null });
+    }
+    if (!body.live || typeof body.live !== "object") {
+      return jsonError("live payload required", 400);
+    }
+    const live = {
+      ...body.live,
+      updatedAt: Date.now()
+    };
+    await setTournamentTvLive(tournamentId, live);
+    return Response.json({ live });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update live";
+    return jsonError(message, 400);
+  }
+}
+
+// app/api/tournaments/[tournamentId]/tv-code/route.ts
+init_tournament_tv_code();
+init_tournaments();
+
+// lib/tournament/tv-live.ts
+var TV_PUBLIC_ORIGIN = "https://artdart.vercel.app";
+var TV_PUBLIC_HOST = "artdart.vercel.app";
+function tvPublicUrl() {
+  return `${TV_PUBLIC_ORIGIN}/tv`;
+}
+function tvPublicDisplay() {
+  return `${TV_PUBLIC_HOST}/tv`;
+}
+
+// app/api/tournaments/[tournamentId]/tv-code/route.ts
+async function GET7(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { tournamentId } = await params;
+  try {
+    await getTournament(tournamentId);
+    const code = await ensureTournamentTvCode(tournamentId);
+    return Response.json({
+      code,
+      url: tvPublicUrl(),
+      display: tvPublicDisplay()
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed";
+    return jsonError(message, message.includes("not found") ? 404 : 400);
+  }
+}
+
+// lib/db/tv-boards.ts
+init_server();
+init_tv_code();
+init_tournament_tv_code();
+
+// lib/tournament/tv-board-key.ts
+function tournamentBoardKey(tournamentId) {
+  return `t:${tournamentId}`;
+}
+function channelBoardKey(channelId) {
+  return `c:${channelId}`;
+}
+function parseTvBoardKey(raw) {
+  const boardKey = decodeURIComponent(raw);
+  if (boardKey.startsWith("t:") && boardKey.length > 2) {
+    return { boardKey, kind: "tournament", refId: boardKey.slice(2) };
+  }
+  if (boardKey.startsWith("g:") && boardKey.length > 2) {
+    return { boardKey, kind: "game", refId: boardKey.slice(2) };
+  }
+  if (boardKey.startsWith("c:") && boardKey.length > 2) {
+    return { boardKey, kind: "channel", refId: boardKey.slice(2) };
+  }
+  return null;
+}
+
+// lib/db/tv-boards.ts
+async function codeTakenOnBoards(code) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("tv_boards").select("board_key").eq("code", code).limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+async function allocateCode() {
+  for (let i = 0; i < 32; i++) {
+    const code = generateTvCode();
+    if (await codeTakenOnBoards(code)) continue;
+    const legacy = await findTournamentIdByTvCode(code);
+    if (legacy) continue;
+    return code;
+  }
+  throw new Error("\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0432\u044B\u0434\u0435\u043B\u0438\u0442\u044C TV-\u043A\u043E\u0434");
+}
+async function ensureChannelTvBoard(params) {
+  const channelId = params.channelId.trim();
+  if (!channelId) throw new Error("channelId required");
+  const boardKey = channelBoardKey(channelId);
+  const db = getSupabaseAdmin();
+  const { data: existing, error } = await db.from("tv_boards").select("code, title").eq("board_key", boardKey).maybeSingle();
+  if (error) throw error;
+  if (existing?.code) {
+    if (params.title && params.title !== existing.title) {
+      await db.from("tv_boards").update({ title: params.title, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("board_key", boardKey);
+    }
+    return { code: existing.code, boardKey };
+  }
+  const { data: prior } = await db.from("tv_boards").select("code").eq("channel_id", channelId).eq("kind", "game").order("updated_at", { ascending: false }).limit(1).maybeSingle();
+  return ensureTvBoard({
+    boardKey,
+    kind: "channel",
+    refId: channelId,
+    channelId,
+    title: params.title,
+    preferredCode: prior?.code ?? null
+  });
+}
+async function ensureTvBoard(params) {
+  const db = getSupabaseAdmin();
+  const { data: existing, error } = await db.from("tv_boards").select("code, title").eq("board_key", params.boardKey).maybeSingle();
+  if (error) throw error;
+  if (existing?.code) {
+    if (params.title && params.title !== existing.title) {
+      await db.from("tv_boards").update({ title: params.title, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("board_key", params.boardKey);
+    }
+    return { code: existing.code, boardKey: params.boardKey };
+  }
+  const preferred = params.preferredCode ? normalizeTvCode(params.preferredCode) : "";
+  const code = preferred && isValidTvCode(preferred) && !await codeTakenOnBoards(preferred) ? preferred : await allocateCode();
+  const { error: insertErr } = await db.from("tv_boards").insert({
+    board_key: params.boardKey,
+    code,
+    kind: params.kind,
+    ref_id: params.refId,
+    channel_id: params.channelId || null,
+    title: params.title ?? "",
+    live: null,
+    updated_at: (/* @__PURE__ */ new Date()).toISOString()
+  });
+  if (insertErr) {
+    const { data: again } = await db.from("tv_boards").select("code").eq("board_key", params.boardKey).maybeSingle();
+    if (again?.code) return { code: again.code, boardKey: params.boardKey };
+    throw insertErr;
+  }
+  return { code, boardKey: params.boardKey };
+}
+async function setTvBoardLive(boardKey, live) {
+  const db = getSupabaseAdmin();
+  const { error } = await db.from("tv_boards").update({
+    live,
+    updated_at: (/* @__PURE__ */ new Date()).toISOString()
+  }).eq("board_key", boardKey);
+  if (error) throw error;
+}
+async function getTvBoardLive(boardKey) {
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("tv_boards").select("live, kind, channel_id, ref_id").eq("board_key", boardKey).maybeSingle();
+  if (error) throw error;
+  const own = data?.live && typeof data.live === "object" ? data.live : null;
+  if (data?.kind === "game" && data.channel_id) {
+    const sessionKey = channelBoardKey(data.channel_id);
+    if (sessionKey !== boardKey) {
+      const { data: session } = await db.from("tv_boards").select("live").eq("board_key", sessionKey).maybeSingle();
+      const sessionLive = session?.live && typeof session.live === "object" ? session.live : null;
+      if (sessionLive && (sessionLive.updatedAt ?? 0) >= (own?.updatedAt ?? 0)) {
+        return sessionLive;
+      }
+    }
+  }
+  return own;
+}
+async function findTvBoardByCode(rawCode) {
+  const code = normalizeTvCode(rawCode);
+  if (!isValidTvCode(code)) return null;
+  const db = getSupabaseAdmin();
+  const { data, error } = await db.from("tv_boards").select("*").eq("code", code).maybeSingle();
+  if (error) throw error;
+  if (data) return data;
+  const tournamentId = await findTournamentIdByTvCode(code);
+  if (!tournamentId) return null;
+  await ensureTvBoard({
+    boardKey: tournamentBoardKey(tournamentId),
+    kind: "tournament",
+    refId: tournamentId,
+    preferredCode: code,
+    title: ""
+  });
+  const { data: row } = await db.from("tv_boards").select("*").eq("board_key", tournamentBoardKey(tournamentId)).maybeSingle();
+  return row ?? null;
+}
+
+// app/api/tv/[code]/route.ts
+async function GET8(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { code } = await params;
+  try {
+    const board = await findTvBoardByCode(code);
+    if (!board) return jsonError("\u041A\u043E\u0434 \u043D\u0435 \u043D\u0430\u0439\u0434\u0435\u043D", 404);
+    return Response.json({
+      boardKey: board.board_key,
+      kind: board.kind,
+      refId: board.ref_id,
+      title: board.title,
+      tournamentId: board.kind === "tournament" ? board.ref_id : null,
+      gameId: board.kind === "game" ? board.ref_id : null,
+      channelId: board.kind === "channel" ? board.ref_id : board.channel_id
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Lookup failed";
+    return jsonError(message, 400);
+  }
+}
+
+// app/api/tv/boards/[boardKey]/route.ts
+function parseBoardKey(raw) {
+  return parseTvBoardKey(raw);
+}
+async function ensureParsedBoard(parsed, opts) {
+  if (parsed.kind === "channel") {
+    return ensureChannelTvBoard({
+      channelId: parsed.refId,
+      title: opts?.title
+    });
+  }
+  return ensureTvBoard({
+    boardKey: parsed.boardKey,
+    kind: parsed.kind,
+    refId: parsed.refId,
+    channelId: opts?.channelId,
+    title: opts?.title
+  });
+}
+async function GET9(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { boardKey: raw } = await params;
+  const parsed = parseBoardKey(raw);
+  if (!parsed) return jsonError("Invalid board key", 400);
+  const url = new URL(req.url);
+  const want = url.searchParams.get("want");
+  try {
+    if (want === "code") {
+      const channelId = url.searchParams.get("channelId");
+      const title = url.searchParams.get("title") ?? "";
+      const ensured = await ensureParsedBoard(parsed, { channelId, title });
+      return Response.json({
+        code: ensured.code,
+        boardKey: ensured.boardKey,
+        kind: parsed.kind,
+        display: "artdart.vercel.app/tv",
+        url: "https://artdart.vercel.app/tv"
+      });
+    }
+    await ensureParsedBoard(parsed);
+    const live = await getTvBoardLive(parsed.boardKey);
+    return Response.json({ live });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed";
+    return jsonError(message, 400);
+  }
+}
+async function POST15(req, { params }) {
+  const auth = authenticateRequest(req);
+  if (!auth.ok) return jsonError(auth.error, auth.status);
+  const { boardKey: raw } = await params;
+  const parsed = parseBoardKey(raw);
+  if (!parsed) return jsonError("Invalid board key", 400);
+  try {
+    const body = await req.json().catch(() => ({}));
+    await ensureParsedBoard(parsed, {
+      channelId: body.channelId,
+      title: body.title
+    });
+    if (body.live === null) {
+      await setTvBoardLive(parsed.boardKey, null);
+      return Response.json({ live: null });
+    }
+    if (!body.live || typeof body.live !== "object") {
+      return jsonError("live payload required", 400);
+    }
+    const live = {
+      ...body.live,
+      updatedAt: Date.now()
+    };
+    await setTvBoardLive(parsed.boardKey, live);
+    return Response.json({ live });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Failed to update live";
+    return jsonError(message, 400);
+  }
+}
+
+// app/api/avatar/[userId]/route.ts
+async function GET10(_req, { params }) {
+  const { userId: raw } = await params;
+  const userId = Number(raw);
+  if (!Number.isFinite(userId) || !Number.isInteger(userId)) {
+    return new Response(null, { status: 404 });
+  }
+  const storedPhotoUrl = await getUserPhotoUrl(userId);
+  if (storedPhotoUrl && isCustomClubPhoto(storedPhotoUrl)) {
+    const decoded = decodeDataImageUrl(storedPhotoUrl);
+    if (!decoded) {
+      return new Response(null, { status: 404 });
+    }
+    return new Response(decoded.body, {
+      headers: {
+        "Content-Type": decoded.contentType,
+        "Cache-Control": "public, max-age=300, stale-while-revalidate=3600"
+      }
+    });
+  }
+  return new Response(null, { status: 404 });
+}
+
+// app/api/channels/[channelId]/current/route.ts
+init_games();
+init_tournaments();
+init_variant();
+init_server();
+async function GET11(req, { params }) {
+  try {
+    const auth = authenticateRequest(req);
+    if (!auth.ok) return jsonError(auth.error, auth.status);
+    const { channelId } = await params;
+    const db = getSupabaseAdmin();
+    const { data: member, error: memberErr } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).eq("user_id", auth.ctx.user.id).maybeSingle();
+    if (memberErr) throw memberErr;
+    if (!member) return jsonError("Not a channel member", 403);
+    const [games, tournamentRows] = await Promise.all([
+      listChannelActiveGames(channelId),
+      listChannelActiveTournaments(channelId)
+    ]);
+    const tournaments = tournamentRows.map((t) => ({
+      id: t.id,
+      name: t.name,
+      status: t.status,
+      variant: variantFromTournamentRow(t),
+      created_at: t.created_at
+    }));
+    return Response.json({ games, tournaments });
+  } catch (e) {
+    console.error("[channels/current]", e);
+    const message = e instanceof Error ? e.message : "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0442\u0435\u043A\u0443\u0449\u0438\u0445 \u0438\u0433\u0440";
+    return jsonError(message, 500);
+  }
+}
+
+// app/api/channels/[channelId]/games/route.ts
+init_games();
+init_server();
+async function GET12(req, { params }) {
+  try {
+    const auth = authenticateRequest(req);
+    if (!auth.ok) return jsonError(auth.error, auth.status);
+    const { channelId } = await params;
+    const db = getSupabaseAdmin();
+    const { data: member, error: memberErr } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).eq("user_id", auth.ctx.user.id).maybeSingle();
+    if (memberErr) throw memberErr;
+    if (!member) return jsonError("Not a channel member", 403);
+    const games = await listChannelGames(channelId);
+    return Response.json({ games });
+  } catch (e) {
+    console.error("[channels/games]", e);
+    const message = e instanceof Error ? e.message : "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0430\u0440\u0445\u0438\u0432\u0430 \u0438\u0433\u0440";
+    return jsonError(message, 500);
+  }
+}
+
+// lib/channel/player-photo.ts
+var MAX_PHOTO_DATA_URL_CHARS = 12e5;
+
 // lib/channel/manual-players.ts
+init_server();
 function isManualPlayerId(userId) {
   return Number.isFinite(userId) && userId < 0;
 }
 function allocateManualPlayerId() {
   return -(Date.now() * 1e3 + Math.floor(Math.random() * 1e3));
 }
-var MAX_PHOTO_DATA_URL_CHARS = 18e4;
 function assertPhotoUrl(photoUrl) {
   if (photoUrl == null || photoUrl === "") return null;
   if (photoUrl.startsWith("data:image/")) {
@@ -2044,313 +2756,8 @@ async function removeChannelPlayer(channelId, userId) {
   }
 }
 
-// app/api/tournaments/[tournamentId]/route.ts
-async function GET5(req, { params }) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-  const { tournamentId } = await params;
-  try {
-    const data = await getTournament(tournamentId);
-    const toSync = data.participants.flatMap((p) => {
-      const u = Array.isArray(p.users) ? p.users[0] : p.users;
-      if (!u) return [];
-      const userId = p.user_id;
-      if (isManualPlayerId(userId) || isCustomClubPhoto(u.photo_url)) {
-        return [];
-      }
-      return [
-        {
-          id: userId,
-          photo_url: u.photo_url ?? void 0,
-          existingPhotoUrl: u.photo_url ?? null
-        }
-      ];
-    });
-    void syncUserProfilePhotos(toSync).catch(
-      (e) => console.warn("[tournaments/get] sync photos", e)
-    );
-    const participants = data.participants.map((p) => {
-      const u = Array.isArray(p.users) ? p.users[0] : p.users;
-      if (!u) return p;
-      return {
-        ...p,
-        users: {
-          ...u,
-          photo_url: resolveStoredPhotoUrl(
-            p.user_id,
-            u.photo_url
-          )
-        }
-      };
-    });
-    return Response.json({ ...data, participants });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Tournament not found";
-    return jsonError(message, 404);
-  }
-}
-async function DELETE(req, { params }) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-  const { tournamentId } = await params;
-  await deleteTournament(tournamentId);
-  return Response.json({ ok: true });
-}
-
-// app/api/tournaments/[tournamentId]/draw/route.ts
-async function POST10(req, { params }) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-  const { tournamentId } = await params;
-  try {
-    await drawRoundRobin(tournamentId);
-    const data = await getTournament(tournamentId);
-    return Response.json(data);
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to run round robin draw";
-    const status = message.includes("not found") ? 404 : message.includes("already") ? 409 : 400;
-    return jsonError(message, status);
-  }
-}
-
-// app/api/tournaments/[tournamentId]/match/route.ts
-async function POST11(req, { params }) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-  const { tournamentId } = await params;
-  const body = await req.json();
-  const { matchId, matchType, channelId } = body;
-  if (!matchId || !channelId) return jsonError("Invalid payload", 400);
-  const game = await createMatchGame(
-    tournamentId,
-    matchId,
-    matchType === "playoff" ? "playoff" : "rr",
-    channelId,
-    auth.ctx.user.id
-  );
-  return Response.json({ game });
-}
-
-// app/api/tournaments/[tournamentId]/playoff/route.ts
-async function POST12(req, { params }) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-  const { tournamentId } = await params;
-  const data = await startPlayoff(tournamentId);
-  return Response.json(data);
-}
-
-// app/api/tournaments/[tournamentId]/finish/route.ts
-async function POST13(req, { params }) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-  const { tournamentId } = await params;
-  try {
-    const { tournament } = await getTournament(tournamentId);
-    const db = getSupabaseAdmin();
-    const { data: member, error: memberErr } = await db.from("channel_members").select("user_id").eq("channel_id", tournament.channel_id).eq("user_id", auth.ctx.user.id).maybeSingle();
-    if (memberErr) throw memberErr;
-    if (!member) return jsonError("Not a channel member", 403);
-    await finishTournament(tournamentId);
-    return Response.json({ ok: true });
-  } catch (e) {
-    const message = e instanceof Error ? e.message : "\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0437\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044C \u0442\u0443\u0440\u043D\u0438\u0440";
-    const status = message.includes("Not found") ? 404 : 400;
-    return jsonError(message, status);
-  }
-}
-
-// app/api/telegram/webhook/route.ts
-import { webhookCallback } from "grammy";
-
-// lib/telegram/handlers.ts
-import { Bot as Bot2 } from "grammy";
-function webAppBaseUrl() {
-  return (process.env.WEBAPP_URL ?? "https://project-lxy5p.vercel.app").trim().replace(/\/$/, "");
-}
-function botUsername() {
-  return (process.env.BOT_USERNAME ?? "darts_kenny_bot").trim().replace(/^@/, "");
-}
-function channelStartParam(chatId) {
-  return `ch_${chatId}`;
-}
-function miniAppUrl(chatId) {
-  const base = webAppBaseUrl();
-  const param = encodeURIComponent(channelStartParam(chatId));
-  return `${base}?tgWebAppStartParam=${param}`;
-}
-function miniAppDeepLink(chatId) {
-  const param = encodeURIComponent(channelStartParam(chatId));
-  return `https://t.me/${botUsername()}?startapp=${param}`;
-}
-var PLAY_BUTTON = "\u0418\u0433\u0440\u0430\u0442\u044C \u0432 \u0434\u0430\u0440\u0442\u0441";
-function playKeyboard(chatId) {
-  return {
-    inline_keyboard: [
-      [{ text: PLAY_BUTTON, web_app: { url: miniAppUrl(chatId) } }]
-    ]
-  };
-}
-var WELCOME_TEXT = "\u042F \u0431\u043E\u0442 \u0441 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435\u043C \u0434\u043B\u044F \u043F\u043E\u0434\u0441\u0447\u0451\u0442\u0430 \u043E\u0447\u043A\u043E\u0432 \u0432 \u0434\u0430\u0440\u0442\u0441. \u041B\u044E\u0431\u043E\u0439 \u0432 \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u0435 \u043C\u043E\u0436\u0435\u0442 \u0438\u0441\u043F\u043E\u043B\u044C\u0437\u043E\u0432\u0430\u0442\u044C \u0435\u0433\u043E \u0434\u043B\u044F \u0438\u0433\u0440\u044B. \u0423\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438 \u0432\u044B\u0431\u0438\u0440\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0438\u0437 \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u044B. \u0415\u0449\u0451 \u044F \u0443\u043C\u0435\u044E \u0434\u0435\u043B\u0430\u0442\u044C \u0442\u0443\u0440\u043D\u0438\u0440\u044B \u0434\u043B\u044F \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u0433\u0440\u0443\u043F\u043F\u044B.\n\n\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \xAB\u0418\u0433\u0440\u0430\u0442\u044C \u0432 \u0434\u0430\u0440\u0442\u0441\xBB, \u0447\u0442\u043E\u0431\u044B \u0441\u0447\u0438\u0442\u0430\u0442\u044C \u043E\u0447\u043A\u0438, \u0432\u0435\u0441\u0442\u0438 \u0442\u0443\u0440\u043D\u0438\u0440\u044B \u0438 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0443 \u0434\u043B\u044F \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u044B.\n\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0430 \u0441\u043A\u0432\u043E\u0437\u043D\u0430\u044F \u2014 \u0432\u0441\u0435, \u043A\u0442\u043E \u0438\u0433\u0440\u0430\u0435\u0442 \u043F\u0440\u043E\u0441\u0442\u043E \u0438\u043B\u0438 \u0432 \u0442\u0443\u0440\u043D\u0438\u0440\u0435, \u043F\u043E\u043F\u0430\u0434\u0430\u044E\u0442 \u0432 \u0441\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043A\u0443.\n\n<b>\u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435!</b> \u041A\u0430\u0436\u0434\u044B\u0439 \u0436\u0435\u043B\u0430\u044E\u0449\u0438\u0439 \u0438\u0433\u0440\u0430\u0442\u044C \u0434\u043E\u043B\u0436\u0435\u043D \u043E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0445\u043E\u0442\u044F \u0431\u044B \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u0438\u0437 \u044D\u0442\u043E\u0439 \u0433\u0440\u0443\u043F\u043F\u044B.";
-async function sendWelcome(ctx) {
-  const chat = ctx.chat;
-  if (!chat) return;
-  try {
-    await ctx.reply(WELCOME_TEXT, {
-      parse_mode: "HTML",
-      reply_markup: playKeyboard(chat.id)
-    });
-    return;
-  } catch (e) {
-    console.error("[telegram] welcome with web_app failed", e);
-  }
-  try {
-    await ctx.reply(WELCOME_TEXT, {
-      parse_mode: "HTML",
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: PLAY_BUTTON, url: miniAppDeepLink(chat.id) }]
-        ]
-      }
-    });
-    return;
-  } catch (e) {
-    console.error("[telegram] welcome with url button failed", e);
-  }
-  await ctx.reply(
-    `${WELCOME_TEXT}
-
-\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0441\u044B\u043B\u043A\u0443:
-${miniAppDeepLink(chat.id)}`,
-    { parse_mode: "HTML" }
-  );
-}
-function createBotWithHandlers() {
-  const token = process.env.BOT_TOKEN?.trim();
-  if (!token) {
-    throw new Error("BOT_TOKEN is not configured");
-  }
-  const bot2 = new Bot2(token);
-  bot2.command("start", async (ctx) => {
-    try {
-      await sendWelcome(ctx);
-    } catch (e) {
-      console.error("[telegram] /start failed", e);
-    }
-  });
-  bot2.on("my_chat_member", async (ctx) => {
-    const next = ctx.myChatMember.new_chat_member.status;
-    if (next !== "member" && next !== "administrator") return;
-    const prev = ctx.myChatMember.old_chat_member.status;
-    if (prev === "member" || prev === "administrator") return;
-    try {
-      await sendWelcome(ctx);
-    } catch (e) {
-      console.error("[telegram] my_chat_member failed", e);
-    }
-  });
-  bot2.catch((err) => {
-    console.error("[telegram] bot error", err);
-  });
-  return bot2;
-}
-
-// app/api/telegram/webhook/route.ts
-var handler = null;
-function getHandler() {
-  if (!handler) {
-    handler = webhookCallback(createBotWithHandlers(), "std/http");
-  }
-  return handler;
-}
-async function POST14(req) {
-  const token = process.env.BOT_TOKEN?.trim();
-  if (!token) {
-    return Response.json({ error: "BOT_TOKEN not configured" }, { status: 503 });
-  }
-  try {
-    return await getHandler()(req);
-  } catch (e) {
-    console.error("[telegram/webhook]", e);
-    return new Response("OK", { status: 200 });
-  }
-}
-
-// app/api/telegram/avatar/[telegramId]/route.ts
-async function GET6(_req, { params }) {
-  const { telegramId: raw } = await params;
-  const telegramId = Number(raw);
-  if (!Number.isFinite(telegramId) || telegramId <= 0) {
-    return new Response(null, { status: 404 });
-  }
-  const storedPhotoUrl = await getUserPhotoUrl(telegramId);
-  const fileUrl = await resolveAvatarUpstreamUrl(telegramId, storedPhotoUrl);
-  if (!fileUrl) {
-    return new Response(null, { status: 404 });
-  }
-  const upstream = await fetch(fileUrl);
-  if (!upstream.ok) {
-    return new Response(null, { status: 404 });
-  }
-  const body = await upstream.arrayBuffer();
-  return new Response(body, {
-    headers: {
-      "Content-Type": upstream.headers.get("content-type") ?? "image/jpeg",
-      "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800"
-    }
-  });
-}
-
-// app/api/channels/[channelId]/current/route.ts
-async function GET7(req, { params }) {
-  try {
-    const auth = authenticateRequest(req);
-    if (!auth.ok) return jsonError(auth.error, auth.status);
-    const { channelId } = await params;
-    const db = getSupabaseAdmin();
-    const { data: member, error: memberErr } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).eq("user_id", auth.ctx.user.id).maybeSingle();
-    if (memberErr) throw memberErr;
-    if (!member) return jsonError("Not a channel member", 403);
-    const [games, tournamentRows] = await Promise.all([
-      listChannelActiveGames(channelId),
-      listChannelActiveTournaments(channelId)
-    ]);
-    const tournaments = tournamentRows.map((t) => ({
-      id: t.id,
-      name: t.name,
-      status: t.status,
-      variant: variantFromTournamentRow(t),
-      created_at: t.created_at
-    }));
-    return Response.json({ games, tournaments });
-  } catch (e) {
-    console.error("[channels/current]", e);
-    const message = e instanceof Error ? e.message : "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0442\u0435\u043A\u0443\u0449\u0438\u0445 \u0438\u0433\u0440";
-    return jsonError(message, 500);
-  }
-}
-
-// app/api/channels/[channelId]/games/route.ts
-async function GET8(req, { params }) {
-  try {
-    const auth = authenticateRequest(req);
-    if (!auth.ok) return jsonError(auth.error, auth.status);
-    const { channelId } = await params;
-    const db = getSupabaseAdmin();
-    const { data: member, error: memberErr } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).eq("user_id", auth.ctx.user.id).maybeSingle();
-    if (memberErr) throw memberErr;
-    if (!member) return jsonError("Not a channel member", 403);
-    const games = await listChannelGames(channelId);
-    return Response.json({ games });
-  } catch (e) {
-    console.error("[channels/games]", e);
-    const message = e instanceof Error ? e.message : "\u041E\u0448\u0438\u0431\u043A\u0430 \u0437\u0430\u0433\u0440\u0443\u0437\u043A\u0438 \u0430\u0440\u0445\u0438\u0432\u0430 \u0438\u0433\u0440";
-    return jsonError(message, 500);
-  }
-}
-
 // app/api/channels/[channelId]/players/route.ts
-async function GET9(req, { params }) {
+async function GET13(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
   const { channelId } = await params;
@@ -2372,7 +2779,7 @@ async function GET9(req, { params }) {
   });
   return Response.json({ members: membersWithPhotos });
 }
-async function POST15(req, { params }) {
+async function POST16(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
   const { channelId } = await params;
@@ -2447,7 +2854,10 @@ async function DELETE2(req, { params }) {
 }
 
 // app/api/channels/[channelId]/tournaments/route.ts
-async function GET10(req, { params }) {
+init_tournaments();
+init_variant();
+init_server();
+async function GET14(req, { params }) {
   try {
     const auth = authenticateRequest(req);
     if (!auth.ok) return jsonError(auth.error, auth.status);
@@ -2473,7 +2883,8 @@ async function GET10(req, { params }) {
 }
 
 // app/api/channels/[channelId]/members/route.ts
-async function GET11(req, { params }) {
+init_server();
+async function GET15(req, { params }) {
   const auth = authenticateRequest(req);
   if (!auth.ok) return jsonError(auth.error, auth.status);
   const { channelId } = await params;
@@ -2481,25 +2892,6 @@ async function GET11(req, { params }) {
   const { data: member } = await db.from("channel_members").select("user_id").eq("channel_id", channelId).eq("user_id", auth.ctx.user.id).maybeSingle();
   if (!member) return jsonError("Not a channel member", 403);
   const members = await getChannelMembers(channelId);
-  if (!isWebSession(auth.ctx.initData)) {
-    const toSync = members.flatMap((m) => {
-      const u = Array.isArray(m.users) ? m.users[0] : m.users;
-      if (!u) return [];
-      const userId = m.user_id;
-      if (isManualPlayerId(userId)) return [];
-      if (isCustomClubPhoto(u.photo_url)) return [];
-      return [
-        {
-          id: userId,
-          photo_url: u.photo_url ?? void 0,
-          existingPhotoUrl: u.photo_url ?? null
-        }
-      ];
-    });
-    void syncUserProfilePhotos(toSync).catch(
-      (e) => console.warn("[channels/members] sync photos", e)
-    );
-  }
   const membersWithPhotos = members.map((m) => {
     const u = Array.isArray(m.users) ? m.users[0] : m.users;
     if (!u) return m;
@@ -2518,14 +2910,14 @@ async function GET11(req, { params }) {
 function withParams(params) {
   return { params: Promise.resolve(params) };
 }
-async function call(handler2, req, params = {}) {
-  if (!handler2) {
+async function call(handler, req, params = {}) {
+  if (!handler) {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
       headers: { "Content-Type": "application/json" }
     });
   }
-  return handler2(req, withParams(params));
+  return handler(req, withParams(params));
 }
 function createApp() {
   const app2 = new Hono();
@@ -2535,11 +2927,24 @@ function createApp() {
       origin: "*",
       allowHeaders: [
         "Content-Type",
-        "x-telegram-init-data",
         "x-web-auth",
         "x-dev-auth"
       ],
       allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
+    })
+  );
+  app2.use(
+    "/api/channels/*/players",
+    bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      onError: (c) => c.json({ error: "\u0424\u043E\u0442\u043E \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u043E\u0435" }, 413)
+    })
+  );
+  app2.use(
+    "/api/channels/*/players/*",
+    bodyLimit({
+      maxSize: 2 * 1024 * 1024,
+      onError: (c) => c.json({ error: "\u0424\u043E\u0442\u043E \u0441\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0434\u0440\u0443\u0433\u043E\u0435" }, 413)
     })
   );
   app2.get("/api/health", (c) => c.json({ ok: true }));
@@ -2613,35 +3018,73 @@ function createApp() {
       tournamentId: c.req.param("tournamentId")
     })
   );
+  app2.get(
+    "/api/tournaments/:tournamentId/live",
+    (c) => call(GET6, c.req.raw, {
+      tournamentId: c.req.param("tournamentId")
+    })
+  );
   app2.post(
-    "/api/telegram/webhook",
-    (c) => call(POST14, c.req.raw)
+    "/api/tournaments/:tournamentId/live",
+    (c) => call(POST14, c.req.raw, {
+      tournamentId: c.req.param("tournamentId")
+    })
   );
   app2.get(
-    "/api/telegram/avatar/:telegramId",
-    (c) => call(GET6, c.req.raw, {
-      telegramId: c.req.param("telegramId")
+    "/api/tournaments/:tournamentId/tv-code",
+    (c) => call(GET7, c.req.raw, {
+      tournamentId: c.req.param("tournamentId")
+    })
+  );
+  app2.get(
+    "/api/tv/boards/:boardKey",
+    (c) => call(GET9, c.req.raw, {
+      boardKey: c.req.param("boardKey")
+    })
+  );
+  app2.post(
+    "/api/tv/boards/:boardKey",
+    (c) => call(POST15, c.req.raw, {
+      boardKey: c.req.param("boardKey")
+    })
+  );
+  app2.get(
+    "/api/tv/:code",
+    (c) => call(GET8, c.req.raw, {
+      code: c.req.param("code")
+    })
+  );
+  app2.get(
+    "/api/avatar/:userId",
+    (c) => call(GET10, c.req.raw, {
+      userId: c.req.param("userId")
+    })
+  );
+  app2.get(
+    "/api/telegram/avatar/:userId",
+    (c) => call(GET10, c.req.raw, {
+      userId: c.req.param("userId")
     })
   );
   app2.get(
     "/api/channels/:channelId/current",
-    (c) => call(GET7, c.req.raw, {
+    (c) => call(GET11, c.req.raw, {
       channelId: c.req.param("channelId")
     })
   );
   app2.get(
     "/api/channels/:channelId/games",
-    (c) => call(GET8, c.req.raw, { channelId: c.req.param("channelId") })
+    (c) => call(GET12, c.req.raw, { channelId: c.req.param("channelId") })
   );
   app2.get(
     "/api/channels/:channelId/players",
-    (c) => call(GET9, c.req.raw, {
+    (c) => call(GET13, c.req.raw, {
       channelId: c.req.param("channelId")
     })
   );
   app2.post(
     "/api/channels/:channelId/players",
-    (c) => call(POST15, c.req.raw, {
+    (c) => call(POST16, c.req.raw, {
       channelId: c.req.param("channelId")
     })
   );
@@ -2661,13 +3104,13 @@ function createApp() {
   );
   app2.get(
     "/api/channels/:channelId/tournaments",
-    (c) => call(GET10, c.req.raw, {
+    (c) => call(GET14, c.req.raw, {
       channelId: c.req.param("channelId")
     })
   );
   app2.get(
     "/api/channels/:channelId/members",
-    (c) => call(GET11, c.req.raw, {
+    (c) => call(GET15, c.req.raw, {
       channelId: c.req.param("channelId")
     })
   );
@@ -2701,8 +3144,8 @@ function restoreRequest(req) {
 async function handle(req) {
   return app.fetch(restoreRequest(req));
 }
-var GET12 = handle;
-var POST16 = handle;
+var GET16 = handle;
+var POST17 = handle;
 var PUT = handle;
 var PATCH2 = handle;
 var DELETE3 = handle;
@@ -2710,11 +3153,11 @@ var OPTIONS = handle;
 var HEAD = handle;
 export {
   DELETE3 as DELETE,
-  GET12 as GET,
+  GET16 as GET,
   HEAD,
   OPTIONS,
   PATCH2 as PATCH,
-  POST16 as POST,
+  POST17 as POST,
   PUT,
   config
 };

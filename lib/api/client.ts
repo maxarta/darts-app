@@ -1,23 +1,6 @@
 "use client";
 
-export function getInitData(): string {
-  if (typeof window === "undefined") return "";
-  try {
-    // Dynamic require avoids SSR window access from @twa-dev/sdk
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const WebApp = require("@twa-dev/sdk").default;
-    return WebApp.initData || "";
-  } catch {
-    return "";
-  }
-}
-
 function authHeaders(): Record<string, string> {
-  const initData = getInitData();
-  if (initData) {
-    return { "x-telegram-init-data": initData };
-  }
-  // Plain web app — no Telegram Mini App
   return { "x-web-auth": "local" };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { resolveTelegramBackPath } from "@/lib/telegram/navigation";
+import { resolveBackPath } from "@/lib/navigation/back-path";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback } from "react";
 import styles from "./appBackButton.module.css";
@@ -15,7 +15,7 @@ export function AppBackButton({ tone = "auto", className }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const target = resolveTelegramBackPath(pathname, searchParams);
+  const target = resolveBackPath(pathname, searchParams);
 
   const onClick = useCallback(() => {
     if (!target || target === "game_menu") return;

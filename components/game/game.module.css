@@ -1,9 +1,11 @@
 /* Figma baskr — экран подсчёта 6758:1748 */
 
 .gameScreen {
-  /* Высота верхней зоны под статус-бар / notch */
+  /* Высота верхней зоны под статус-бар / Dynamic Island / Telegram */
   --game-chrome-top: max(
     env(safe-area-inset-top, 0px),
+    var(--tg-safe-area-inset-top, 0px),
+    var(--tg-content-safe-area-inset-top, 0px),
     12px
   );
   --g-bg: #f9fafb;

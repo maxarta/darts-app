@@ -7,7 +7,7 @@ import {
   photoFor,
   resolveUser,
 } from "@/lib/channel/members";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PlayerAvatar } from "./PlayerAvatar";
 import { PlayerEditSheet } from "./PlayerEditSheet";
@@ -47,7 +47,7 @@ export function PlayerRosterSection({
   selectedTitle = "Кто играет?",
   rosterTitle = "Игроки",
 }: Props) {
-  const { patchSessionUser } = useTelegram();
+  const { patchSessionUser } = useSession();
   const [editingId, setEditingId] = useState<number | null | "new">(null);
 
   const roster = useMemo(() => {

@@ -1,4 +1,4 @@
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 
 export type MemberUser = {
   first_name: string;
@@ -19,7 +19,7 @@ export function resolveUser(member: ChannelMember): MemberUser | null {
 
 export function displayName(user: MemberUser | null, userId: number): string {
   if (!user) return String(userId);
-  // Prefer first_name so manual rename always wins over Telegram username
+  // Prefer first_name so manual rename always wins over username
   return user.first_name || user.username || String(userId);
 }
 

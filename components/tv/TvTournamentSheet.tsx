@@ -17,7 +17,7 @@ import {
   KENNY_THEME_COLOR,
   normalizeTournamentVariant,
 } from "@/lib/tournament/variant";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 import { displayName, type MemberUser } from "@/lib/channel/members";
 import styles from "@/components/tournament/tournament.module.css";
 

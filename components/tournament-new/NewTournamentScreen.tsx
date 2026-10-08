@@ -16,7 +16,7 @@ import {
   TOURNAMENT_VARIANT_LABEL,
   type TournamentVariant,
 } from "@/lib/tournament/variant";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 import { AppBackButton } from "@/components/AppBackButton";
 import { PlayerRosterSection } from "@/components/game-new/PlayerRosterSection";
 import styles from "@/components/game-new/newGame.module.css";
@@ -24,7 +24,7 @@ import styles from "@/components/game-new/newGame.module.css";
 export function NewTournamentScreen() {
   const router = useRouter();
   const params = useSearchParams();
-  const { channel, session, isChannelAdmin, ready } = useTelegram();
+  const { channel, session, isChannelAdmin, ready } = useSession();
   const channelId = params.get("channelId") ?? channel?.id ?? "";
   const variant: TournamentVariant = normalizeTournamentVariant(
     params.get("variant")

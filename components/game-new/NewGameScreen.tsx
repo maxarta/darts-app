@@ -14,7 +14,7 @@ import {
 } from "@/lib/game/local/create";
 import { readLastRoster, writeLastRoster } from "@/lib/app-mode";
 import { loadChannelMembers } from "@/lib/offline/members-service";
-import { useTelegram } from "@/components/TelegramProvider";
+import { useSession } from "@/components/SessionProvider";
 import { AppBackButton } from "@/components/AppBackButton";
 import { PlayerRosterSection } from "./PlayerRosterSection";
 import { SegmentedControl } from "./SegmentedControl";
@@ -43,7 +43,7 @@ export function NewGameScreen() {
   const router = useRouter();
   const params = useSearchParams();
   const modeParam = params.get("mode");
-  const { channel, session } = useTelegram();
+  const { channel, session } = useSession();
   const channelId = params.get("channelId") ?? channel?.id ?? "";
 
   const [members, setMembers] = useState<ChannelMember[]>([]);

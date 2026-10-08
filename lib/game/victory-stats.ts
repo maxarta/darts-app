@@ -2,7 +2,7 @@ import type { ThrowInput } from "@/lib/darts/rules";
 import type { GameSnapshot } from "@/lib/game/optimistic";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import { throwsForPlayer } from "@/lib/game/victory-throws";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 
 export type VictoryPlayerStat = {
   userId: number;

@@ -12,7 +12,7 @@ import { isOnline } from "@/lib/game/sync/client";
 import { listLocalGames } from "@/lib/game/local/store";
 import type { LocalGameRecord } from "@/lib/game/local/types";
 import { isMultiplayerGame } from "@/lib/game/multiplayer";
-import { resolveStoredPhotoUrl } from "@/lib/telegram/user-photo";
+import { resolveStoredPhotoUrl } from "@/lib/user-photo";
 import type { ArchivedTournament } from "@/lib/tournament/archive";
 import {
   computeStatsFromLocalRecords,
