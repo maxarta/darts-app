@@ -386,6 +386,8 @@
   z-index: 2;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   gap: clamp(4px, min(2cqw, 1.6cqh), 10px);
   flex: 1;
   min-width: 0;
@@ -492,31 +494,13 @@
 
 .tvScoreCardTop {
   display: flex;
-  align-items: center;
-  gap: clamp(12px, min(5cqw, 4cqh), 24px);
-  min-width: 0;
-  flex: 0 0 auto;
-}
-
-.tvScoreCardStacked .tvScoreCardTop {
   flex-direction: column;
   align-items: center;
   text-align: center;
   gap: clamp(8px, min(3.6cqw, 2.8cqh), 16px);
-}
-
-.tvScoreCardStacked .tvScoreCardMeta {
-  align-items: center;
+  min-width: 0;
   width: 100%;
-}
-
-.tvScoreCardStacked .tvVisitMeta {
-  justify-content: center;
-}
-
-.tvScoreCardStacked .tvScoreFooter {
-  justify-content: center;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
 }
 
 .tvAvatarBoard {
@@ -535,8 +519,10 @@
 
 .tvScoreCardMeta {
   min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 2px;
 }
 
@@ -553,6 +539,7 @@
 .tvVisitMeta {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   min-width: 0;
 }
@@ -561,16 +548,13 @@
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
+  justify-content: center;
   gap: clamp(4px, 1.5cqw, 8px);
   /* +1× card-inner gap → 2× space from darts to avatar */
   margin: 0 0 clamp(4px, min(2cqw, 1.6cqh), 10px);
   min-width: 0;
   max-width: 100%;
   overflow: hidden;
-}
-
-.tvScoreCardStacked .tvCardDarts {
-  justify-content: center;
 }
 
 .tvCardDarts .tvVisitChipDark,
@@ -616,17 +600,14 @@
   min-height: 0;
 }
 
-.tvScoreCard:not(.tvScoreCardStacked) .tvScoreValue {
-  justify-content: flex-start;
-  text-align: left;
-}
-
 .tvScoreFooter {
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: baseline;
   min-width: 0;
+  width: 100%;
   flex: 0 0 auto;
 }
 
