@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+    />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Darts TV</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: #0b1220;
+        color: #f8fafc;
+        font-family: Arial, Helvetica, sans-serif;
+        overflow: hidden;
+      }
+      #app {
+        height: 100%;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        padding: 3vh 4vw;
+      }
+      .brand {
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(248, 250, 252, 0.55);
+        font-size: 2.2vh;
+        margin-bottom: 1.5vh;
+      }
+      .title {
+        font-size: 7vh;
+        font-weight: 800;
+        margin: 0 0 1vh;
+        letter-spacing: -0.03em;
+      }
+      .hint {
+        color: rgba(248, 250, 252, 0.62);
+        font-size: 2.6vh;
+        margin: 0 0 3vh;
+      }
+      .error {
+        color: #fca5a5;
+        font-size: 2.4vh;
+        min-height: 3vh;
+        margin: 0 0 2vh;
+      }
+      .slots {
+        display: flex;
+        gap: 2vw;
+        margin-bottom: 4vh;
+      }
+      .slot {
+        width: 12vw;
+        max-width: 90px;
+        height: 12vw;
+        max-height: 90px;
+        border-radius: 50%;
+        border: 3px solid rgba(250, 204, 21, 0.55);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 5vh;
+        font-weight: 800;
+        background: rgba(255, 255, 255, 0.04);
+      }
+      .pad {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 1.4vh;
+        width: min(52vh, 380px);
+        max-height: min(52vh, 380px);
+      }
+      .key {
+        border: 0;
+        border-radius: 1.2vh;
+        background: rgba(255, 255, 255, 0.08);
+        color: #fff;
+        font-size: 4.2vh;
+        font-weight: 700;
+        min-height: 8vh;
+        cursor: pointer;
+      }
+      .key:active { background: rgba(250, 204, 21, 0.35); }
+      .board {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .boardTop {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 2vh;
+      }
+      .boardTitle {
+        font-size: 3.5vh;
+        font-weight: 700;
+        margin: 0;
+      }
+      .reset {
+        border: 0;
+        background: transparent;
+        color: rgba(248, 250, 252, 0.55);
+        font-size: 2.2vh;
+        cursor: pointer;
+      }
+      .players {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        gap: 2vw;
+        align-items: stretch;
+      }
+      .card {
+        flex: 1;
+        min-width: 0;
+        border-radius: 1.5vh;
+        background: rgba(255, 255, 255, 0.06);
+        border: 3px solid transparent;
+        padding: 2vh 1.5vw;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+      }
+      .card.active {
+        border-color: #facc15;
+        background: rgba(250, 204, 21, 0.12);
+      }
+      .name {
+        font-size: 3vh;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .score {
+        font-size: 14vh;
+        font-weight: 800;
+        line-height: 0.9;
+        letter-spacing: -0.04em;
+        text-align: center;
+        margin: auto 0;
+      }
+      .meta {
+        color: rgba(248, 250, 252, 0.62);
+        font-size: 2.2vh;
+        text-align: center;
+      }
+      .idle {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(248, 250, 252, 0.62);
+        font-size: 3.5vh;
+        text-align: center;
+      }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="gate">
+        <div class="brand">TV · artdart.vercel.app/tv</div>
+        <h1 class="title">Код</h1>
+        <p class="hint">Введите 4 цифры с экрана телефона</p>
+        <div id="error" class="error"></div>
+        <div id="slots" class="slots"></div>
+        <div id="pad" class="pad"></div>
+      </div>
+
+      <div id="board" class="board hidden">
+        <div class="boardTop">
+          <h2 id="boardTitle" class="boardTitle">Игра</h2>
+          <button id="resetBtn" class="reset" type="button">Сменить код</button>
+        </div>
+        <div id="players" class="players"></div>
+        <div id="idle" class="idle hidden">Ждём броски…</div>
+      </div>
+    </div>
+
+    <script src="/tv-app.js"></script>
+  </body>
+</html>

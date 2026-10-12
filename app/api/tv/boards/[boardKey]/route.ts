@@ -40,8 +40,6 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ boardKey: string }> }
 ) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
   const { boardKey: raw } = await params;
   const parsed = parseBoardKey(raw);
   if (!parsed) return jsonError("Invalid board key", 400);
@@ -50,7 +48,10 @@ export async function GET(
   const want = url.searchParams.get("want");
 
   try {
+    // Creating / rotating a PIN still requires a phone session.
     if (want === "code") {
+      const auth = authenticateRequest(req);
+      if (!auth.ok) return jsonError(auth.error, auth.status);
       const channelId = url.searchParams.get("channelId");
       const title = url.searchParams.get("title") ?? "";
       const ensured = await ensureParsedBoard(parsed, { channelId, title });
@@ -63,7 +64,7 @@ export async function GET(
       });
     }
 
-    await ensureParsedBoard(parsed);
+    // Live poll is public — TV screens (incl. classic ES5) have no auth.
     const live = await getTvBoardLive(parsed.boardKey);
     return Response.json({ live });
   } catch (e) {

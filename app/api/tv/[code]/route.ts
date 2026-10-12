@@ -1,13 +1,11 @@
-import { authenticateRequest, jsonError } from "@/lib/api/auth";
+import { jsonError } from "@/lib/api/auth";
 import { findTvBoardByCode } from "@/lib/db/tv-boards";
 
+/** Public — club TV / Smart TV PIN pad has no login session. */
 export async function GET(
-  req: Request,
+  _req: Request,
   { params }: { params: Promise<{ code: string }> }
 ) {
-  const auth = authenticateRequest(req);
-  if (!auth.ok) return jsonError(auth.error, auth.status);
-
   const { code } = await params;
   try {
     const board = await findTvBoardByCode(code);
