@@ -603,13 +603,15 @@
   line-height: 0.9;
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
-  margin: auto 0;
+  /* Sit low in the card, just above СРЕДН. / legs */
+  margin: auto 0 0;
+  padding-bottom: clamp(2px, 1.2cqh, 10px);
   max-width: 100%;
   overflow: hidden;
   text-align: center;
   flex: 1 1 auto;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
   min-height: 0;
 }
