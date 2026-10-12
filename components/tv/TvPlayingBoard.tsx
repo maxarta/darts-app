@@ -118,7 +118,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
         </div>
         <div className={styles.tvGameStats}>
           <span className={styles.tvGameStat}>
-            <span className={styles.tvGameStatCur}>Р{live.currentRound}</span>
+            <span className={styles.tvGameStatCur}>Раунд {live.currentRound}</span>
           </span>
           {multiLeg ? (
             <span className={styles.tvGameStat}>
