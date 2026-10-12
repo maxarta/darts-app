@@ -2282,7 +2282,7 @@ async function POST9(req) {
 }
 
 // lib/channel/player-photo.ts
-var MAX_PHOTO_DATA_URL_CHARS = 9e5;
+var MAX_PHOTO_DATA_URL_CHARS = 18e5;
 
 // lib/channel/manual-players.ts
 init_server();
