@@ -57,8 +57,11 @@ export default defineConfig(({ mode }) => {
           ],
         },
         workbox: {
+          // Bump to drop cloud-agent classic /tv caches on TVs.
+          cacheId: "darts-score-tv-restore-20261012",
           navigateFallback: "/index.html",
           globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,jpeg}"],
+          globIgnores: ["**/tv.html", "**/tv-app.js"],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
@@ -66,6 +69,17 @@ export default defineConfig(({ mode }) => {
             {
               urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
               handler: "NetworkOnly",
+            },
+            {
+              // Always take network for TV shell so stale classic HTML cannot stick.
+              urlPattern: ({ request, url }) =>
+                request.mode === "navigate" &&
+                (url.pathname === "/tv" || url.pathname.startsWith("/tv/")),
+              handler: "NetworkFirst",
+              options: {
+                cacheName: "tv-navigations",
+                networkTimeoutSeconds: 3,
+              },
             },
           ],
         },
