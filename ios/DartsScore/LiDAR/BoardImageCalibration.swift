@@ -105,7 +105,7 @@ struct BoardImageCalibration {
         return hypot(dx, dy) <= radiusPx * slack
     }
 
-    private static func project(world: SIMD3<Float>, camera: ARCamera) -> (x: Float, y: Float)? {
+    static func project(world: SIMD3<Float>, camera: ARCamera) -> (x: Float, y: Float)? {
         let view = camera.transform.inverse
         let p = view * SIMD4<Float>(world.x, world.y, world.z, 1)
         guard p.z < -0.05 else { return nil }

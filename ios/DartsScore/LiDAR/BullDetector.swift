@@ -3,8 +3,8 @@ import ARKit
 import CoreVideo
 import UIKit
 
-/// Board lock via hollow red/pink surround ring (bbox center), optional tiny bull near center.
-/// Rejects filled / half-frame masks that previously shifted the ring onto a red segment.
+/// Board lock for wood-backed boards (no red surround mat).
+/// Primary: dark/colored scoring face on light wood. Fallback: red surround annulus.
 enum BullDetector {
     struct Hit {
         var viewPoint: CGPoint
@@ -12,12 +12,14 @@ enum BullDetector {
         var imageY: Float
         var redPixels: Int
         var estimatedBoardRadiusPx: Float
+        var source: String
     }
 
     private(set) static var lastRedCount = 0
     private(set) static var lastBlobCount = 0
     private(set) static var lastSurroundPx = 0
     private(set) static var lastReject = ""
+    private(set) static var lastSource = ""
 
     static func findBull(
         frame: ARFrame,
@@ -28,6 +30,7 @@ enum BullDetector {
         lastBlobCount = 0
         lastSurroundPx = 0
         lastReject = ""
+        lastSource = ""
         let buffer = frame.capturedImage
         let fullW = CVPixelBufferGetWidth(buffer)
         let fullH = CVPixelBufferGetHeight(buffer)
@@ -46,15 +49,18 @@ enum BullDetector {
         let yPtr = yBase.assumingMemoryBound(to: UInt8.self)
         let uvPtr = uvBase.assumingMemoryBound(to: UInt8.self)
 
-        let target = 280
+        let target = 320
         let scale = min(1, Float(target) / Float(max(fullW, fullH)))
         let w = max(16, Int((Float(fullW) * scale).rounded()))
         let h = max(16, Int((Float(fullH) * scale).rounded()))
         let area = w * h
+        let minSideFull = Float(min(fullW, fullH))
 
+        var face = [Bool](repeating: false, count: area)
+        var faceCount = 0
         var surround = [Bool](repeating: false, count: area)
-        var bullMask = [Bool](repeating: false, count: area)
         var surroundCount = 0
+        var bullMask = [Bool](repeating: false, count: area)
         var bullCount = 0
 
         for yy in 0..<h {
@@ -68,10 +74,17 @@ enum BullDetector {
                 let r = y + 1.402 * cr
                 let g = y - 0.344136 * cb - 0.714136 * cr
                 let b = y + 1.772 * cb
-
-                // Surround mat: vivid red OR magenta — NOT olive board / wood.
-                // Require high chroma so board face red segments alone don't flood the mask.
                 let chroma = max(r, max(g, b)) - min(r, min(g, b))
+
+                // Pale wood backboard — exclude from scoring-face mask.
+                let isWood = y > 125 && chroma < 42 && r > 100 && g > 90 && b > 70
+                // Board face: black spider / wires / colored segments (not wood, not floor).
+                let isFace = !isWood && (y < 115 || chroma > 28) && y > 18 && y < 210
+                if isFace {
+                    face[yy * w + xx] = true
+                    faceCount += 1
+                }
+
                 let isSurround =
                     chroma > 55
                     && r > 110 && r > g + 25
@@ -93,17 +106,212 @@ enum BullDetector {
                 }
             }
         }
-        lastSurroundPx = surroundCount
+        lastSurroundPx = faceCount
         lastRedCount = bullCount
 
-        // ~2–22% of frame — a ring, not half the image of red segments.
-        let frac = Float(surroundCount) / Float(area)
-        guard frac >= 0.015, frac <= 0.22 else {
-            lastReject = "surround_frac=\(String(format: "%.2f", frac))"
+        if let hit = fitCircle(
+            mask: face,
+            count: faceCount,
+            w: w,
+            h: h,
+            scale: scale,
+            fullW: fullW,
+            fullH: fullH,
+            minSideFull: minSideFull,
+            bullMask: bullMask,
+            frame: frame,
+            viewSize: viewSize,
+            orientation: orientation,
+            source: "dark",
+            // Face OD ≈ outer double; no 170/225 shrink.
+            radiusScale: 1.0,
+            maxFrac: 0.38,
+            minFrac: 0.04
+        ) {
+            lastSource = "dark"
+            return hit
+        }
+
+        // Fallback: classic red surround mat (annulus).
+        lastSurroundPx = surroundCount
+        if let hit = fitRedAnnulus(
+            surround: surround,
+            surroundCount: surroundCount,
+            bullMask: bullMask,
+            w: w,
+            h: h,
+            scale: scale,
+            fullW: fullW,
+            fullH: fullH,
+            minSideFull: minSideFull,
+            frame: frame,
+            viewSize: viewSize,
+            orientation: orientation
+        ) {
+            lastSource = "red"
+            return hit
+        }
+
+        if lastReject.isEmpty { lastReject = "no_face_no_red" }
+        return nil
+    }
+
+    // MARK: - Dark / colored face → circle
+
+    private static func fitCircle(
+        mask: [Bool],
+        count: Int,
+        w: Int,
+        h: Int,
+        scale: Float,
+        fullW: Int,
+        fullH: Int,
+        minSideFull: Float,
+        bullMask: [Bool],
+        frame: ARFrame,
+        viewSize: CGSize,
+        orientation: UIInterfaceOrientation,
+        source: String,
+        radiusScale: Float,
+        maxFrac: Float,
+        minFrac: Float
+    ) -> Hit? {
+        let area = w * h
+        let frac = Float(count) / Float(area)
+        guard frac >= minFrac, frac <= maxFrac else {
+            lastReject = "\(source)_frac=\(String(format: "%.2f", frac))"
             return nil
         }
 
-        // Bounding box of surround (stable vs brightness-weighted centroid).
+        // Largest 4-connected component.
+        var visited = [Bool](repeating: false, count: area)
+        var bestIdxs: [Int] = []
+        for i in 0..<area where mask[i] && !visited[i] {
+            var q = [i]
+            visited[i] = true
+            var qi = 0
+            var idxs: [Int] = []
+            while qi < q.count {
+                let cur = q[qi]; qi += 1
+                idxs.append(cur)
+                let px = cur % w
+                let py = cur / w
+                for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                    let nx = px + dx, ny = py + dy
+                    guard nx >= 0, ny >= 0, nx < w, ny < h else { continue }
+                    let j = ny * w + nx
+                    if mask[j], !visited[j] {
+                        visited[j] = true
+                        q.append(j)
+                    }
+                }
+            }
+            if idxs.count > bestIdxs.count { bestIdxs = idxs }
+        }
+        lastBlobCount = 1
+        guard bestIdxs.count > area / 40 else {
+            lastReject = "\(source)_blob_small n=\(bestIdxs.count)"
+            return nil
+        }
+
+        var sumX: Float = 0, sumY: Float = 0
+        var minX = w, maxX = 0, minY = h, maxY = 0
+        for i in bestIdxs {
+            let x = i % w
+            let y = i / w
+            sumX += Float(x); sumY += Float(y)
+            minX = min(minX, x); maxX = max(maxX, x)
+            minY = min(minY, y); maxY = max(maxY, y)
+        }
+        let n = Float(bestIdxs.count)
+        var cx = sumX / n
+        var cy = sumY / n
+        let bw = maxX - minX + 1
+        let bh = maxY - minY + 1
+        let aspect = Float(max(bw, bh)) / Float(max(1, min(bw, bh)))
+        guard aspect < 1.35 else {
+            lastReject = "\(source)_aspect=\(String(format: "%.2f", aspect))"
+            return nil
+        }
+
+        // Radius = robust outer extent (90th percentile of distances) — not bbox/2.
+        var dists = bestIdxs.map { i -> Float in
+            let x = Float(i % w) - cx
+            let y = Float(i / w) - cy
+            return hypot(x, y)
+        }
+        dists.sort()
+        let p90 = dists[min(dists.count - 1, Int(Float(dists.count) * 0.90))]
+        var r = p90
+
+        // Refine center: mean of pixels in outer shell (ring), then recompute p90.
+        let shellLo = r * 0.72
+        var sx: Float = 0, sy: Float = 0, sn: Float = 0
+        for i in bestIdxs {
+            let x = Float(i % w)
+            let y = Float(i / w)
+            let d = hypot(x - cx, y - cy)
+            guard d >= shellLo else { continue }
+            sx += x; sy += y; sn += 1
+        }
+        if sn > 30 {
+            cx = sx / sn
+            cy = sy / sn
+            dists = bestIdxs.map { i -> Float in
+                hypot(Float(i % w) - cx, Float(i / w) - cy)
+            }
+            dists.sort()
+            r = dists[min(dists.count - 1, Int(Float(dists.count) * 0.90))]
+        }
+
+        // Nudge toward tiny red bull if present near center.
+        if let (bx, by, bn) = findBullNear(
+            bullMask: bullMask, w: w, h: h, cx: cx, cy: cy, maxDist: r * 0.22
+        ), bn >= 3 {
+            cx = cx * 0.7 + bx * 0.3
+            cy = cy * 0.7 + by * 0.3
+            lastRedCount = bn
+        }
+
+        var boardR = (r / scale) * radiusScale
+        // Typical board fills ~18–32% of short side from tripod — reject absurd sizes.
+        let minR = minSideFull * 0.12
+        let maxR = minSideFull * 0.34
+        if boardR < minR || boardR > maxR {
+            lastReject =
+                "\(source)_r=\(Int(boardR)) clamp[\(Int(minR)),\(Int(maxR))]"
+            return nil
+        }
+
+        return makeHit(
+            cx: cx, cy: cy, boardR: boardR, w: w, h: h,
+            fullW: fullW, fullH: fullH,
+            frame: frame, viewSize: viewSize, orientation: orientation,
+            redPixels: lastRedCount, source: source
+        )
+    }
+
+    private static func fitRedAnnulus(
+        surround: [Bool],
+        surroundCount: Int,
+        bullMask: [Bool],
+        w: Int,
+        h: Int,
+        scale: Float,
+        fullW: Int,
+        fullH: Int,
+        minSideFull: Float,
+        frame: ARFrame,
+        viewSize: CGSize,
+        orientation: UIInterfaceOrientation
+    ) -> Hit? {
+        let area = w * h
+        let frac = Float(surroundCount) / Float(area)
+        guard frac >= 0.012, frac <= 0.35 else {
+            lastReject = "red_frac=\(String(format: "%.2f", frac))"
+            return nil
+        }
+
         var minX = w, maxX = 0, minY = h, maxY = 0
         for i in 0..<area where surround[i] {
             let x = i % w
@@ -114,58 +322,71 @@ enum BullDetector {
         let bw = maxX - minX + 1
         let bh = maxY - minY + 1
         guard bw > 40, bh > 40 else {
-            lastReject = "bbox_small"
+            lastReject = "red_bbox_small"
             return nil
         }
-        let aspect = Float(max(bw, bh)) / Float(max(1, min(bw, bh)))
-        guard aspect < 1.55 else {
-            lastReject = "bbox_aspect"
+        var scx = Float(minX + maxX) * 0.5
+        var scy = Float(minY + maxY) * 0.5
+        var bboxR = Float(max(bw, bh)) * 0.5
+
+        var ringCount = 0
+        var rMinX = w, rMaxX = 0, rMinY = h, rMaxY = 0
+        let rIn = bboxR * 0.70
+        let rOut = bboxR * 1.05
+        for i in 0..<area where surround[i] {
+            let x = i % w
+            let y = i / w
+            let d = hypot(Float(x) - scx, Float(y) - scy)
+            guard d >= rIn, d <= rOut else { continue }
+            ringCount += 1
+            rMinX = min(rMinX, x); rMaxX = max(rMaxX, x)
+            rMinY = min(rMinY, y); rMaxY = max(rMaxY, y)
+        }
+        guard ringCount > 80 else {
+            lastReject = "red_ring_n=\(ringCount)"
             return nil
         }
+        scx = Float(rMinX + rMaxX) * 0.5
+        scy = Float(rMinY + rMaxY) * 0.5
+        bboxR = Float(max(rMaxX - rMinX + 1, rMaxY - rMinY + 1)) * 0.5
+        lastSurroundPx = ringCount
 
-        let scx = Float(minX + maxX) * 0.5
-        let scy = Float(minY + maxY) * 0.5
-        let bboxR = Float(max(bw, bh)) * 0.5
-
-        // Hollowness: inner 40% of bbox must be mostly NOT surround (ring, not filled disk).
-        let innerR = bboxR * 0.40
-        var innerTotal = 0
-        var innerSur = 0
-        let x0 = max(0, Int(scx - innerR))
-        let x1 = min(w - 1, Int(scx + innerR))
-        let y0 = max(0, Int(scy - innerR))
-        let y1 = min(h - 1, Int(scy + innerR))
-        for y in y0...y1 {
-            for x in x0...x1 {
-                let d = hypot(Float(x) - scx, Float(y) - scy)
-                guard d <= innerR else { continue }
-                innerTotal += 1
-                if surround[y * w + x] { innerSur += 1 }
-            }
-        }
-        let innerFill = innerTotal > 0 ? Float(innerSur) / Float(innerTotal) : 1
-        guard innerFill < 0.28 else {
-            lastReject = "not_hollow fill=\(String(format: "%.2f", innerFill))"
-            return nil
-        }
-
-        // Outer double ≈ inside surround OD. Surround OD ~225mm, double 170mm.
-        // BBox of ring ≈ outer diameter of surround in image.
+        // Surround OD → outer double.
         var boardR = (bboxR / scale) * (170.0 / 225.0)
-        let minSide = Float(min(fullW, fullH))
-        boardR = min(max(boardR, minSide * 0.14), minSide * 0.42)
+        let minR = minSideFull * 0.12
+        let maxR = minSideFull * 0.34
+        guard boardR >= minR, boardR <= maxR else {
+            lastReject = "red_r=\(Int(boardR))"
+            return nil
+        }
 
-        // Tiny bull near geometric center (optional refinement).
-        let maxBullDist = bboxR * 0.18
-        let maxBullPx = max(8, area / 800)
-        let minBullPx = 3
+        if let (bx, by, bn) = findBullNear(
+            bullMask: bullMask, w: w, h: h, cx: scx, cy: scy, maxDist: bboxR * 0.2
+        ), bn >= 3 {
+            scx = scx * 0.65 + bx * 0.35
+            scy = scy * 0.65 + by * 0.35
+            lastRedCount = bn
+        }
+
+        return makeHit(
+            cx: scx, cy: scy, boardR: boardR, w: w, h: h,
+            fullW: fullW, fullH: fullH,
+            frame: frame, viewSize: viewSize, orientation: orientation,
+            redPixels: lastRedCount, source: "red"
+        )
+    }
+
+    private static func findBullNear(
+        bullMask: [Bool],
+        w: Int,
+        h: Int,
+        cx: Float,
+        cy: Float,
+        maxDist: Float
+    ) -> (Float, Float, Int)? {
+        let area = w * h
         var visited = [Bool](repeating: false, count: area)
-        var bestScore = Float.greatestFiniteMagnitude
-        var bestCX = scx
-        var bestCY = scy
-        var bestN = 0
-        var blobCount = 0
-
+        var best: (Float, Float, Int, Float)?
         for y in 0..<h {
             for x in 0..<w {
                 let start = y * w + x
@@ -174,14 +395,11 @@ enum BullDetector {
                 visited[start] = true
                 var qi = 0
                 var sumX: Float = 0, sumY: Float = 0, n = 0
-                var minBX = x, maxBX = x, minBY = y, maxBY = y
                 while qi < q.count {
                     let i = q[qi]; qi += 1
                     let px = i % w
                     let py = i / w
                     sumX += Float(px); sumY += Float(py); n += 1
-                    minBX = min(minBX, px); maxBX = max(maxBX, px)
-                    minBY = min(minBY, py); maxBY = max(maxBY, py)
                     for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
                         let nx = px + dx, ny = py + dy
                         guard nx >= 0, ny >= 0, nx < w, ny < h else { continue }
@@ -192,53 +410,52 @@ enum BullDetector {
                         }
                     }
                 }
-                blobCount += 1
-                guard n >= minBullPx, n <= maxBullPx else { continue }
-                let bbw = maxBX - minBX + 1
-                let bbh = maxBY - minBY + 1
-                let asp = Float(max(bbw, bbh)) / Float(max(1, min(bbw, bbh)))
-                guard asp < 2.2 else { continue }
+                guard n >= 3, n <= max(12, area / 600) else { continue }
                 let bx = sumX / Float(n)
                 let by = sumY / Float(n)
-                let distC = hypot(bx - scx, by - scy)
-                guard distC <= maxBullDist else { continue }
-                let score = distC * 3 + Float(n) * 0.1
-                if score < bestScore {
-                    bestScore = score
-                    bestCX = bx
-                    bestCY = by
-                    bestN = n
+                let d = hypot(bx - cx, by - cy)
+                guard d <= maxDist else { continue }
+                let score = d
+                if best == nil || score < best!.3 {
+                    best = (bx, by, Int(n), score)
                 }
             }
         }
-        lastBlobCount = blobCount
+        guard let b = best else { return nil }
+        return (b.0, b.1, b.2)
+    }
 
-        // Always use surround bbox center for board origin — bull only nudges slightly.
-        var useCX = scx
-        var useCY = scy
-        if bestN >= minBullPx {
-            useCX = scx * 0.65 + bestCX * 0.35
-            useCY = scy * 0.65 + bestCY * 0.35
-        }
-
-        let imageX = useCX / Float(w) * Float(fullW)
-        let imageY = useCY / Float(h) * Float(fullH)
-
-        let nx = CGFloat(useCX / Float(w))
-        let ny = CGFloat(useCY / Float(h))
+    private static func makeHit(
+        cx: Float,
+        cy: Float,
+        boardR: Float,
+        w: Int,
+        h: Int,
+        fullW: Int,
+        fullH: Int,
+        frame: ARFrame,
+        viewSize: CGSize,
+        orientation: UIInterfaceOrientation,
+        redPixels: Int,
+        source: String
+    ) -> Hit {
+        let imageX = cx / Float(w) * Float(fullW)
+        let imageY = cy / Float(h) * Float(fullH)
+        let nx = CGFloat(cx / Float(w))
+        let ny = CGFloat(cy / Float(h))
         let display = frame.displayTransform(for: orientation, viewportSize: viewSize)
-        var p = CGPoint(x: nx, y: ny).applying(display)
+        let p = CGPoint(x: nx, y: ny).applying(display)
         let viewPt = CGPoint(
             x: min(max(p.x * viewSize.width, 0), viewSize.width),
             y: min(max(p.y * viewSize.height, 0), viewSize.height)
         )
-
         return Hit(
             viewPoint: viewPt,
             imageX: imageX,
             imageY: imageY,
-            redPixels: bestN,
-            estimatedBoardRadiusPx: boardR
+            redPixels: redPixels,
+            estimatedBoardRadiusPx: boardR,
+            source: source
         )
     }
 }

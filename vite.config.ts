@@ -20,7 +20,7 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: "autoUpdate",
-        injectRegister: "auto",
+        injectRegister: false,
         includeAssets: [
           "favicon.ico",
           "logo.svg",
@@ -98,6 +98,7 @@ export default defineConfig(({ mode }) => {
       ),
     },
     server: {
+      host: true,
       port: 5001,
       proxy: {
         "/api": {

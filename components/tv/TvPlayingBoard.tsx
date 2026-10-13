@@ -103,12 +103,26 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
     prevRectsRef.current = nextRects;
   }, [activeId, playerCount]);
 
+  const visionUrl = live.visionUrl?.trim() || null;
+
   return (
     <div
       className={styles.tvPlaying}
       data-players={playerCount}
+      data-vision={visionUrl ? "1" : "0"}
       style={{ "--tv-cols": String(playerCount) } as CSSProperties}
     >
+      {visionUrl ? (
+        <aside className={styles.tvVision} aria-label="Vision stream">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            className={styles.tvVisionImg}
+            src={visionUrl}
+            alt="Board vision"
+          />
+          <p className={styles.tvVisionLabel}>VISION · LIVE</p>
+        </aside>
+      ) : null}
       <header className={styles.tvGameHeader}>
         <div className={styles.tvGameHeaderMain}>
           <p className={styles.tvGameTitle}>{tournamentName}</p>
@@ -118,7 +132,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
         </div>
         <div className={styles.tvGameStats}>
           <span className={styles.tvGameStat}>
-            <span className={styles.tvGameStatCur}>Р{live.currentRound}</span>
+            <span className={styles.tvGameStatCur}>Раунд {live.currentRound}</span>
           </span>
           {multiLeg ? (
             <span className={styles.tvGameStat}>

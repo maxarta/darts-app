@@ -60,6 +60,12 @@ final class NativeBridge: NSObject, ObservableObject {
            let url = URL(string: override) {
             return url
         }
+        #if DEBUG
+        // Bundled web UI (camera/autoscore) — avoids LAN Vite / prod lag.
+        if let embedded = EmbeddedWebServer.shared.startIfNeeded() {
+            return embedded
+        }
+        #endif
         return URL(string: "https://artdart.vercel.app")!
     }
 

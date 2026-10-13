@@ -83,22 +83,9 @@ struct ContentView: View {
                 .transition(.opacity)
                 .zIndex(10)
             } else if lidar.isScoring {
-                VStack {
-                    HStack {
-                        Spacer()
-                        Text(lidar.statusText)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(.black.opacity(0.55), in: Capsule())
-                            .padding(.trailing, 12)
-                            .padding(.top, 286)
-                    }
-                    Spacer()
-                }
-                .allowsHitTesting(false)
-                .zIndex(6)
+                ThrowPromptChrome()
+                    .environmentObject(lidar)
+                    .zIndex(12)
             }
         }
         .animation(.easeInOut(duration: 0.2), value: bridge.showLidarCalibrate)
@@ -110,6 +97,12 @@ struct ContentView: View {
             LiveTelemetry.log("DARTS_LIVE event=app_ready ml=\(lidar.usesMlScorer ? 1 : 0) hybrid=ml+H")
             bridge.onStartAutoScore = {
                 LiveTelemetry.log("DARTS_LIVE event=web_start_autoscore ml=\(lidar.usesMlScorer ? 1 : 0)")
+                // Ensure LAN vision MJPEG is up and tell the web/TV its URL.
+                _ = EmbeddedWebServer.shared.startIfNeeded()
+                if let vision = EmbeddedWebServer.shared.visionStreamURL()?.absoluteString {
+                    LiveTelemetry.log("DARTS_LIVE event=vision_url \(vision)")
+                    bridge.sendToWeb(["type": "visionStream", "url": vision])
+                }
                 if lidar.usesMlScorer {
                     // Hybrid: bull circle → Core ML tips. Chrome calls startPreview once.
                     lidar.onReadyForScoring = {
@@ -121,6 +114,9 @@ struct ContentView: View {
                             "ml": true,
                             "supportsLidar": LidarSession.supportsSceneDepth,
                         ])
+                        if let vision = EmbeddedWebServer.shared.visionStreamURL()?.absoluteString {
+                            bridge.sendToWeb(["type": "visionStream", "url": vision])
+                        }
                     }
                     bridge.showLidarCalibrate = true
                 } else if LidarSession.supportsSceneDepth {

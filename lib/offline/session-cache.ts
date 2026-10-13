@@ -2,6 +2,7 @@
 
 import { GUEST_CLUB_CHAT_ID, WEB_CLUB_CHAT_ID } from "@/lib/api/auth";
 import { getGuestChannelId, isGuestMode } from "@/lib/app-mode";
+import { randomUUID } from "@/lib/uuid";
 
 const SESSION_KEY = "darts.session.v1";
 const OFFLINE_CHANNEL_KEY = "darts.offline-channel-id.v1";
@@ -45,10 +46,10 @@ export function writeCachedSession(session: CachedSession): void {
 }
 
 function offlineChannelId(): string {
-  if (typeof localStorage === "undefined") return crypto.randomUUID();
+  if (typeof localStorage === "undefined") return randomUUID();
   const existing = localStorage.getItem(OFFLINE_CHANNEL_KEY);
   if (existing) return existing;
-  const id = crypto.randomUUID();
+  const id = randomUUID();
   localStorage.setItem(OFFLINE_CHANNEL_KEY, id);
   return id;
 }

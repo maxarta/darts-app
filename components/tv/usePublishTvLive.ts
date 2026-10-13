@@ -18,6 +18,8 @@ import {
   writeTvLive,
   type TvLivePayload,
 } from "@/lib/tournament/tv-live";
+import { getVisionStreamUrl } from "@/lib/autoscore/vision-stream";
+import { isNativeShell } from "@/lib/autoscore/native-bridge";
 
 const PUBLISH_INTERVAL_MS = 1_000;
 
@@ -54,6 +56,7 @@ function buildPayload(
     doubleOut: settings.doubleOut !== false,
     visitThrows: snap.activeVisitThrows,
     achievements,
+    visionUrl: getVisionStreamUrl(),
     players: [...snap.players]
       .sort((a, b) => a.order_index - b.order_index)
       .map((p) => ({
@@ -87,12 +90,15 @@ function idlePayload(matchId: string | null): TvLivePayload {
     visitThrows: [],
     achievements: [],
     players: [],
+    visionUrl: null,
   };
 }
 
-/** Local Vite shares prod Supabase — never overwrite the live club TV board. */
+/** Local Vite shares prod Supabase — never overwrite the live club TV board.
+ *  Native iOS shell (embedded 127.0.0.1) still publishes so the club TV updates. */
 function canPublishRemoteTv(): boolean {
   if (typeof window === "undefined") return false;
+  if (isNativeShell()) return true;
   if (import.meta.env.DEV) return false;
   const host = window.location.hostname;
   return host !== "localhost" && host !== "127.0.0.1";

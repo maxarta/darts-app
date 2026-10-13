@@ -18,7 +18,7 @@ final class RgbMotionDetector {
     private var boardRadiusPx: Float = 200
     private var imageLongSide: Float = 1920
 
-    private let threshold: Int = 24
+    private let threshold: Int = 14
     private let cooldown: TimeInterval = 1.0
     private let agreeFrames = 1
     private let agreeRadiusPx: Float = 24
@@ -134,6 +134,84 @@ final class RgbMotionDetector {
             lastMotionPixels = count
         }
         return count
+    }
+
+    /// Snapshot mode: cluster motion blobs vs empty → up to 3 tip candidates (no cooldown).
+    func findAllTips(frame: ARFrame, calib: BoardImageCalibration) -> [TipHit] {
+        boardRadiusPx = calib.radiusPx
+        imageLongSide = max(calib.imageWidth, calib.imageHeight)
+        guard hasEmpty, let empty = visitEmptyY ?? emptyY else { return [] }
+        guard let gray = downsampleY(frame: frame) else { return [] }
+        guard gray.w == emptyW, gray.h == emptyH else { return [] }
+
+        let w = gray.w
+        let h = gray.h
+        let pixels = gray.pixels
+        let cx = calib.cx * Float(w) / calib.imageWidth
+        let cy = calib.cy * Float(h) / calib.imageHeight
+        let r = calib.radiusPx * Float(w) / calib.imageWidth * 1.05
+        let r2 = r * r
+        let need = max(3, adaptiveMinPixels / 3)
+
+        var mask = [Bool](repeating: false, count: w * h)
+        for y in 0..<h {
+            for x in 0..<w {
+                let dx = Float(x) - cx
+                let dy = Float(y) - cy
+                if dx * dx + dy * dy > r2 { continue }
+                let idx = y * w + x
+                if abs(Int(pixels[idx]) - Int(empty[idx])) >= threshold {
+                    mask[idx] = true
+                }
+            }
+        }
+
+        var visited = [Bool](repeating: false, count: w * h)
+        var blobs: [(cx: Float, cy: Float, n: Int, energy: Float)] = []
+        for i in 0..<(w * h) where mask[i] && !visited[i] {
+            var q = [i]
+            visited[i] = true
+            var qi = 0
+            var sx: Float = 0, sy: Float = 0, sn: Float = 0, en: Float = 0
+            while qi < q.count {
+                let cur = q[qi]; qi += 1
+                let px = cur % w
+                let py = cur / w
+                let d = abs(Int(pixels[cur]) - Int(empty[cur]))
+                let wf = Float(max(d, 1))
+                sx += Float(px) * wf
+                sy += Float(py) * wf
+                sn += wf
+                en += wf
+                for (dx, dy) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
+                    let nx = px + dx, ny = py + dy
+                    guard nx >= 0, ny >= 0, nx < w, ny < h else { continue }
+                    let j = ny * w + nx
+                    if mask[j], !visited[j] {
+                        visited[j] = true
+                        q.append(j)
+                    }
+                }
+            }
+            let n = q.count
+            guard n >= need, sn > 0 else { continue }
+            blobs.append((sx / sn, sy / sn, n, en))
+        }
+
+        blobs.sort { $0.energy > $1.energy }
+        let fullW = Float(CVPixelBufferGetWidth(frame.capturedImage))
+        let fullH = Float(CVPixelBufferGetHeight(frame.capturedImage))
+        lastMotionPixels = blobs.reduce(0) { $0 + $1.n }
+        return Array(blobs.prefix(3)).map { b in
+            let rad = hypot(b.cx - cx, b.cy - cy)
+            return TipHit(
+                imageX: b.cx / Float(w) * fullW,
+                imageY: b.cy / Float(h) * fullH,
+                energy: b.energy,
+                pixelCount: b.n,
+                radialNorm: rad / max(r, 1)
+            )
+        }
     }
 
     func analyze(

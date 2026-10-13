@@ -71,6 +71,7 @@ import {
   parseNativeThrow,
   subscribeNativeBridge,
 } from "@/lib/autoscore/native-bridge";
+import { setVisionStreamUrl } from "@/lib/autoscore/vision-stream";
 import styles from "./game.module.css";
 
 const HANDOFF_SECONDS = 5;
@@ -483,6 +484,9 @@ export function GameScreen({ gameId }: { gameId: string }) {
         setAwaitingRemoval(false);
         hapticImpact("light");
         startHandoffCountdownRef.current();
+      }
+      if (msg.type === "visionStream") {
+        setVisionStreamUrl(msg.url);
       }
     });
   }, [applyAutoThrow, clearHandoff, startWebCameraAutoScore]);

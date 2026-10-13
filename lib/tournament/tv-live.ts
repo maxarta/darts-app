@@ -32,6 +32,11 @@ export type TvLivePayload = {
   visitThrows: ThrowInput[];
   /** Recently unlocked achievement stickers for the TV board. */
   achievements: AchievementId[];
+  /**
+   * Live MJPEG vision from the scoring phone (LAN), e.g.
+   * `http://192.168.1.12:60123/vision.mjpg` — same Wi‑Fi as the TV.
+   */
+  visionUrl?: string | null;
 };
 
 /** How long a non-playing live payload stays relevant. */

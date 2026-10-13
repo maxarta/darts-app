@@ -23,6 +23,11 @@ targets:
       - path: DartsScore
         excludes:
           - "**/*.md"
+          # Static site copied as resources (see EmbeddedWeb folder type below)
+          - "EmbeddedWeb/**"
+      - path: DartsScore/EmbeddedWeb
+        type: folder
+        buildPhase: resources
     settings:
       base:
         GENERATE_INFOPLIST_FILE: false
@@ -35,6 +40,12 @@ targets:
       properties:
         CFBundleDisplayName: Darts Score
         NSCameraUsageDescription: Камера и LiDAR нужны для автоскоринга на мишени.
+        NSLocalNetworkUsageDescription: Локальный vision-стрим мишени для телевизора в той же Wi‑Fi сети.
+        NSBonjourServices:
+          - _http._tcp
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+
         UIRequiredDeviceCapabilities:
           - arkit
         UIBackgroundModes: []

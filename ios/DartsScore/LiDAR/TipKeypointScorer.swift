@@ -21,11 +21,13 @@ final class TipKeypointScorer {
     private var lastCalibCount = 0
     private var lastInferAt: TimeInterval = 0
     /// Center-square crop in capturedImage pixels.
-    private var cropOrigin = SIMD2<Float>(0, 0)
-    private var cropSide: Float = 640
+    private(set) var cropOrigin = SIMD2<Float>(0, 0)
+    private(set) var cropSide: Float = 640
     private let inferInterval: TimeInterval = 0.08
     private(set) var lastTipImage = SIMD2<Float>(0, 0)
     private(set) var lastTipBoardDist: Float = 0
+    /// Tips committed this visit (image pixels) — for vision overlay.
+    var committedTipsImage: [SIMD2<Float>] { visit.committedTips }
 
     /// Locked homography (crop-norm → board plane) + image-space circle for overlay.
     private(set) var homography: BoardHomography.Matrix?
@@ -71,6 +73,71 @@ final class TipKeypointScorer {
         calibLockStreak = 0
         lastCalibCount = 0
         cropScaleIdx = 0
+    }
+
+    /// DartsMind-style H from LiDAR plane → projected 20/3/11/6 (perspective-correct).
+    @discardableResult
+    func lockFromPlane(_ plane: BoardPlane, camera: ARCamera) -> Bool {
+        guard let pack = BoardHomography.fromPlane(plane, camera: camera) else {
+            statusLine = "ml:H plane_fail"
+            return false
+        }
+        homography = pack.H
+        cropOrigin = pack.cropOrigin
+        cropSide = pack.cropSide
+        statusLine = "ml:H locked src=planeH"
+        lastDiagnostics.ready = true
+        lastDiagnostics.phase = "listen"
+        lastDiagnostics.source = "planeH"
+        return true
+    }
+
+    /// Fallback when no plane: synthetic circle H (fronto-parallel assumption).
+    @discardableResult
+    func lockFromImageCircle(_ img: BoardImageCalibration) -> Bool {
+        let fullSide = min(img.imageWidth, img.imageHeight)
+        guard fullSide > 32, img.radiusPx > 16 else { return false }
+        let ox = (img.imageWidth - fullSide) * 0.5
+        let oy = (img.imageHeight - fullSide) * 0.5
+        let scale = img.radiusPx / BoardHomography.outerDoubleR
+        let ux = img.upX, uy = img.upY
+        let rx = -uy, ry = ux
+        var detected: [BoardHomography.Point2?] = [nil, nil, nil, nil, nil, nil]
+        for i in 0..<4 {
+            let t = BoardHomography.calibTargets[i]
+            let bx = t.x - 0.5
+            let by = t.y - 0.5
+            let ix = img.cx + (bx * rx - by * ux) * scale
+            let iy = img.cy + (bx * ry - by * uy) * scale
+            let nx = (ix - ox) / fullSide
+            let ny = (iy - oy) / fullSide
+            guard nx >= 0, nx <= 1, ny >= 0, ny <= 1 else { continue }
+            detected[i] = BoardHomography.Point2(x: nx, y: ny)
+        }
+        guard let H = BoardHomography.fromCalib(detected) else {
+            statusLine = "ml:circle H_fail"
+            return false
+        }
+        homography = H
+        cropOrigin = SIMD2(ox, oy)
+        cropSide = fullSide
+        statusLine = "ml:H locked src=circle"
+        lastDiagnostics.ready = true
+        lastDiagnostics.phase = "listen"
+        lastDiagnostics.source = "circleH"
+        return true
+    }
+
+    /// Score an image tip through locked H (DartsMind path).
+    func scoreTipImage(_ tip: SIMD2<Float>) -> NativeThrowInput? {
+        guard let H = homography, cropSide > 1 else { return nil }
+        let nx = (tip.x - cropOrigin.x) / cropSide
+        let ny = (tip.y - cropOrigin.y) / cropSide
+        guard nx >= -0.1, nx <= 1.1, ny >= -0.1, ny <= 1.1 else { return nil }
+        let bp = BoardHomography.apply(H, BoardHomography.Point2(x: nx, y: ny))
+        lastTipImage = tip
+        lastTipBoardDist = hypot(bp.x - 0.5, bp.y - 0.5) / BoardHomography.outerDoubleR
+        return BoardHomography.scoreBoardPlane(bp)
     }
 
     func beginWaitingForClear() {
@@ -430,16 +497,15 @@ final class TipKeypointScorer {
         guard let dst = reuse else { return nil }
 
         let ci = CIImage(cvPixelBuffer: src)
-        let flipped = ci.transformed(
-            by: CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: CGFloat(srcH))
-        )
+        // CIImage is bottom-left origin; the 640² render maps CI top → buffer row 0,
+        // so only the crop rect's Y needs converting — no flip (that mirrored detections).
         let cropRect = CGRect(
             x: CGFloat(origin.x),
-            y: CGFloat(origin.y),
+            y: CGFloat(srcH - origin.y - side),
             width: CGFloat(side),
             height: CGFloat(side)
         )
-        let cropped = flipped.cropped(to: cropRect)
+        let cropped = ci.cropped(to: cropRect)
             .transformed(by: CGAffineTransform(
                 translationX: -cropRect.origin.x,
                 y: -cropRect.origin.y
@@ -484,6 +550,7 @@ private final class VisitKeypointFSM {
     }
 
     var committedCount: Int { committed.count }
+    var committedTips: [SIMD2<Float>] { committed }
 
     enum Event {
         case calibProgress(Int, Int)

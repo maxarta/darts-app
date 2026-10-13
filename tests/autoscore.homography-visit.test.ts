@@ -10,7 +10,7 @@ import { VisitFsm } from "@/lib/autoscore/visit-fsm";
 
 describe("homography", () => {
   it("maps identity calib to board targets", () => {
-    const H = homographyFromCalib(BOARDPLANE_CALIB_TARGETS);
+    const H = homographyFromCalib(BOARDPLANE_CALIB_TARGETS.slice(0, 4));
     expect(H).not.toBeNull();
     for (let i = 0; i < 4; i++) {
       const p = applyHomography(H!, BOARDPLANE_CALIB_TARGETS[i]!);
@@ -31,6 +31,36 @@ describe("homography", () => {
     const p = applyHomography(H, { x: 0.5, y: 0.5 });
     expect(p.x).toBeCloseTo(0.55, 4);
     expect(p.y).toBeCloseTo(0.48, 4);
+  });
+
+  it("rejects incomplete primary quartet", () => {
+    const partial = [
+      BOARDPLANE_CALIB_TARGETS[0],
+      BOARDPLANE_CALIB_TARGETS[1],
+      BOARDPLANE_CALIB_TARGETS[2],
+      null,
+    ];
+    expect(homographyFromCalib(partial)).toBeNull();
+  });
+
+  it("rejects collapsed geometry", () => {
+    const collapsed = [
+      { x: 0.5, y: 0.5 },
+      { x: 0.51, y: 0.5 },
+      { x: 0.5, y: 0.51 },
+      { x: 0.51, y: 0.51 },
+    ];
+    expect(homographyFromCalib(collapsed)).toBeNull();
+  });
+
+  it("uses least squares when 6 calib points are present", () => {
+    const H = homographyFromCalib(BOARDPLANE_CALIB_TARGETS);
+    expect(H).not.toBeNull();
+    for (let i = 0; i < 6; i++) {
+      const p = applyHomography(H!, BOARDPLANE_CALIB_TARGETS[i]!);
+      expect(p.x).toBeCloseTo(BOARDPLANE_CALIB_TARGETS[i]!.x, 4);
+      expect(p.y).toBeCloseTo(BOARDPLANE_CALIB_TARGETS[i]!.y, 4);
+    }
   });
 });
 

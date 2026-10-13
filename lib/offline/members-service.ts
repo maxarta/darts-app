@@ -4,6 +4,7 @@ import { apiFetch } from "@/lib/api/client";
 import { isGuestMode } from "@/lib/app-mode";
 import type { ChannelMember } from "@/lib/channel/members";
 import { isOnline } from "@/lib/game/sync/client";
+import { randomUUID } from "@/lib/uuid";
 import { isProbablyOfflineError } from "./session-cache";
 import {
   allocateLocalPlayerId,
@@ -99,7 +100,7 @@ export async function createChannelPlayerOfflineFirst(
 
   const member = await saveLocalOnly(channelId, trimmed, photoUrl);
   await enqueuePendingMemberOp({
-    id: crypto.randomUUID(),
+    id: randomUUID(),
     channelId,
     type: "create",
     localUserId: member.user_id,
@@ -150,7 +151,7 @@ export async function updateChannelPlayerOfflineFirst(
   await writeCachedMembers(channelId, upsertMemberInList(members, member));
   if (!guest) {
     await enqueuePendingMemberOp({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       channelId,
       type: "update",
       userId,
@@ -188,7 +189,7 @@ export async function deleteChannelPlayerOfflineFirst(
   await writeCachedMembers(channelId, removeMemberFromList(members, userId));
   if (!guest) {
     await enqueuePendingMemberOp({
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       channelId,
       type: "delete",
       userId,

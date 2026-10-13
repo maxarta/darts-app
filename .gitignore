@@ -19,6 +19,15 @@
 
 # production
 /build
+/dist
+/ios/DartsScore/EmbeddedWeb/
+
+# ML training artifacts (regenerate via ml/board-disk/README.md)
+/ml/board-disk/dataset/images/
+/ml/board-disk/dataset/labels/
+/ml/board-disk/runs/
+/ml/**/*.pt
+/public/models/board-disk.onnx
 
 # misc
 .DS_Store

@@ -38,7 +38,9 @@ struct WebContainerView: UIViewRepresentable {
         bridge.webView = webView
         context.coordinator.webView = webView
 
-        var request = URLRequest(url: bridge.startURL)
+        let url = bridge.startURL
+        LiveTelemetry.log("DARTS_LIVE event=webview_load_start url=\(url.absoluteString)")
+        var request = URLRequest(url: url)
         request.cachePolicy = .reloadIgnoringLocalCacheData
         webView.load(request)
         return webView
@@ -64,10 +66,37 @@ struct WebContainerView: UIViewRepresentable {
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             bridge.webView = webView
+            let url = webView.url?.absoluteString ?? "nil"
+            LiveTelemetry.log("DARTS_LIVE event=webview_did_finish url=\(url)")
             bridge.sendToWeb([
                 "type": "nativeReady",
                 "supportsLidar": LidarSession.supportsSceneDepth,
             ])
+            // Preview/prod bundles mount after first paint — confirm React root.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak webView] in
+                webView?.evaluateJavaScript(
+                    """
+                    (function(){
+                      var r=document.getElementById('root');
+                      var kids=r?r.childElementCount:-1;
+                      return JSON.stringify({
+                        rootKids:kids,
+                        hasReact:!!(r&&kids>0),
+                        title:document.title,
+                        href:location.href
+                      });
+                    })();
+                    """
+                ) { result, error in
+                    if let error {
+                        LiveTelemetry.log(
+                            "DARTS_LIVE event=webview_probe_err \(error.localizedDescription)"
+                        )
+                    } else if let s = result as? String {
+                        LiveTelemetry.log("DARTS_LIVE event=webview_probe \(s)")
+                    }
+                }
+            }
         }
 
         func webView(

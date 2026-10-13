@@ -15,7 +15,9 @@ export type NativeBridgeMessage =
   /** LiDAR: visit complete, waiting until darts are pulled from the board. */
   | { type: "waitingForRemoval" }
   /** LiDAR: board looks empty again — safe to start next-player countdown. */
-  | { type: "boardCleared" };
+  | { type: "boardCleared" }
+  /** LAN MJPEG unwrap stream for club TV (same Wi‑Fi as the phone). */
+  | { type: "visionStream"; url: string };
 
 type DartsNativeAPI = {
   isNative: boolean;
