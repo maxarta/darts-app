@@ -31,6 +31,9 @@
   background: var(--g-bg);
   color: var(--g-ink);
   font-family: var(--font-darts), system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .gameTopStrip {

@@ -632,7 +632,7 @@ export function TournamentScreen({ tournamentId }: Props) {
         users: resolveUser(p),
       }));
 
-      const gameId = await createAndSaveLocalGame({
+      const gameId = createAndSaveLocalGame({
         channelId: channelId || data.tournament.channel_id,
         mode,
         playerIds,

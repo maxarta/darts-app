@@ -25,11 +25,14 @@ export async function compressImageToDataUrl(
     bitmap.close();
     throw new Error("Не удалось обработать фото");
   }
+  // Slightly better downscale than default (helps TV sharpness).
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close();
 
   // Prefer higher quality first; step down only if the data URL won't fit.
-  const qualities = [quality, 0.85, 0.78, 0.7, 0.62];
+  const qualities = [quality, 0.88, 0.82, 0.75, 0.68];
   for (const q of qualities) {
     const dataUrl = canvas.toDataURL("image/jpeg", q);
     if (dataUrl.length <= MAX_PHOTO_DATA_URL_CHARS) return dataUrl;

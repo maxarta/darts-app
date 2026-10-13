@@ -2651,7 +2651,7 @@ async function GET12(req, { params }) {
 }
 
 // lib/channel/player-photo.ts
-var MAX_PHOTO_DATA_URL_CHARS = 12e5;
+var MAX_PHOTO_DATA_URL_CHARS = 18e5;
 
 // lib/channel/manual-players.ts
 init_server();
