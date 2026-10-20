@@ -1,52 +1,126 @@
-let ctx: AudioContext | null = null;
+import { createUISFX, type CueName } from "uisfx";
 
-function audio(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+type Cue = "hit" | "miss" | "bust" | "seal" | "tick" | "next" | "ready" | "win" | "undo" | "round";
+
+/** App events → UI SFX cues in the minimal pack. */
+const cueName: Record<Cue, CueName> = {
+  hit: "select",
+  miss: "delete",
+  bust: "blocked",
+  seal: "success",
+  tick: "hover",
+  next: "success",
+  ready: "success",
+  win: "achievement",
+  undo: "cancel",
+  round: "select",
+};
+
+let ui: ReturnType<typeof createUISFX> | null = null;
+const listeners = new Set<() => void>();
+
+function readMuted() {
+  if (typeof window === "undefined") return false;
   try {
-    if (!ctx) ctx = new AudioContext();
-    if (ctx.state === "suspended") void ctx.resume();
-    return ctx;
+    return window.localStorage.getItem("darts-sounds-muted") === "1";
   } catch {
-    return null;
+    return false;
   }
 }
 
-function tone(
-  frequency: number,
-  durationMs: number,
-  type: OscillatorType,
-  gain = 0.08,
-  when = 0
-) {
-  const ac = audio();
-  if (!ac) return;
-  const t0 = ac.currentTime + when;
-  const osc = ac.createOscillator();
-  const g = ac.createGain();
-  osc.type = type;
-  osc.frequency.value = frequency;
-  g.gain.setValueAtTime(gain, t0);
-  g.gain.exponentialRampToValueAtTime(0.0008, t0 + durationMs / 1000);
-  osc.connect(g);
-  g.connect(ac.destination);
-  osc.start(t0);
-  osc.stop(t0 + durationMs / 1000 + 0.02);
+let muted = readMuted();
+
+export function soundsMuted() {
+  return muted;
 }
 
-/** Short thud when a dart is scored. */
+export function setSoundsMuted(next: boolean) {
+  muted = next;
+  try {
+    window.localStorage.setItem("darts-sounds-muted", next ? "1" : "0");
+  } catch {
+    /* ignore */
+  }
+  listeners.forEach((listener) => listener());
+  if (!next) playCue("hit");
+}
+
+export function subscribeSounds(listener: () => void) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function player() {
+  if (typeof window === "undefined") return null;
+  if (!ui) ui = createUISFX({ pack: "minimal", volume: 1 });
+  return ui;
+}
+
+function playCue(cue: Cue) {
+  if (muted) return;
+  const name = cueName[cue];
+  if (typeof window !== "undefined" && window.webkit?.messageHandlers?.dartsNative) {
+    try {
+      window.webkit.messageHandlers.dartsNative.postMessage({
+        type: "playCue",
+        cue: name,
+      });
+      return;
+    } catch {
+      /* fall through to the web player */
+    }
+  }
+  const sounds = player();
+  void sounds?.unlock();
+  sounds?.play(name);
+}
+
+/** Dart landed on the board. */
 export function playDartHitSound() {
-  tone(180, 70, "triangle", 0.11);
-  tone(420, 90, "sine", 0.05, 0.03);
+  playCue("hit");
 }
 
-/** Soft chime when the 5s handoff countdown finishes. */
+/** Dart off the scoring face. */
+export function playMissSound() {
+  playCue("miss");
+}
+
+/** Visit busted and the score snaps back. */
+export function playBustSound() {
+  playCue("bust");
+}
+
+/** Visit is closed — pull the darts. */
+export function playSealSound() {
+  playCue("seal");
+}
+
+/** One second of the handoff countdown. */
+export function playCountdownTickSound(_step = 1) {
+  playCue("tick");
+}
+
+/** Countdown finished — the other player throws. */
 export function playTurnHandoffSound() {
-  tone(523.25, 120, "sine", 0.07);
-  tone(659.25, 160, "sine", 0.06, 0.12);
-  tone(783.99, 200, "sine", 0.05, 0.24);
+  playCue("next");
 }
 
-/** Soft tick each second of the handoff countdown. */
-export function playCountdownTickSound() {
-  tone(660, 40, "square", 0.03);
+/** Camera locked, ready for the first dart. */
+export function playReadySound() {
+  playCue("ready");
+}
+
+/** Checkout. */
+export function playWinSound() {
+  playCue("win");
+}
+
+/** Last throw was taken back. */
+export function playUndoSound() {
+  playCue("undo");
+}
+
+/** Player closed the visit and passed the turn. */
+export function playNextRoundSound() {
+  playCue("round");
 }

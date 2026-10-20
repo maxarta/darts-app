@@ -1,0 +1,218 @@
+.panel {
+  --p-ink: #030712;
+  --p-white: #ffffff;
+  --p-yellow: #ffdf20;
+  --p-yellow-mid: #fff085;
+  --p-yellow-pale: #fef9c2;
+  --p-danger: #ff2056;
+  --p-green: #22c55e;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: transparent;
+}
+
+.status {
+  margin: 8px 12px 0;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--p-white);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.camera {
+  flex: 1 1 0;
+  min-height: 120px;
+  /* Hole: the native picture sits behind the page, on a black mat. */
+  background: transparent;
+}
+
+.darts {
+  flex-shrink: 0;
+  display: flex;
+  gap: 1px;
+  height: 72px;
+}
+
+.slot {
+  flex: 1 1 0;
+  min-width: 0;
+  border: none;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: #1f2937;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: pointer;
+}
+
+.slotFilled {
+  background: var(--p-yellow-pale);
+  color: var(--p-ink);
+}
+
+.slotUnseen {
+  background: #ffedd5;
+  box-shadow: inset 0 0 0 3px #f97316;
+}
+
+.slotUnseen .slotPoints {
+  color: #c2410c;
+  opacity: 1;
+  font-weight: 700;
+}
+
+.slot:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.slotLabel {
+  font-size: 22px;
+  font-weight: 700;
+  font-stretch: condensed;
+  letter-spacing: -0.4px;
+  line-height: 1;
+}
+
+.slotPoints {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.6;
+  min-height: 14px;
+}
+
+.total {
+  flex: 0 0 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background: var(--p-yellow);
+  color: var(--p-ink);
+}
+
+.totalBust {
+  background: var(--p-danger);
+  color: var(--p-white);
+}
+
+.totalLabel {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+}
+
+.totalValue {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.actionRow {
+  flex-shrink: 0;
+  display: flex;
+  gap: 1px;
+  height: calc(60px + var(--app-inset-bottom, 0px));
+}
+
+.undo {
+  flex: 0 0 96px;
+  border: none;
+  padding: 0;
+  background: #111827;
+  color: var(--p-white);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  font-stretch: condensed;
+  letter-spacing: -0.3px;
+  cursor: pointer;
+}
+
+.undo:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.undo:active:not(:disabled) {
+  filter: brightness(1.2);
+}
+
+.action {
+  flex: 1 1 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 800;
+  font-stretch: condensed;
+  letter-spacing: -0.4px;
+  cursor: pointer;
+  transition: transform 0.1s ease, filter 0.1s ease;
+}
+
+.action:active:not(:disabled) {
+  transform: scale(0.98);
+  filter: brightness(0.92);
+}
+
+.actionThrow {
+  background: var(--p-danger);
+  color: var(--p-white);
+}
+
+.actionClear {
+  background: var(--p-green);
+  color: var(--p-white);
+}
+
+.actionIdle {
+  background: #374151;
+  color: rgba(255, 255, 255, 0.8);
+  cursor: default;
+}
+
+/* —— Fullscreen correction: same ScoringKeypad as manual input —— */
+.picker {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  padding-top: max(12px, env(safe-area-inset-top, 0px));
+  background: var(--p-ink);
+  color: var(--p-white);
+}
+
+.pickerHead {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 16px 12px;
+}
+
+.pickerTitle {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.pickerCurrent {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.65;
+}

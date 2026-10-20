@@ -16,8 +16,10 @@ export type NativeBridgeMessage =
   | { type: "waitingForRemoval" }
   /** LiDAR: board looks empty again — safe to start next-player countdown. */
   | { type: "boardCleared" }
-  /** LAN MJPEG unwrap stream for club TV (same Wi‑Fi as the phone). */
-  | { type: "visionStream"; url: string };
+  /** LiDAR throw-cycle state for the web autoscore panel. */
+  | { type: "throwPrompt"; state: NativeThrowPrompt; status: string };
+
+export type NativeThrowPrompt = "throwNow" | "scoring" | "pullDarts";
 
 type DartsNativeAPI = {
   isNative: boolean;
@@ -26,6 +28,7 @@ type DartsNativeAPI = {
   stopAutoScore: () => void;
   waitForRemoval?: () => void;
   resumeListening?: () => void;
+  undoThrow?: () => void;
   ping?: () => void;
 };
 
@@ -99,6 +102,21 @@ export function nativeWaitForRemoval(): void {
   }
 }
 
+/** Drop the last camera dart and keep listening. That spot stays ignored while the blob is still there. */
+export function nativeUndoThrow(): void {
+  try {
+    if (window.DartsNative?.undoThrow) {
+      window.DartsNative.undoThrow();
+      return;
+    }
+    window.webkit?.messageHandlers?.dartsNative?.postMessage({
+      type: "undoThrow",
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Undo / cancel — LiDAR resumes listening for throws. */
 export function nativeResumeListening(): void {
   try {
@@ -112,6 +130,55 @@ export function nativeResumeListening(): void {
   } catch {
     /* ignore */
   }
+}
+
+function postNative(body: Record<string, unknown>): void {
+  try {
+    window.webkit?.messageHandlers?.dartsNative?.postMessage(body);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** «Бросил» — score the darts that are on the board now. */
+export function nativeUserThrown(): void {
+  postNative({ type: "userThrown" });
+}
+
+/** «Чисто — дальше» — board is empty, capture a new reference. */
+export function nativeUserClear(): void {
+  postNative({ type: "userClear" });
+}
+
+/** Web renders the throw panel; native draws the live camera into the hole it reports. */
+export function nativeSetWebThrowUi(on: boolean): void {
+  postNative({ type: "autoScoreUi", web: on });
+}
+
+/** Where the throw screen wants the live camera, in viewport points. */
+export function reportCameraHole(rect: {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+} | null): void {
+  postNative({
+    type: "cameraHole",
+    x: rect?.x ?? 0,
+    y: rect?.y ?? 0,
+    w: rect?.w ?? 0,
+    h: rect?.h ?? 0,
+  });
+}
+
+/** User fixed dart `index` (0–2) of the current visit — ground truth for the dataset. */
+export function nativeLabelThrow(index: number, input: ThrowInput): void {
+  postNative({
+    type: "labelThrow",
+    index,
+    segment: input.segment,
+    multiplier: input.multiplier,
+  });
 }
 
 export function parseNativeThrow(raw: {
