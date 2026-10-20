@@ -573,11 +573,9 @@
   flex-shrink: 1;
 }
 
-.tvCardDarts .tvVisitChipSlot img,
-.tvUnthrownDart {
-  width: clamp(36px, min(18cqw, 14cqh), 72px);
+.tvCardDarts .tvVisitChipSlot img {
+  width: clamp(14px, min(8cqw, 6cqh), 28px);
   height: auto;
-  color: #f9fafb;
 }
 
 .tvStartStrike {
