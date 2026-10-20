@@ -578,6 +578,13 @@
   height: auto;
 }
 
+.tvUnthrownDart {
+  display: block;
+  width: clamp(40px, min(14cqw, 12cqh), 64px);
+  height: auto;
+  color: #f9fafb;
+}
+
 .tvStartStrike {
   color: var(--tv-muted);
   text-decoration: line-through;

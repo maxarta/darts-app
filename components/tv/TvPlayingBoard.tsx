@@ -9,6 +9,7 @@ import {
 } from "react";
 import Image from "next/image";
 import { AnimatedNumber } from "@/components/game/AnimatedNumber";
+import { UnthrownDart } from "@/components/game/UnthrownDart";
 import { formatCheckoutHint } from "@/lib/darts/checkout";
 import { visitThrowSummary } from "@/lib/darts/format";
 import type { TvLivePayload } from "@/lib/tournament/tv-live";
@@ -180,12 +181,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
                   ))}
                   {Array.from({ length: dartsLeft }).map((_, i) => (
                     <span key={`slot-${i}`} className={styles.tvVisitChipSlot}>
-                      <Image
-                        src="/game/dart-flight-single.svg"
-                        alt=""
-                        width={dense ? 24 : 30}
-                        height={dense ? 19 : 24}
-                      />
+                      <UnthrownDart className={styles.tvUnthrownDart} />
                     </span>
                   ))}
                 </div>
