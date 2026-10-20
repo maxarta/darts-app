@@ -109,6 +109,41 @@ export function localGameUndo(record: LocalGameRecord): LocalGameRecord | null {
   return withSnapshot(record, events, snapshot);
 }
 
+/**
+ * Correct one throw of the current (unfinished) visit. Later throws are
+ * re-applied; ones that no longer fit (after a bust / checkout) are dropped.
+ */
+export function localGameReplaceVisitThrow(
+  record: LocalGameRecord,
+  index: number,
+  input: ThrowInput
+): LocalGameRecord | null {
+  if (record.snapshot.game.status !== "active") return null;
+  const count = record.snapshot.activeVisitThrows.length;
+  if (index < 0 || index >= count || count > record.events.length) return null;
+  const tail = record.events.slice(record.events.length - count);
+  if (tail.some((e) => e.type !== "throw")) return null;
+
+  const inputs = tail.map((e) => (e as { type: "throw"; input: ThrowInput }).input);
+  inputs[index] = input;
+
+  const prefix = record.events.slice(0, record.events.length - count);
+  const initial = buildInitialSnapshot(
+    record.id,
+    record.meta,
+    record.tournamentContext
+  );
+  let snapshot = replayEvents(initial, prefix);
+  const events: GameEvent[] = [...prefix];
+  for (const t of inputs) {
+    const next = optimisticThrow(snapshot, t);
+    if (!next) break;
+    snapshot = next;
+    events.push({ type: "throw", input: t });
+  }
+  return withSnapshot(record, events, snapshot);
+}
+
 export function localGameRestart(record: LocalGameRecord): LocalGameRecord {
   const snapshot = buildInitialSnapshot(
     record.id,
