@@ -172,55 +172,6 @@
   padding-top: 0;
 }
 
-.tvPlaying[data-vision="1"] {
-  display: grid;
-  grid-template-columns: minmax(180px, 28vmin) minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr);
-  column-gap: clamp(12px, 2vmin, 28px);
-}
-
-.tvPlaying[data-vision="1"] .tvVision {
-  grid-row: 1 / -1;
-  grid-column: 1;
-}
-
-.tvPlaying[data-vision="1"] .tvGameHeader,
-.tvPlaying[data-vision="1"] .tvScoreGrid,
-.tvPlaying[data-vision="1"] .tvScoreGridMulti {
-  grid-column: 2;
-}
-
-.tvVision {
-  position: relative;
-  align-self: stretch;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 0;
-  padding: clamp(6px, 1vmin, 12px);
-  border-radius: clamp(12px, 1.6vmin, 20px);
-  background: rgba(0, 0, 0, 0.35);
-  border: 1px solid rgba(255, 223, 32, 0.35);
-}
-
-.tvVisionImg {
-  width: 100%;
-  max-height: min(72vh, 100%);
-  aspect-ratio: 1;
-  object-fit: contain;
-  border-radius: 50%;
-  background: #0a0a0a;
-}
-
-.tvVisionLabel {
-  margin: 8px 0 0;
-  font-size: clamp(10px, 1.4vmin, 14px);
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  color: rgba(255, 223, 32, 0.9);
-}
-
 .tvGameHeader {
   flex: 0 0 auto;
   display: grid;
@@ -622,9 +573,11 @@
   flex-shrink: 1;
 }
 
-.tvCardDarts .tvVisitChipSlot img {
-  width: clamp(14px, min(8cqw, 6cqh), 28px);
+.tvCardDarts .tvVisitChipSlot img,
+.tvUnthrownDart {
+  width: clamp(36px, min(18cqw, 14cqh), 72px);
   height: auto;
+  color: #f9fafb;
 }
 
 .tvStartStrike {

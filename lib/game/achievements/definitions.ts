@@ -74,8 +74,44 @@ export const ACHIEVEMENTS: Record<AchievementId, AchievementDefinition> = {
     imageAlt: "Стефан ноль",
     ariaLabel: "Три промаха подряд — Стефан ноль!",
   },
+  getdown: {
+    id: "getdown",
+    imageSrc: ACHIEVEMENT_IMAGES.getdown,
+    imageAlt: "Гетдаун",
+    ariaLabel: "Осталось удвоение 3 — все мимо!",
+  },
+  bitch: {
+    id: "bitch",
+    imageSrc: ACHIEVEMENT_IMAGES.bitch,
+    imageAlt: "Битч",
+    ariaLabel: "Осталось удвоение 1 — все мимо!",
+  },
+  shta: {
+    id: "shta",
+    imageSrc: ACHIEVEMENT_IMAGES.shta,
+    imageAlt: "Шта",
+    ariaLabel: "Утроение 3!",
+  },
+  stephan: {
+    id: "stephan",
+    imageSrc: ACHIEVEMENT_IMAGES.stephan,
+    imageAlt: "Степан",
+    ariaLabel: "Степан начинает бросок!",
+  },
+  shtosh: {
+    id: "shtosh",
+    imageSrc: ACHIEVEMENT_IMAGES.shtosh,
+    imageAlt: "Штош",
+    ariaLabel: "Ноль, ноль, один!",
+  },
+  hoba: {
+    id: "hoba",
+    imageSrc: ACHIEVEMENT_IMAGES.hoba,
+    imageAlt: "Хоба",
+    ariaLabel: "Утроение 19!",
+  },
 };
 
-export function getAchievement(id: AchievementId): AchievementDefinition {
-  return ACHIEVEMENTS[id];
+export function getAchievement(id: string): AchievementDefinition | undefined {
+  return ACHIEVEMENTS[id as AchievementId];
 }

@@ -13,9 +13,10 @@ const Z_STEP = 12;
 type Props = {
   active: ActiveAchievement[];
   onRemove: (instanceId: string) => void;
+  tv?: boolean;
 };
 
-export function GameAchievements({ active, onRemove }: Props) {
+export function GameAchievements({ active, onRemove, tv = false }: Props) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function GameAchievements({ active, onRemove }: Props) {
           }
           spreadIndex={index}
           spreadTotal={active.length}
+          tv={tv}
           onDone={() => onRemove(item.instanceId)}
         />
       ))}

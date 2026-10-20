@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/api/client";
-import type { AchievementId } from "@/lib/game/achievements";
-import { sortAchievementsForStacking } from "@/lib/game/achievements";
+import {
+  flyoutsForNewThrows,
+  type TvFlyout,
+} from "@/lib/game/achievements";
 import { preloadAchievementImages } from "@/lib/game/achievements/images";
 import { GameAchievements } from "@/components/game/achievements";
-import {
-  ACHIEVEMENT_STAGGER_MS,
-  type ActiveAchievement,
-} from "@/components/game/achievements/useVisitAchievementQueue";
+import { type ActiveAchievement } from "@/components/game/achievements/useVisitAchievementQueue";
+
+/** Launch the next flying score or sticker after the previous one has left the bottom. */
+const TV_FLYOUT_STAGGER_MS = 680;
 import {
   isTvLiveFresh,
   pickTvLive,
@@ -108,10 +110,12 @@ export function TvScreen() {
   const [error, setError] = useState<string | null>(null);
   const [achievements, setAchievements] = useState<ActiveAchievement[]>([]);
   const [scoreBursts, setScoreBursts] = useState<TvScoreBurstItem[]>([]);
-  const lastLiveAchievementsRef = useRef<AchievementId[]>([]);
-  const lastVisitScoreRef = useRef<{ userId: number; score: number } | null>(
-    null
-  );
+  const visitCursorRef = useRef<{
+    userId: number;
+    round: number;
+    leg: number;
+    count: number;
+  } | null>(null);
   const achievementSeq = useRef(0);
   const scoreBurstSeq = useRef(0);
   const achievementStaggerTimersRef = useRef<number[]>([]);
@@ -231,36 +235,41 @@ export function TvScreen() {
   useEffect(() => {
     if (!board) return;
     let cancelled = false;
-    lastLiveAchievementsRef.current = [];
-    lastVisitScoreRef.current = null;
+    visitCursorRef.current = null;
     clearAchievementStagger();
     setAchievements([]);
     setScoreBursts([]);
 
-    const spawnAchievementsInOrder = (ids: AchievementId[]) => {
-      if (ids.length === 0) return;
-      const stacked = sortAchievementsForStacking(ids);
+    const enqueueFlyouts = (items: TvFlyout[]) => {
+      if (items.length === 0) return;
       void preloadAchievementImages()
         .catch(() => {})
         .finally(() => {
           if (cancelled) return;
           const now = Date.now();
           let at = Math.max(now, nextAchievementSpawnAtRef.current);
-          for (const id of stacked) {
+          for (const item of items) {
             const delay = Math.max(0, at - Date.now());
             const timer = window.setTimeout(() => {
               if (cancelled) return;
+              if (item.kind === "score") {
+                scoreBurstSeq.current += 1;
+                const instanceId = `score-${scoreBurstSeq.current}`;
+                setScoreBursts((prev) => [
+                  ...prev,
+                  { instanceId, points: item.points },
+                ]);
+                return;
+              }
               achievementSeq.current += 1;
+              const instanceId = `${item.id}-${achievementSeq.current}`;
               setAchievements((prev) => [
                 ...prev,
-                {
-                  id,
-                  instanceId: `${id}-${achievementSeq.current}`,
-                },
+                { id: item.id, instanceId },
               ]);
             }, delay);
             achievementStaggerTimersRef.current.push(timer);
-            at += ACHIEVEMENT_STAGGER_MS;
+            at += TV_FLYOUT_STAGGER_MS;
           }
           nextAchievementSpawnAtRef.current = at;
         });
@@ -279,69 +288,46 @@ export function TvScreen() {
       });
 
       if (!next || next.phase === "idle") {
-        lastLiveAchievementsRef.current = [];
-        lastVisitScoreRef.current = null;
+        visitCursorRef.current = null;
         clearAchievementStagger();
         return;
       }
-      const ids = (next?.achievements ?? []) as AchievementId[];
-      // Phone re-publishes the same active stickers every ~1s with a new
-      // updatedAt — only spawn when an id newly appears in the list.
-      const prevIds = lastLiveAchievementsRef.current;
-      const remaining = new Map<AchievementId, number>();
-      for (const id of prevIds) {
-        remaining.set(id, (remaining.get(id) ?? 0) + 1);
-      }
-      const newlyAppeared: AchievementId[] = [];
-      for (const id of ids) {
-        const left = remaining.get(id) ?? 0;
-        if (left > 0) {
-          remaining.set(id, left - 1);
-        } else {
-          newlyAppeared.push(id);
-        }
-      }
-      lastLiveAchievementsRef.current = ids;
 
-      if (newlyAppeared.length > 0) {
-        spawnAchievementsInOrder(newlyAppeared);
-      }
-
-      // Huge flying points on every scoring dart (alongside stickers).
       const active =
         next.players.find((p) => p.active) ?? next.players[0] ?? null;
       if (!active) return;
 
-      const prevVisit = lastVisitScoreRef.current;
-      if (
-        !prevVisit ||
-        prevVisit.userId !== active.userId ||
-        active.visitScore < prevVisit.score
-      ) {
-        lastVisitScoreRef.current = {
+      const thrown = next.visitThrows ?? [];
+      const cursor = visitCursorRef.current;
+      const sameVisit =
+        cursor != null &&
+        cursor.userId === active.userId &&
+        cursor.round === next.currentRound &&
+        cursor.leg === next.currentLeg;
+
+      // First look at a visit, or the darts were pulled: remember the length
+      // and don't replay. A later poll that jumped by three darts still
+      // walks them one by one.
+      if (!cursor || !sameVisit || thrown.length < cursor.count) {
+        visitCursorRef.current = {
           userId: active.userId,
-          score: active.visitScore,
+          round: next.currentRound,
+          leg: next.currentLeg,
+          count: thrown.length,
         };
         return;
       }
+      if (thrown.length === cursor.count) return;
 
-      if (active.visitScore > prevVisit.score) {
-        const delta = active.visitScore - prevVisit.score;
-        lastVisitScoreRef.current = {
-          userId: active.userId,
-          score: active.visitScore,
-        };
-        if (delta > 0) {
-          scoreBurstSeq.current += 1;
-          setScoreBursts((prev) => [
-            ...prev,
-            {
-              instanceId: `score-${scoreBurstSeq.current}`,
-              points: delta,
-            },
-          ]);
-        }
-      }
+      const from = cursor.count;
+      visitCursorRef.current = { ...cursor, count: thrown.length };
+      enqueueFlyouts(
+        flyoutsForNewThrows(thrown, from, {
+          remainingAtStart: active.visitStartScore,
+          doubleOut: next.doubleOut !== false,
+          playerName: active.name,
+        })
+      );
     };
 
     const refreshLive = () => {
@@ -556,6 +542,7 @@ export function TvScreen() {
 
       <TvScoreBursts active={scoreBursts} onRemove={removeScoreBurst} />
       <GameAchievements
+        tv
         active={achievements}
         onRemove={removeAchievement}
       />

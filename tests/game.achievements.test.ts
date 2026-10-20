@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { detectVisitAchievements } from "@/lib/game/achievements";
 import {
+  flyoutsForNewThrows,
+  isBitchVisit,
   isDirectHitVisit,
+  isGetdownVisit,
   isHuzpaClassicVisit,
   isHuzpaSpecialVisit,
   isHuzpaUnderVisit,
+  isShtoshVisit,
   isStefanVisit,
   isStefanZeroVisit,
+  isStephanStart,
 } from "@/lib/game/achievements/visit-detectors";
 
 describe("visit achievements", () => {
@@ -199,5 +204,94 @@ describe("visit achievements", () => {
     expect(ids[0]).toBe("stefan");
     expect(ids).toContain("directhit");
     expect(ids).toContain("triple-20");
+  });
+
+  it("getdown when D3 is left and the visit is all misses", () => {
+    const misses = [
+      { segment: "miss" as const, multiplier: 1 as const },
+      { segment: "miss" as const, multiplier: 1 as const },
+      { segment: "miss" as const, multiplier: 1 as const },
+    ];
+    expect(isGetdownVisit(misses, { remainingAtStart: 6 })).toBe(true);
+    expect(isGetdownVisit(misses, { remainingAtStart: 6, doubleOut: false })).toBe(
+      false
+    );
+    expect(isGetdownVisit(misses, { remainingAtStart: 10 })).toBe(false);
+    expect(
+      detectVisitAchievements(misses, { remainingAtStart: 6 })
+    ).toEqual(expect.arrayContaining(["getdown", "stefan-zero"]));
+  });
+
+  it("bitch when D1 is left and the visit is all misses", () => {
+    const misses = [
+      { segment: "miss" as const, multiplier: 1 as const },
+      { segment: "miss" as const, multiplier: 1 as const },
+      { segment: "miss" as const, multiplier: 1 as const },
+    ];
+    expect(isBitchVisit(misses, { remainingAtStart: 2 })).toBe(true);
+    expect(isBitchVisit(misses.slice(0, 2), { remainingAtStart: 2 })).toBe(
+      false
+    );
+  });
+
+  it("shta on T3 and hoba on T19", () => {
+    expect(
+      detectVisitAchievements([{ segment: 3, multiplier: 3 }])
+    ).toContain("shta");
+    expect(
+      detectVisitAchievements([{ segment: 19, multiplier: 3 }])
+    ).toContain("hoba");
+  });
+
+  it("stephan when a player named Stepan starts the visit", () => {
+    const dart = { segment: 20 as const, multiplier: 1 as const };
+    expect(isStephanStart([dart], { playerName: "Степан" })).toBe(true);
+    expect(isStephanStart([dart], { playerName: "степан иванов" })).toBe(true);
+    expect(isStephanStart([dart], { playerName: "СТЕПАН" })).toBe(true);
+    expect(isStephanStart([dart], { playerName: "Стефан" })).toBe(false);
+    expect(isStephanStart([], { playerName: "Степан" })).toBe(false);
+  });
+
+  it("shtosh on 0, 0, 1 in any order", () => {
+    const miss = { segment: "miss" as const, multiplier: 1 as const };
+    const single1 = { segment: 1 as const, multiplier: 1 as const };
+    expect(isShtoshVisit([miss, miss, single1])).toBe(true);
+    expect(isShtoshVisit([single1, miss, miss])).toBe(true);
+    expect(isShtoshVisit([miss, single1, miss])).toBe(true);
+    expect(isShtoshVisit([miss, miss, { segment: 1, multiplier: 2 }])).toBe(
+      false
+    );
+  });
+
+  it("flies each of three quick darts instead of their sum", () => {
+    const flyouts = flyoutsForNewThrows(
+      [
+        { segment: 20, multiplier: 1 },
+        { segment: 20, multiplier: 1 },
+        { segment: 5, multiplier: 1 },
+      ],
+      0
+    );
+    expect(flyouts.filter((f) => f.kind === "score").map((f) => f.points)).toEqual([
+      20, 20, 5,
+    ]);
+  });
+
+  it("flies a miss sticker for every miss, then getdown on the third", () => {
+    const flyouts = flyoutsForNewThrows(
+      [
+        { segment: "miss", multiplier: 1 },
+        { segment: "miss", multiplier: 1 },
+        { segment: "miss", multiplier: 1 },
+      ],
+      0,
+      { remainingAtStart: 6 }
+    );
+    expect(flyouts).toEqual([
+      { kind: "achievement", id: "miss" },
+      { kind: "achievement", id: "miss" },
+      { kind: "achievement", id: "stefan-zero" },
+      { kind: "achievement", id: "getdown" },
+    ]);
   });
 });

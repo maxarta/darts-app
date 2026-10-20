@@ -13,6 +13,12 @@ import imgHuzpaUnder from "@/assets/achievements/huzpa-under.webp";
 import imgMiss from "@/assets/achievements/miss.webp";
 import imgStefan from "@/assets/achievements/stefan.webp";
 import imgStefanZero from "@/assets/achievements/stefan-zero.webp";
+import imgGetdown from "@/assets/achievements/getdown.webp";
+import imgBitch from "@/assets/achievements/bitch.webp";
+import imgShta from "@/assets/achievements/shta.webp";
+import imgStephan from "@/assets/achievements/stephan.webp";
+import imgShtosh from "@/assets/achievements/shtosh.webp";
+import imgHoba from "@/assets/achievements/hoba.webp";
 
 export const ACHIEVEMENT_IMAGES: Record<AchievementId, StaticImageData> = {
   "triple-1": imgTriple1,
@@ -27,6 +33,12 @@ export const ACHIEVEMENT_IMAGES: Record<AchievementId, StaticImageData> = {
   miss: imgMiss,
   stefan: imgStefan,
   "stefan-zero": imgStefanZero,
+  getdown: imgGetdown,
+  bitch: imgBitch,
+  shta: imgShta,
+  stephan: imgStephan,
+  shtosh: imgShtosh,
+  hoba: imgHoba,
 };
 
 const ALL_IMAGES = Object.values(ACHIEVEMENT_IMAGES);
@@ -43,7 +55,13 @@ export function preloadAchievementImages(): Promise<void> {
       (img) =>
         new Promise<void>((resolve, reject) => {
           const el = new window.Image();
-          el.onload = () => resolve();
+          el.onload = () => {
+            if (typeof el.decode === "function") {
+              void el.decode().then(() => resolve(), () => resolve());
+              return;
+            }
+            resolve();
+          };
           el.onerror = () =>
             reject(new Error(`Failed to preload achievement: ${img.src}`));
           el.src = img.src;
@@ -56,4 +74,8 @@ export function preloadAchievementImages(): Promise<void> {
 
 export function getAchievementImage(id: AchievementId): StaticImageData {
   return ACHIEVEMENT_IMAGES[id];
+}
+
+if (typeof window !== "undefined") {
+  void preloadAchievementImages();
 }

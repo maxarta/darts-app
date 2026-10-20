@@ -6,6 +6,7 @@ import {
   REPEATABLE_ACHIEVEMENT_IDS,
   sortAchievementsForStacking,
   type AchievementId,
+  type VisitAchievementContext,
 } from "@/lib/game/achievements";
 import { preloadAchievementImages } from "@/lib/game/achievements/images";
 import type { ThrowInput } from "@/lib/darts/rules";
@@ -20,7 +21,7 @@ type Options = {
   throws: ThrowInput[];
   enabled: boolean;
   onUnlock?: (ids: AchievementId[]) => void;
-};
+} & VisitAchievementContext;
 
 /** Пауза между ачивками в одной «пачке» (низкий слой → высокий). */
 export const ACHIEVEMENT_STAGGER_MS = 480;
@@ -40,6 +41,9 @@ export function useVisitAchievementQueue({
   throws,
   enabled,
   onUnlock,
+  remainingAtStart,
+  doubleOut,
+  playerName,
 }: Options) {
   const shownRef = useRef<Set<AchievementId>>(new Set());
   const prevThrowCountRef = useRef(0);
@@ -66,7 +70,11 @@ export function useVisitAchievementQueue({
     const throwCountIncreased = throws.length > prevThrowCountRef.current;
     prevThrowCountRef.current = throws.length;
 
-    const detected = detectVisitAchievements(throws);
+    const detected = detectVisitAchievements(throws, {
+      remainingAtStart,
+      doubleOut,
+      playerName,
+    });
     const novel = detected.filter((id) => {
       if (repeatableSet.has(id)) {
         return throwCountIncreased && throws.at(-1)?.segment === "miss";
@@ -103,7 +111,7 @@ export function useVisitAchievementQueue({
     return () => {
       cancelled = true;
     };
-  }, [throws, enabled, clearStaggerTimers]);
+  }, [throws, enabled, clearStaggerTimers, remainingAtStart, doubleOut, playerName]);
 
   useEffect(() => {
     return () => clearStaggerTimers();

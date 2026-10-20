@@ -17,6 +17,7 @@ import {
   localGameCancel,
   localGameEndVisit,
   localGameRemovePlayer,
+  localGameReplaceVisitThrow,
   localGameRestart,
   localGameThrow,
   localGameUndo,
@@ -52,29 +53,44 @@ import { usePublishTvLive } from "@/components/tv/usePublishTvLive";
 import { AutoScoreCalibrate } from "@/components/autoscore/AutoScoreCalibrate";
 import { AutoScoreEngine } from "@/components/autoscore/AutoScoreEngine";
 import { AutoScoreBanner } from "@/components/autoscore/AutoScoreBanner";
+import { AutoScorePanel } from "@/components/autoscore/AutoScorePanel";
 import type {
   AutoScorePhase,
   BoardCalibration,
   DetectedDart,
 } from "@/lib/autoscore/types";
 import {
+  playBustSound,
   playCountdownTickSound,
   playDartHitSound,
+  playMissSound,
+  playNextRoundSound,
+  playReadySound,
+  playSealSound,
   playTurnHandoffSound,
+  playUndoSound,
+  playWinSound,
 } from "@/lib/autoscore/sounds";
 import {
   isNativeShell,
   nativeResumeListening,
+  nativeUndoThrow,
+  nativeLabelThrow,
+  nativeSetWebThrowUi,
   nativeStartAutoScore,
   nativeStopAutoScore,
+  nativeUserClear,
+  nativeUserThrown,
   nativeWaitForRemoval,
   parseNativeThrow,
   subscribeNativeBridge,
+  type NativeThrowPrompt,
 } from "@/lib/autoscore/native-bridge";
-import { setVisionStreamUrl } from "@/lib/autoscore/vision-stream";
 import styles from "./game.module.css";
 
-const HANDOFF_SECONDS = 5;
+const HANDOFF_SECONDS = 3;
+/** Native pads undetected darts with low-confidence misses (see LidarSession). */
+const UNSEEN_CONFIDENCE = 0.3;
 
 export function GameScreen({ gameId }: { gameId: string }) {
   const router = useRouter();
@@ -115,6 +131,11 @@ export function GameScreen({ gameId }: { gameId: string }) {
   /** LiDAR: visit scored, waiting until darts are pulled before countdown. */
   const [awaitingRemoval, setAwaitingRemoval] = useState(false);
   const [handoffLeft, setHandoffLeft] = useState<number | null>(null);
+  const [nativePrompt, setNativePrompt] =
+    useState<NativeThrowPrompt>("throwNow");
+  const [nativeStatus, setNativeStatus] = useState<string | null>(null);
+  /** Visit slots filled with a miss because the camera didn't find the dart. */
+  const [unseenSlots, setUnseenSlots] = useState<number[]>([]);
   const handoffTimerRef = useRef<number | null>(null);
   const autoCorrectingRef = useRef(false);
   const scoringLockedRef = useRef(false);
@@ -123,6 +144,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const nativeLidarRef = useRef(false);
   const autoPhaseRef = useRef<AutoScorePhase>("off");
   const startHandoffCountdownRef = useRef<() => void>(() => {});
+  const bustCueRef = useRef(false);
+  const winCueRef = useRef(false);
   autoCorrectingRef.current = autoCorrecting;
   autoPhaseRef.current = autoPhase;
   awaitingRemovalRef.current = awaitingRemoval;
@@ -159,6 +182,9 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const visitThrows = record?.snapshot.activeVisitThrows ?? [];
   const visitAchievementsEnabled =
     record?.snapshot.game.status === "active" && visitThrows.length > 0;
+  const achievementPlayer = record?.snapshot.players.find(
+    (p) => p.order_index === record.snapshot.game.current_player_index
+  );
 
   const onAchievementUnlock = useCallback(() => {
     const prev = recordRef.current;
@@ -187,6 +213,12 @@ export function GameScreen({ gameId }: { gameId: string }) {
       throws: visitThrows,
       enabled: visitAchievementsEnabled,
       onUnlock: onAchievementUnlock,
+      remainingAtStart: achievementPlayer?.score_at_visit_start,
+      doubleOut: record?.snapshot.game.settings.doubleOut !== false,
+      playerName:
+        achievementPlayer?.users?.first_name ??
+        achievementPlayer?.users?.username ??
+        "",
     });
 
   usePublishTvLive(
@@ -232,6 +264,10 @@ export function GameScreen({ gameId }: { gameId: string }) {
       pendingEndVisitRef.current = false;
     }
   }, [visitAchievementsEnabled]);
+
+  useEffect(() => {
+    if (visitThrows.length === 0) setUnseenSlots([]);
+  }, [visitThrows.length]);
 
   useEffect(() => {
     if (!record || record.snapshot.game.status !== "active") {
@@ -348,7 +384,10 @@ export function GameScreen({ gameId }: { gameId: string }) {
   const stopAutoScore = useCallback(() => {
     clearHandoff();
     setAwaitingRemoval(false);
+    nativeSetWebThrowUi(false);
     nativeStopAutoScore();
+    setNativePrompt("throwNow");
+    setNativeStatus(null);
     setAutoPhase("off");
     setAutoCalib(null);
     setAutoMl(false);
@@ -422,17 +461,21 @@ export function GameScreen({ gameId }: { gameId: string }) {
     setAutoPhase("off");
   }, [clearHandoff]);
 
-  const applyAutoThrow = useCallback((input: ThrowInput) => {
-    if (autoPhaseRef.current !== "active") return;
-    if (autoCorrectingRef.current) return;
-    if (scoringLockedRef.current) return;
+  /** Returns the visit slot the throw landed in, or null if rejected. */
+  const applyAutoThrow = useCallback((input: ThrowInput): number | null => {
+    if (autoPhaseRef.current !== "active") return null;
+    if (autoCorrectingRef.current) return null;
+    if (scoringLockedRef.current) return null;
     const prev = recordRef.current;
-    if (!prev) return;
+    if (!prev) return null;
+    const slot = prev.snapshot.activeVisitThrows.length;
     const next = localGameThrow(prev, input);
-    if (!next) return;
-    playDartHitSound();
+    if (!next) return null;
+    if (input.segment === "miss") playMissSound();
+    else playDartHitSound();
     hapticImpact("light");
     void persistRef.current(next);
+    return slot;
   }, []);
 
   const onToggleAutoScore = useCallback(() => {
@@ -459,7 +502,14 @@ export function GameScreen({ gameId }: { gameId: string }) {
         setAutoCorrecting(false);
         setAutoCamError(null);
         setAutoPhase("active");
+        if (msg.lidar) nativeSetWebThrowUi(true);
+        playReadySound();
         hapticImpact("medium");
+        return;
+      }
+      if (msg.type === "throwPrompt") {
+        setNativePrompt(msg.state);
+        setNativeStatus(msg.status || null);
         return;
       }
       if (msg.type === "autoScoreCancelled") {
@@ -477,16 +527,21 @@ export function GameScreen({ gameId }: { gameId: string }) {
       if (msg.type === "autoThrow") {
         if (awaitingRemovalRef.current) return;
         const input = parseNativeThrow(msg.input);
-        if (input) applyAutoThrow(input);
+        if (!input) return;
+        const slot = applyAutoThrow(input);
+        if (
+          slot != null &&
+          input.segment === "miss" &&
+          (msg.confidence ?? 1) < UNSEEN_CONFIDENCE
+        ) {
+          setUnseenSlots((s) => [...s, slot]);
+        }
         return;
       }
       if (msg.type === "boardCleared") {
         setAwaitingRemoval(false);
         hapticImpact("light");
         startHandoffCountdownRef.current();
-      }
-      if (msg.type === "visionStream") {
-        setVisionStreamUrl(msg.url);
       }
     });
   }, [applyAutoThrow, clearHandoff, startWebCameraAutoScore]);
@@ -530,7 +585,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
     if (handoffTimerRef.current != null) return;
 
     setHandoffLeft(HANDOFF_SECONDS);
-    playCountdownTickSound();
+    playCountdownTickSound(HANDOFF_SECONDS);
     let left = HANDOFF_SECONDS;
     handoffTimerRef.current = window.setInterval(() => {
       left -= 1;
@@ -543,12 +598,12 @@ export function GameScreen({ gameId }: { gameId: string }) {
         return;
       }
       setHandoffLeft(left);
-      playCountdownTickSound();
+      playCountdownTickSound(left);
     }, 1000);
   }, [clearHandoff, endVisitNow]);
   startHandoffCountdownRef.current = startHandoffCountdown;
 
-  const onThrow = (input: ThrowInput, fromAuto = false) => {
+    const onThrow = (input: ThrowInput, fromAuto = false) => {
     const prev = recordRef.current;
     if (!prev) return;
     if (!fromAuto && autoPhaseRef.current === "active") {
@@ -559,6 +614,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
     }
     const next = localGameThrow(prev, input);
     if (!next) return;
+    if (input.segment === "miss") playMissSound();
+    else playDartHitSound();
     void persist(next);
   };
 
@@ -573,6 +630,45 @@ export function GameScreen({ gameId }: { gameId: string }) {
     if (!prev) return;
     const next = localGameUndo(prev);
     if (!next) return;
+    playUndoSound();
+    void persist(next);
+  };
+
+  /** Autoscore panel: take the last dart back. Listening stays on. */
+  const onUndoAutoThrow = () => {
+    const prev = recordRef.current;
+    if (!prev || prev.snapshot.activeVisitThrows.length === 0) return;
+    const last = prev.events[prev.events.length - 1];
+    if (!last || last.type !== "throw") return;
+    clearHandoff();
+    setAwaitingRemoval(false);
+    const next = localGameUndo(prev);
+    if (!next) return;
+    playUndoSound();
+    setUnseenSlots((s) =>
+      s.filter((i) => i !== prev.snapshot.activeVisitThrows.length - 1)
+    );
+    if (nativeLidarRef.current) nativeUndoThrow();
+    void persist(next);
+  };
+
+  /** Autoscore panel: fix one detected dart without pausing the LiDAR cycle. */
+  const onReplaceVisitThrow = (index: number, input: ThrowInput) => {
+    const prev = recordRef.current;
+    if (!prev) return;
+    const next = localGameReplaceVisitThrow(prev, index, input);
+    if (!next) return;
+    setUnseenSlots((s) => s.filter((i) => i !== index));
+    if (nativeLidarRef.current) nativeLabelThrow(index, input);
+    void persist(next);
+  };
+
+  /** Autoscore panel: enter a dart the camera missed. */
+  const onAddVisitThrow = (input: ThrowInput) => {
+    const prev = recordRef.current;
+    if (!prev) return;
+    const next = localGameThrow(prev, input);
+    if (!next) return;
     void persist(next);
   };
 
@@ -581,7 +677,10 @@ export function GameScreen({ gameId }: { gameId: string }) {
     setAwaitingRemoval(false);
     if (nativeLidarRef.current) nativeResumeListening();
     const ok = endVisitNow();
-    if (ok) setAutoCorrecting(false);
+    if (ok) {
+      playNextRoundSound();
+      setAutoCorrecting(false);
+    }
   };
 
   const onAutoDetect = useCallback(
@@ -764,7 +863,7 @@ export function GameScreen({ gameId }: { gameId: string }) {
   };
 
   // Auto handoff:
-  // - web camera: after a full visit → 5s countdown → next player
+  // - web camera: after a full visit → 3s countdown → next player
   // - LiDAR: after a full visit → wait until darts are pulled → then countdown
   useEffect(() => {
     if (autoPhase !== "active" || !record) {
@@ -799,6 +898,17 @@ export function GameScreen({ gameId }: { gameId: string }) {
       Boolean(activePlayer?.awaiting_visit_end) ||
       (checkout && !victoryConfirmDismissed);
 
+    if (visitApplyLocal?.bust && !bustCueRef.current) {
+      bustCueRef.current = true;
+      playBustSound();
+    }
+    if (!visitApplyLocal?.bust) bustCueRef.current = false;
+    if (showConfirm && !winCueRef.current) {
+      winCueRef.current = true;
+      playWinSound();
+    }
+    if (!showConfirm) winCueRef.current = false;
+
     if (autoCorrecting || showConfirm || victoryStats) {
       clearHandoff();
       if (awaitingRemoval) {
@@ -817,9 +927,11 @@ export function GameScreen({ gameId }: { gameId: string }) {
     }
     // Visit complete — wait for darts off board (native / ML), else countdown.
     if (nativeLidar || autoMl) {
-      clearHandoff();
-      if (!awaitingRemoval && handoffLeft == null) {
+      // Board cleared → countdown running; don't cancel it or re-arm removal.
+      if (handoffLeft != null) return;
+      if (!awaitingRemoval) {
         setAwaitingRemoval(true);
+        playSealSound();
         if (nativeLidar) nativeWaitForRemoval();
       }
       return;
@@ -1079,9 +1191,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
           visitSlot={
             !finished ? (
               <HeaderVisitChips
-                visitScore={active?.visit_score ?? 0}
                 throws={visitChips}
-                dartsThrownInVisit={dartsInVisit}
+                round={game.current_round}
                 bust={visitBust}
               />
             ) : undefined
@@ -1116,10 +1227,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
 
         {!finished && (
           <VisitBar
-            key={active?.id ?? "visit"}
-            visitScore={active?.visit_score ?? 0}
             throws={visitChips}
-            dartsThrownInVisit={dartsInVisit}
+            round={game.current_round}
             bust={visitBust}
           />
         )}
@@ -1127,7 +1236,21 @@ export function GameScreen({ gameId }: { gameId: string }) {
         <PlayerScoreboard players={displayPlayers} />
       </div>
 
-      {!finished ? (
+      {!finished && nativeLidar && autoPhase === "active" ? (
+        <AutoScorePanel
+          throws={activeVisitThrows}
+          unseen={unseenSlots.filter((i) => i < activeVisitThrows.length)}
+          prompt={nativePrompt}
+          status={nativeStatus}
+          countdown={handoffLeft}
+          bust={visitBust}
+          onThrown={nativeUserThrown}
+          onClear={nativeUserClear}
+          onReplace={onReplaceVisitThrow}
+          onAdd={onAddVisitThrow}
+          onUndo={onUndoAutoThrow}
+        />
+      ) : !finished ? (
         <ScoringKeypad
           onThrow={onThrow}
           onUndo={onUndo}

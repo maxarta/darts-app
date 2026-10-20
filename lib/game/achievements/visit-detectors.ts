@@ -1,5 +1,13 @@
-import type { ThrowInput } from "@/lib/darts/rules";
+import { throwPoints, type ThrowInput } from "@/lib/darts/rules";
 import type { AchievementId } from "./types";
+
+export type VisitAchievementContext = {
+  /** Remaining score when the visit started. */
+  remainingAtStart?: number;
+  /** Double-out. Missing means on, same as the game default. */
+  doubleOut?: boolean;
+  playerName?: string;
+};
 
 export const HUZPA_SEGMENTS = [1, 5, 20] as const;
 
@@ -105,36 +113,104 @@ export function isStefanZeroVisit(throws: ThrowInput[]): boolean {
   );
 }
 
+function isDoubleOut(ctx: VisitAchievementContext): boolean {
+  return ctx.doubleOut !== false;
+}
+
+/** Осталось D3 (6) и весь подход мимо. */
+export function isGetdownVisit(
+  throws: ThrowInput[],
+  ctx: VisitAchievementContext = {}
+): boolean {
+  return (
+    isDoubleOut(ctx) &&
+    ctx.remainingAtStart === 6 &&
+    isStefanZeroVisit(throws)
+  );
+}
+
+/** Осталось D1 (2) и весь подход мимо. */
+export function isBitchVisit(
+  throws: ThrowInput[],
+  ctx: VisitAchievementContext = {}
+): boolean {
+  return (
+    isDoubleOut(ctx) &&
+    ctx.remainingAtStart === 2 &&
+    isStefanZeroVisit(throws)
+  );
+}
+
+export function isShtaThrow(throws: ThrowInput[]): boolean {
+  return throws.some((t) => isTripleOn(t, 3));
+}
+
+export function isHobaThrow(throws: ThrowInput[]): boolean {
+  return throws.some((t) => isTripleOn(t, 19));
+}
+
+/** 0, 0, 1 в любом порядке: два промаха и одинарная 1. */
+export function isShtoshVisit(throws: ThrowInput[]): boolean {
+  if (throws.length !== 3) return false;
+  const points = throws.map((t) => throwPoints(t)).sort((a, b) => a - b);
+  return points[0] === 0 && points[1] === 0 && points[2] === 1;
+}
+
+export function isStepanName(name: string | null | undefined): boolean {
+  const first = (name ?? "").trim().toLowerCase().split(/\s+/)[0] ?? "";
+  return first === "степан" || first === "stepan" || first === "stephan";
+}
+
+/** Первый дротик подхода игрока по имени Степан. */
+export function isStephanStart(
+  throws: ThrowInput[],
+  ctx: VisitAchievementContext = {}
+): boolean {
+  return throws.length >= 1 && isStepanName(ctx.playerName);
+}
+
 /** Порядок показа, если за визит сработало несколько ачивок. */
 export const ACHIEVEMENT_DISPLAY_ORDER: AchievementId[] = [
+  "bitch",
+  "getdown",
   "stefan-zero",
   "stefan",
   "directhit",
   "huzpa-special",
   "huzpa-classic",
   "huzpa-under",
+  "shtosh",
   "gagarin",
+  "hoba",
+  "shta",
   "triple-20",
   "triple-7",
   "triple-1",
   "bull",
+  "stephan",
   "miss",
 ];
 
 /** Чем выше число — тем выше z-index (перекрывает предыдущие). */
 export const ACHIEVEMENT_STACK_RANK: Record<AchievementId, number> = {
   miss: 1,
-  bull: 2,
-  "triple-1": 3,
-  "triple-20": 4,
-  "triple-7": 4,
-  gagarin: 5,
-  "huzpa-classic": 6,
-  "huzpa-special": 7,
-  directhit: 8,
-  "huzpa-under": 9,
-  stefan: 10,
-  "stefan-zero": 11,
+  stephan: 2,
+  bull: 3,
+  "triple-1": 4,
+  shta: 4,
+  "triple-20": 5,
+  "triple-7": 5,
+  hoba: 5,
+  gagarin: 6,
+  "huzpa-classic": 7,
+  shtosh: 7,
+  "huzpa-special": 8,
+  directhit: 9,
+  "huzpa-under": 10,
+  stefan: 11,
+  "stefan-zero": 12,
+  getdown: 13,
+  bitch: 14,
 };
 
 export function sortAchievementsForStacking(ids: AchievementId[]): AchievementId[] {
@@ -143,23 +219,36 @@ export function sortAchievementsForStacking(ids: AchievementId[]): AchievementId
   );
 }
 
-const DETECTORS: { id: AchievementId; test: (throws: ThrowInput[]) => boolean }[] =
-  [
-    { id: "stefan-zero", test: isStefanZeroVisit },
-    { id: "stefan", test: isStefanVisit },
-    { id: "directhit", test: isDirectHitVisit },
-    { id: "huzpa-special", test: isHuzpaSpecialVisit },
-    { id: "huzpa-classic", test: isHuzpaClassicVisit },
-    { id: "huzpa-under", test: isHuzpaUnderVisit },
-    { id: "gagarin", test: isGagarinThrow },
-    { id: "triple-20", test: isTriple20Throw },
-    { id: "triple-7", test: isTriple7Throw },
-    { id: "triple-1", test: isTriple1Throw },
-    { id: "bull", test: isBullThrow },
-  ];
+const DETECTORS: {
+  id: AchievementId;
+  test: (throws: ThrowInput[], ctx: VisitAchievementContext) => boolean;
+}[] = [
+  { id: "bitch", test: isBitchVisit },
+  { id: "getdown", test: isGetdownVisit },
+  { id: "stefan-zero", test: isStefanZeroVisit },
+  { id: "stefan", test: isStefanVisit },
+  { id: "directhit", test: isDirectHitVisit },
+  { id: "huzpa-special", test: isHuzpaSpecialVisit },
+  { id: "huzpa-classic", test: isHuzpaClassicVisit },
+  { id: "huzpa-under", test: isHuzpaUnderVisit },
+  { id: "shtosh", test: isShtoshVisit },
+  { id: "gagarin", test: isGagarinThrow },
+  { id: "hoba", test: isHobaThrow },
+  { id: "shta", test: isShtaThrow },
+  { id: "triple-20", test: isTriple20Throw },
+  { id: "triple-7", test: isTriple7Throw },
+  { id: "triple-1", test: isTriple1Throw },
+  { id: "bull", test: isBullThrow },
+  { id: "stephan", test: isStephanStart },
+];
 
-export function detectVisitAchievements(throws: ThrowInput[]): AchievementId[] {
-  const found = DETECTORS.filter(({ test }) => test(throws)).map(({ id }) => id);
+export function detectVisitAchievements(
+  throws: ThrowInput[],
+  ctx: VisitAchievementContext = {}
+): AchievementId[] {
+  const found = DETECTORS.filter(({ test }) => test(throws, ctx)).map(
+    ({ id }) => id
+  );
   if (!isStefanZeroVisit(throws) && isMissThrow(throws)) {
     found.push("miss");
   }
@@ -170,4 +259,52 @@ export function detectVisitAchievements(throws: ThrowInput[]): AchievementId[] {
   return found.sort(
     (a, b) => (rank.get(a) ?? 99) - (rank.get(b) ?? 99)
   );
+}
+
+/** Stickers that become true because of the last dart in `throws`. */
+export function achievementsUnlockedByThrow(
+  throws: ThrowInput[],
+  ctx: VisitAchievementContext = {}
+): AchievementId[] {
+  if (throws.length === 0) return [];
+  const before = detectVisitAchievements(throws.slice(0, -1), ctx);
+  const after = detectVisitAchievements(throws, ctx);
+  const left = new Map<AchievementId, number>();
+  for (const id of before) left.set(id, (left.get(id) ?? 0) + 1);
+  const novel: AchievementId[] = [];
+  for (const id of after) {
+    const n = left.get(id) ?? 0;
+    if (n > 0) left.set(id, n - 1);
+    else novel.push(id);
+  }
+  if (
+    throws.at(-1)?.segment === "miss" &&
+    !novel.includes("miss") &&
+    !isStefanZeroVisit(throws)
+  ) {
+    novel.push("miss");
+  }
+  return sortAchievementsForStacking(novel);
+}
+
+export type TvFlyout =
+  | { kind: "score"; points: number }
+  | { kind: "achievement"; id: AchievementId };
+
+/** One entry per new dart, in throw order: its points, then its stickers. */
+export function flyoutsForNewThrows(
+  throws: ThrowInput[],
+  fromIndex: number,
+  ctx: VisitAchievementContext = {}
+): TvFlyout[] {
+  const out: TvFlyout[] = [];
+  for (let i = Math.max(0, fromIndex); i < throws.length; i++) {
+    const step = throws.slice(0, i + 1);
+    const points = throwPoints(throws[i]);
+    if (points > 0) out.push({ kind: "score", points });
+    for (const id of achievementsUnlockedByThrow(step, ctx)) {
+      out.push({ kind: "achievement", id });
+    }
+  }
+  return out;
 }

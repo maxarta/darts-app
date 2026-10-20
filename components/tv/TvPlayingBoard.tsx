@@ -9,6 +9,7 @@ import {
 } from "react";
 import Image from "next/image";
 import { AnimatedNumber } from "@/components/game/AnimatedNumber";
+import { UnthrownDart } from "@/components/game/UnthrownDart";
 import { formatCheckoutHint } from "@/lib/darts/checkout";
 import { visitThrowSummary } from "@/lib/darts/format";
 import type { TvLivePayload } from "@/lib/tournament/tv-live";
@@ -103,26 +104,12 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
     prevRectsRef.current = nextRects;
   }, [activeId, playerCount]);
 
-  const visionUrl = live.visionUrl?.trim() || null;
-
   return (
     <div
       className={styles.tvPlaying}
       data-players={playerCount}
-      data-vision={visionUrl ? "1" : "0"}
       style={{ "--tv-cols": String(playerCount) } as CSSProperties}
     >
-      {visionUrl ? (
-        <aside className={styles.tvVision} aria-label="Vision stream">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            className={styles.tvVisionImg}
-            src={visionUrl}
-            alt="Board vision"
-          />
-          <p className={styles.tvVisionLabel}>VISION · LIVE</p>
-        </aside>
-      ) : null}
       <header className={styles.tvGameHeader}>
         <div className={styles.tvGameHeaderMain}>
           <p className={styles.tvGameTitle}>{tournamentName}</p>
@@ -194,12 +181,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
                   ))}
                   {Array.from({ length: dartsLeft }).map((_, i) => (
                     <span key={`slot-${i}`} className={styles.tvVisitChipSlot}>
-                      <Image
-                        src="/game/dart-flight-single.svg"
-                        alt=""
-                        width={dense ? 24 : 30}
-                        height={dense ? 19 : 24}
-                      />
+                      <UnthrownDart className={styles.tvUnthrownDart} />
                     </span>
                   ))}
                 </div>

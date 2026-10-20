@@ -12,7 +12,13 @@ export type AchievementId =
   | "huzpa-under"
   | "miss"
   | "stefan"
-  | "stefan-zero";
+  | "stefan-zero"
+  | "getdown"
+  | "bitch"
+  | "shta"
+  | "stephan"
+  | "shtosh"
+  | "hoba";
 
 export type AchievementDefinition = {
   id: AchievementId;

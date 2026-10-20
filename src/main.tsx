@@ -2,8 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
+import { installButtonHaptics } from "@/lib/haptic";
 import "@/app/globals.css";
 import "@/src/fonts.css";
+
+installButtonHaptics();
 
 /** Pull new PWA bundles so club phones don't stay on a stale cache (old «Правила», no TV). */
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {

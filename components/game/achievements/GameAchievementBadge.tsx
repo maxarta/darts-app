@@ -12,6 +12,8 @@ type Props = {
   spreadIndex: number;
   spreadTotal: number;
   onDone: () => void;
+  /** Larger sticker for the TV. The phone keeps the compact size. */
+  tv?: boolean;
 };
 
 /** Пик в видимой середине экрана (детерминировано — без Math.random для SSR). */
@@ -41,18 +43,28 @@ export function GameAchievementBadge({
   spreadIndex,
   spreadTotal,
   onDone,
+  tv = false,
 }: Props) {
   const def = getAchievement(achievementId);
   const toss = useRef(computeToss(spreadIndex, spreadTotal));
+  if (!def) return null;
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     setReady(false);
-  }, [achievementId]);
+    const src = def.imageSrc.src;
+    const probe = new window.Image();
+    probe.src = src;
+    if (probe.complete && probe.naturalWidth > 0) setReady(true);
+  }, [achievementId, def.imageSrc.src]);
 
   return (
     <div
-      className={[styles.badge, ready ? styles.badgeReady : styles.badgePending]
+      className={[
+        styles.badge,
+        tv ? styles.badgeTv : "",
+        ready ? styles.badgeReady : styles.badgePending,
+      ]
         .filter(Boolean)
         .join(" ")}
       style={
@@ -75,7 +87,7 @@ export function GameAchievementBadge({
         src={def.imageSrc}
         alt={def.imageAlt}
         className={styles.img}
-        sizes="(max-width: 480px) 76vw, 300px"
+        sizes={tv ? "460px" : "(max-width: 480px) 76vw, 300px"}
         priority
         onLoad={() => setReady(true)}
       />

@@ -18,7 +18,6 @@ import {
   writeTvLive,
   type TvLivePayload,
 } from "@/lib/tournament/tv-live";
-import { getVisionStreamUrl } from "@/lib/autoscore/vision-stream";
 import { isNativeShell } from "@/lib/autoscore/native-bridge";
 
 const PUBLISH_INTERVAL_MS = 1_000;
@@ -56,7 +55,6 @@ function buildPayload(
     doubleOut: settings.doubleOut !== false,
     visitThrows: snap.activeVisitThrows,
     achievements,
-    visionUrl: getVisionStreamUrl(),
     players: [...snap.players]
       .sort((a, b) => a.order_index - b.order_index)
       .map((p) => ({
@@ -90,7 +88,6 @@ function idlePayload(matchId: string | null): TvLivePayload {
     visitThrows: [],
     achievements: [],
     players: [],
-    visionUrl: null,
   };
 }
 

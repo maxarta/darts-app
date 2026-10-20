@@ -22,6 +22,19 @@
   filter: drop-shadow(0 14px 32px rgba(3, 7, 18, 0.5));
 }
 
+.badgeTv {
+  width: auto;
+  max-width: min(32vw, 460px);
+  max-height: 34vh;
+}
+
+.badgeTv .img {
+  width: auto;
+  height: auto;
+  max-width: min(32vw, 460px);
+  max-height: 34vh;
+}
+
 .badgePending {
   opacity: 0;
 }
