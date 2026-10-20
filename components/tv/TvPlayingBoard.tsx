@@ -7,7 +7,6 @@ import {
   useState,
   type CSSProperties,
 } from "react";
-import Image from "next/image";
 import { AnimatedNumber } from "@/components/game/AnimatedNumber";
 import { UnthrownDart } from "@/components/game/UnthrownDart";
 import { formatCheckoutHint } from "@/lib/darts/checkout";
@@ -200,7 +199,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
                       </span>
                       {dartsInVisit > 0 ? (
                         <span className={styles.tvVisitChipWhiteSm}>
-                          <AnimatedNumber value={p.visitScore} />
+                          <AnimatedNumber value={p.visitScore} instant />
                         </span>
                       ) : null}
                     </div>
@@ -209,7 +208,7 @@ export function TvPlayingBoard({ live, tournamentName }: Props) {
               </div>
 
               <p className={styles.tvScoreValue}>
-                <AnimatedNumber value={p.remaining} />
+                <AnimatedNumber value={p.remaining} instant />
               </p>
 
               <div className={styles.tvScoreFooter}>

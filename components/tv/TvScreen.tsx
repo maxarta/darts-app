@@ -283,7 +283,14 @@ export function TvScreen() {
           if (prev?.phase === "playing" && prev.players.length > 0) return prev;
           return null;
         }
-        if (next.phase === "playing" && next.players.length > 0) return next;
+        if (next.phase === "playing" && next.players.length > 0) {
+          // Ignore heartbeat-only publishes (updatedAt churn) — they were
+          // re-rendering the whole board every ~1.5s and janking flyouts.
+          if (prev && tvLiveFingerprint(prev) === tvLiveFingerprint(next)) {
+            return prev;
+          }
+          return next;
+        }
         return pickTvLive(next, prev);
       });
 
@@ -561,4 +568,19 @@ function needsDrawLabel(data: TvTournamentData | null): string {
     return "Проведите жеребьёвку на телефоне";
   }
   return "Нет незавершённых пар";
+}
+
+/** Visual board state only — skips `updatedAt` so heartbeats don't re-render. */
+function tvLiveFingerprint(live: TvLivePayload): string {
+  const players = live.players
+    .map(
+      (p) =>
+        `${p.userId}:${p.remaining}:${p.active ? 1 : 0}:${p.visitScore}:${p.legsWon}:${p.ppr}:${p.visitStartScore}`
+    )
+    .join("|");
+  const throws = (live.visitThrows ?? [])
+    .map((t) => `${t.segment}:${t.multiplier}`)
+    .join(",");
+  const ach = (live.achievements ?? []).join(",");
+  return `${live.phase}|${live.matchId}|${live.currentRound}|${live.currentLeg}|${live.legsToWin}|${players}|${throws}|${ach}`;
 }

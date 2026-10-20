@@ -24,15 +24,17 @@
 
 .badgeTv {
   width: auto;
-  max-width: min(32vw, 460px);
-  max-height: 34vh;
+  max-width: min(28vw, 380px);
+  max-height: 28vh;
+  /* drop-shadow on animated WebP kills TV GPUs — keep phone filter. */
+  filter: none;
 }
 
 .badgeTv .img {
   width: auto;
   height: auto;
-  max-width: min(32vw, 460px);
-  max-height: 34vh;
+  max-width: min(28vw, 380px);
+  max-height: 28vh;
 }
 
 .badgePending {

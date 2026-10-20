@@ -18,23 +18,19 @@
   will-change: transform, opacity;
   pointer-events: none;
   animation: tvScoreToss 2s linear forwards;
-  filter: drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55));
+  /* No filter: drop-shadow — re-rasters every frame on smart TVs. */
 }
 
 .value {
   display: block;
   text-align: center;
-  font-size: clamp(140px, 28vw, 340px);
+  font-size: clamp(96px, 18vw, 200px);
   font-weight: 900;
   line-height: 0.85;
   letter-spacing: -0.06em;
   font-variant-numeric: tabular-nums;
   color: #facc15;
-  -webkit-text-stroke: 5px rgba(15, 23, 42, 0.55);
-  paint-order: stroke fill;
-  text-shadow:
-    0 0 36px rgba(250, 204, 21, 0.7),
-    0 12px 0 rgba(15, 23, 42, 0.45);
+  text-shadow: 0 8px 0 rgba(15, 23, 42, 0.45);
 }
 
 @keyframes tvScoreToss {

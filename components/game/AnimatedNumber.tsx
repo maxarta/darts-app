@@ -12,9 +12,11 @@ const MAX_DURATION_MS = 220;
 type Props = {
   value: number;
   className?: string;
+  /** Skip rAF tween (TV boards — avoid commit storms alongside flyouts). */
+  instant?: boolean;
 };
 
-export function AnimatedNumber({ value, className }: Props) {
+export function AnimatedNumber({ value, className, instant = false }: Props) {
   const [display, setDisplay] = useState(value);
   const displayRef = useRef(value);
   const frameRef = useRef<number | null>(null);
@@ -26,6 +28,16 @@ export function AnimatedNumber({ value, className }: Props) {
 
   useEffect(() => {
     if (value === displayRef.current) return;
+
+    if (instant) {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      displayRef.current = value;
+      setDisplay(value);
+      return;
+    }
 
     if (frameRef.current !== null) {
       cancelAnimationFrame(frameRef.current);

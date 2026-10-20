@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import styles from "./tvScoreBurst.module.css";
 
@@ -30,7 +30,6 @@ export function TvScoreBursts({ active, onRemove }: Props) {
           key={item.instanceId}
           points={item.points}
           spreadIndex={index}
-          spreadTotal={active.length}
           onDone={() => onRemove(item.instanceId)}
         />
       ))}
@@ -42,30 +41,27 @@ export function TvScoreBursts({ active, onRemove }: Props) {
 function TvScoreBurstBadge({
   points,
   spreadIndex,
-  spreadTotal,
   onDone,
 }: {
   points: number;
   spreadIndex: number;
-  spreadTotal: number;
   onDone: () => void;
 }) {
-  const lane =
-    spreadTotal <= 1 ? 0.5 : spreadIndex / Math.max(1, spreadTotal - 1);
-  const peakX = (lane - 0.5) * 28;
-  const peakY = -(58 + (spreadIndex % 3) * 4);
-  const launchRotate = -8 + lane * 16;
+  // Lock toss path at mount — later bursts must not rewrite CSS vars mid-flight.
+  const tossRef = useRef<CSSProperties | null>(null);
+  if (!tossRef.current) {
+    const lane = (spreadIndex % 3) / 2;
+    tossRef.current = {
+      "--peak-x": `${((lane - 0.5) * 28).toFixed(2)}vw`,
+      "--peak-y": `${(-(58 + (spreadIndex % 3) * 4)).toFixed(2)}vh`,
+      "--launch-rotate": `${(-8 + lane * 16).toFixed(2)}deg`,
+    } as CSSProperties;
+  }
 
   return (
     <div
       className={styles.burst}
-      style={
-        {
-          "--peak-x": `${peakX.toFixed(2)}vw`,
-          "--peak-y": `${peakY.toFixed(2)}vh`,
-          "--launch-rotate": `${launchRotate.toFixed(2)}deg`,
-        } as CSSProperties
-      }
+      style={tossRef.current}
       onAnimationEnd={(e) => {
         if (e.target === e.currentTarget) onDone();
       }}
