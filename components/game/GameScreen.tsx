@@ -221,10 +221,8 @@ export function GameScreen({ gameId }: { gameId: string }) {
         "",
     });
 
-  usePublishTvLive(
-    record,
-    activeAchievements.map((a) => a.id)
-  );
+  const tvAchievementIds = activeAchievements.map((a) => a.id);
+  usePublishTvLive(record, tvAchievementIds);
 
   // Free-game TV code — stable per club session (channel), not per game id.
   useEffect(() => {

@@ -177,13 +177,18 @@ export function usePublishTvLive(
 
       if (current.snapshot.game.status === "finished") {
         const idle = idlePayload(current.meta.tournamentMatchId);
+        const idleKey = "idle";
+        if (lastSentRef.current === idleKey) return;
+        lastSentRef.current = idleKey;
         post(idle);
-        lastSentRef.current = "";
         return;
       }
 
       const payload = buildPayload(current, achievementsRef.current);
       const key = JSON.stringify({ ...payload, updatedAt: 0 });
+      // Skip identical board state — avoids flooding the embed /api proxy
+      // (was restarting the interval every render and POSTing every second).
+      if (key === lastSentRef.current) return;
       lastSentRef.current = key;
       post(payload);
     };
@@ -194,5 +199,5 @@ export function usePublishTvLive(
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [tournamentId, gameId, channelId, title, record, achievements]);
+  }, [tournamentId, gameId, channelId, title]);
 }
