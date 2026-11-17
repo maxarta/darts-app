@@ -8,23 +8,17 @@ import "@/src/fonts.css";
 
 installButtonHaptics();
 
-/** Native iOS shell + local Vite share a fixed origin; an orphaned PWA SW
- *  can serve HTML for /logo.svg and /home/trophy.png (broken «?» icons) and
- *  interfere with TV POSTs. Kill it there. Production club phones still update. */
-function isEmbedOrLocalOrigin(): boolean {
+/** Only the loopback EmbeddedWeb origin had orphaned SW bugs (HTML for images).
+ *  Native shell on artdart.vercel.app must KEEP the service worker so the club
+ *  phone opens from cache instead of re-downloading the SPA every launch. */
+function isLoopbackOrigin(): boolean {
   if (typeof window === "undefined") return false;
   const host = window.location.hostname;
-  if (host === "127.0.0.1" || host === "localhost") return true;
-  return Boolean(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (window as any).DartsNative?.isNative ||
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (window as any).webkit?.messageHandlers?.dartsNative
-  );
+  return host === "127.0.0.1" || host === "localhost";
 }
 
 if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
-  if (isEmbedOrLocalOrigin()) {
+  if (isLoopbackOrigin()) {
     void navigator.serviceWorker.getRegistrations().then((regs) => {
       for (const reg of regs) void reg.unregister();
     });
@@ -34,6 +28,7 @@ if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
       });
     }
   } else {
+    void navigator.serviceWorker.register("/sw.js").catch(() => {});
     let reloading = false;
     navigator.serviceWorker.addEventListener("controllerchange", () => {
       if (reloading) return;
@@ -42,7 +37,8 @@ if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
     });
     void navigator.serviceWorker.ready.then((reg) => {
       void reg.update();
-      window.setInterval(() => void reg.update(), 30_000);
+      // Occasional check is enough — 30s hammered the phone on every open.
+      window.setInterval(() => void reg.update(), 15 * 60_000);
     });
   }
 }

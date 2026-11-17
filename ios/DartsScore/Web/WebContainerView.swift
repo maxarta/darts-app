@@ -23,32 +23,44 @@ struct WebContainerView: UIViewRepresentable {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+        // Without a UI delegate window.confirm() silently returns false
+        // («Покинуть игру», «Заново» never pass their confirm).
+        webView.uiDelegate = context.coordinator
         webView.scrollView.bounces = false
-        // Let UIKit respect safe area for the scroll view chrome; page itself
-        // sits in the safe rect because SwiftUI does not ignoreSafeArea here.
+        // Full-screen page; safe area reaches CSS via env() (viewport-fit=cover).
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.contentInset = .zero
-        webView.isOpaque = true
-        webView.backgroundColor = AppTheme.uiBackground
-        webView.scrollView.backgroundColor = AppTheme.uiBackground
+        // Clear so a transparent camera hole shows the picture behind the page.
+        webView.isOpaque = false
+        webView.backgroundColor = .clear
+        webView.scrollView.backgroundColor = .clear
         if #available(iOS 15.0, *) {
-            webView.underPageBackgroundColor = AppTheme.uiBackground
+            webView.underPageBackgroundColor = .clear
         }
 
         bridge.webView = webView
         context.coordinator.webView = webView
 
+        // Keep a fat disk cache — the SPA (JS/CSS/webp) should not re-download
+        // on every launch. Previous .reloadIgnoringLocalCacheData forced a cold load.
+        if URLCache.shared.diskCapacity < 200_000_000 {
+            URLCache.shared = URLCache(
+                memoryCapacity: 64 * 1024 * 1024,
+                diskCapacity: 256 * 1024 * 1024
+            )
+        }
+
         let url = bridge.startURL
         LiveTelemetry.log("DARTS_LIVE event=webview_load_start url=\(url.absoluteString)")
         var request = URLRequest(url: url)
-        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.cachePolicy = .useProtocolCachePolicy
         webView.load(request)
         return webView
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {}
 
-    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         let bridge: NativeBridge
         weak var webView: WKWebView?
         private var didRetry = false
@@ -113,6 +125,58 @@ struct WebContainerView: UIViewRepresentable {
             withError error: Error
         ) {
             retryIfNeeded(webView)
+        }
+
+        // MARK: - JS dialogs
+
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptAlertPanelWithMessage message: String,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping () -> Void
+        ) {
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in completionHandler() })
+            present(alert, from: webView) { completionHandler() }
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptConfirmPanelWithMessage message: String,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping (Bool) -> Void
+        ) {
+            let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "Отмена", style: .cancel) { _ in completionHandler(false) })
+            alert.addAction(UIAlertAction(title: "Да", style: .default) { _ in completionHandler(true) })
+            present(alert, from: webView) { completionHandler(false) }
+        }
+
+        func webView(
+            _ webView: WKWebView,
+            runJavaScriptTextInputPanelWithPrompt prompt: String,
+            defaultText: String?,
+            initiatedByFrame frame: WKFrameInfo,
+            completionHandler: @escaping (String?) -> Void
+        ) {
+            let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
+            alert.addTextField { $0.text = defaultText }
+            alert.addAction(UIAlertAction(title: "Отмена", style: .cancel) { _ in completionHandler(nil) })
+            alert.addAction(UIAlertAction(title: "OK", style: .default) { [weak alert] _ in
+                completionHandler(alert?.textFields?.first?.text)
+            })
+            present(alert, from: webView) { completionHandler(nil) }
+        }
+
+        /// WebKit requires the completion handler to run exactly once.
+        private func present(_ alert: UIViewController, from webView: WKWebView, fallback: () -> Void) {
+            var top = webView.window?.rootViewController
+            while let next = top?.presentedViewController { top = next }
+            guard let top else {
+                fallback()
+                return
+            }
+            top.present(alert, animated: true)
         }
 
         private func retryIfNeeded(_ webView: WKWebView) {
