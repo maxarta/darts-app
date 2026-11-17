@@ -58,15 +58,42 @@ struct WebContainerView: UIViewRepresentable {
         return webView
     }
 
-    func updateUIView(_ uiView: WKWebView, context: Context) {}
+    func updateUIView(_ uiView: WKWebView, context: Context) {
+        context.coordinator.pushSafeAreaInsets(to: uiView)
+    }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
         let bridge: NativeBridge
         weak var webView: WKWebView?
         private var didRetry = false
+        private var lastSafeAreaKey = ""
 
         init(bridge: NativeBridge) {
             self.bridge = bridge
+        }
+
+        /// WKWebView often reports env(safe-area-inset-*) = 0 for remote pages.
+        /// Push UIKit insets into CSS vars the web shell already reads.
+        func pushSafeAreaInsets(to webView: WKWebView) {
+            let fromView = webView.safeAreaInsets
+            let fromWindow = webView.window?.safeAreaInsets ?? .zero
+            let top = max(fromView.top, fromWindow.top)
+            let right = max(fromView.right, fromWindow.right)
+            let bottom = max(fromView.bottom, fromWindow.bottom)
+            let left = max(fromView.left, fromWindow.left)
+            let key = "\(top),\(right),\(bottom),\(left)"
+            guard key != lastSafeAreaKey else { return }
+            lastSafeAreaKey = key
+            let js = """
+            (function(){
+              var s=document.documentElement.style;
+              s.setProperty('--native-safe-top','\(top)px');
+              s.setProperty('--native-safe-right','\(right)px');
+              s.setProperty('--native-safe-bottom','\(bottom)px');
+              s.setProperty('--native-safe-left','\(left)px');
+            })();
+            """
+            webView.evaluateJavaScript(js, completionHandler: nil)
         }
 
         func userContentController(
@@ -80,6 +107,19 @@ struct WebContainerView: UIViewRepresentable {
             bridge.webView = webView
             let url = webView.url?.absoluteString ?? "nil"
             LiveTelemetry.log("DARTS_LIVE event=webview_did_finish url=\(url)")
+            lastSafeAreaKey = ""
+            pushSafeAreaInsets(to: webView)
+            // Layout may still be settling — push again next runloop / shortly after.
+            DispatchQueue.main.async { [weak self, weak webView] in
+                guard let self, let webView else { return }
+                self.lastSafeAreaKey = ""
+                self.pushSafeAreaInsets(to: webView)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self, weak webView] in
+                guard let self, let webView else { return }
+                self.lastSafeAreaKey = ""
+                self.pushSafeAreaInsets(to: webView)
+            }
             bridge.sendToWeb([
                 "type": "nativeReady",
                 "supportsLidar": LidarSession.supportsSceneDepth,

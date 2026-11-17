@@ -5,24 +5,33 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  /* --native-safe-* come from the iOS shell (WKWebView often reports env()=0). */
+  --native-safe-top: 0px;
+  --native-safe-right: 0px;
+  --native-safe-bottom: 0px;
+  --native-safe-left: 0px;
   --app-inset-top: max(
     env(safe-area-inset-top, 0px),
+    var(--native-safe-top),
     var(--tg-content-safe-area-inset-top, 0px),
     var(--tg-safe-area-inset-top, 0px),
     var(--tg-header-fallback-top, 0px)
   );
   --app-inset-right: max(
     env(safe-area-inset-right, 0px),
+    var(--native-safe-right),
     var(--tg-content-safe-area-inset-right, 0px),
     var(--tg-safe-area-inset-right, 0px)
   );
   --app-inset-bottom: max(
     env(safe-area-inset-bottom, 0px),
+    var(--native-safe-bottom),
     var(--tg-content-safe-area-inset-bottom, 0px),
     var(--tg-safe-area-inset-bottom, 0px)
   );
   --app-inset-left: max(
     env(safe-area-inset-left, 0px),
+    var(--native-safe-left),
     var(--tg-content-safe-area-inset-left, 0px),
     var(--tg-safe-area-inset-left, 0px)
   );
@@ -84,6 +93,11 @@ body {
 
 a {
   color: var(--accent);
+}
+
+/* WKWebView edge-to-edge: if env() and native inject both miss, still clear the clock. */
+html.darts-native {
+  --tg-header-fallback-top: 59px;
 }
 
 .appShell {
@@ -176,6 +190,14 @@ html:has([data-game-screen]),
 body:has([data-game-screen]) {
   background: #f9fafb;
   color: #030712;
+}
+
+/* Native shell: let the camera behind the page show through the hole.
+   Stickers stay in this layer, so they fly in front of the picture. */
+html.darts-native:has([data-game-screen]),
+html.darts-native:has([data-game-screen]) body,
+html.darts-native .appShell:has([data-game-screen]) {
+  background: transparent;
 }
 
 .appShell:has([data-game-screen]) {
