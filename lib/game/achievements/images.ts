@@ -76,6 +76,5 @@ export function getAchievementImage(id: AchievementId): StaticImageData {
   return ACHIEVEMENT_IMAGES[id];
 }
 
-if (typeof window !== "undefined") {
-  void preloadAchievementImages();
-}
+// Do not preload on module import — that pulled ~1.3MB of stickers into every
+// cold start of the home screen. Callers (GameScreen / TvScreen) preload on demand.

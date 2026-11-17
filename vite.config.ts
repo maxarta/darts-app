@@ -62,7 +62,14 @@ export default defineConfig(({ mode }) => {
           globPatterns: [
             "**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,jpeg}",
           ],
-          globIgnores: ["**/ort*.js", "**/*.wasm", "**/models/**"],
+          globIgnores: [
+            "**/ort*.js",
+            "**/*.wasm",
+            "**/models/**",
+            "**/game/*.png",
+            // Achievement stickers (hashed into assets/*.webp) — load on game/TV only.
+            "**/*.webp",
+          ],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
