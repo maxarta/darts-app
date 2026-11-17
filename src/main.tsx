@@ -8,9 +8,9 @@ import "@/src/fonts.css";
 
 installButtonHaptics();
 
-/** Only the loopback EmbeddedWeb origin had orphaned SW bugs (HTML for images).
- *  Native shell on artdart.vercel.app must KEEP the service worker so the club
- *  phone opens from cache instead of re-downloading the SPA every launch. */
+/** Loopback EmbeddedWeb had orphaned SW bugs. Everywhere else (Safari PWA,
+ *  club phone WKWebView on artdart) must keep the service worker so the UI
+ *  opens from cache instead of re-downloading. */
 function isLoopbackOrigin(): boolean {
   if (typeof window === "undefined") return false;
   const host = window.location.hostname;
@@ -28,17 +28,12 @@ if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
       });
     }
   } else {
+    // Register once, update quietly. Do NOT hard-reload on controllerchange —
+    // that made every SW bump feel like a cold start.
     void navigator.serviceWorker.register("/sw.js").catch(() => {});
-    let reloading = false;
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (reloading) return;
-      reloading = true;
-      window.location.reload();
-    });
     void navigator.serviceWorker.ready.then((reg) => {
       void reg.update();
-      // Occasional check is enough — 30s hammered the phone on every open.
-      window.setInterval(() => void reg.update(), 15 * 60_000);
+      window.setInterval(() => void reg.update(), 30 * 60_000);
     });
   }
 }

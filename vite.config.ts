@@ -58,7 +58,11 @@ export default defineConfig(({ mode }) => {
         },
         workbox: {
           navigateFallback: "/index.html",
-          globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,jpeg}"],
+          // Keep the home shell small — skip ORT/WASM and huge model weights.
+          globPatterns: [
+            "**/*.{js,css,html,ico,png,svg,woff2,webp,jpg,jpeg}",
+          ],
+          globIgnores: ["**/ort*.js", "**/*.wasm", "**/models/**"],
           cleanupOutdatedCaches: true,
           clientsClaim: true,
           skipWaiting: true,
@@ -66,6 +70,40 @@ export default defineConfig(({ mode }) => {
             {
               urlPattern: ({ url }) => url.pathname.startsWith("/api/"),
               handler: "NetworkOnly",
+            },
+            {
+              urlPattern: ({ url }) => url.pathname.startsWith("/assets/"),
+              handler: "CacheFirst",
+              options: {
+                cacheName: "darts-assets",
+                expiration: {
+                  maxEntries: 80,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+              },
+            },
+            {
+              urlPattern: ({ request }) =>
+                request.destination === "image" ||
+                request.destination === "font" ||
+                request.destination === "style" ||
+                request.destination === "script",
+              handler: "CacheFirst",
+              options: {
+                cacheName: "darts-static",
+                expiration: {
+                  maxEntries: 120,
+                  maxAgeSeconds: 60 * 60 * 24 * 365,
+                },
+              },
+            },
+            {
+              urlPattern: ({ request }) => request.mode === "navigate",
+              handler: "NetworkFirst",
+              options: {
+                cacheName: "darts-pages",
+                networkTimeoutSeconds: 3,
+              },
             },
           ],
         },
